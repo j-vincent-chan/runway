@@ -214,12 +214,13 @@ export interface EmployeeOfferLetterMeta {
   /** yyyy-MM-dd detected when the file was uploaded */
   extractedStartDate?: string;
   extractedEndDate?: string;
+  /** Annual starting salary detected from the offer letter (USD) */
+  extractedStartingSalary?: number;
   /** Public URL when the file is stored in Supabase */
   fileUrl?: string;
   /** Storage object path for deletes */
   storagePath?: string;
 }
-
 export interface EmployeeProfile {
   /** Optional image URL (circle-cropped in UI) */
   photoUrl?: string;
@@ -296,8 +297,12 @@ export interface AppSettings {
   defaultView: "monthly" | "quarterly" | "fiscalYear";
   displayMode: "percent" | "dollars" | "both";
   fundingSourceAliases: Record<string, { alias: string; color?: string; notes?: string }>;
-  /** Stable chartstring keys → account type pill on Accounts page */
+  /** Stable chartstring keys → funding source type on Accounts */
   fundingSourceCategories?: Record<string, AccountCategory>;
+  /** Catalog of funding source types (Settings CRUD; synced to Supabase) */
+  fundingSourceTypes?: FundingSourceTypeDef[];
+  /** Catalog of personnel groups (Settings CRUD; synced to Supabase) */
+  personnelGroups?: PersonnelGroupDef[];
   /** Keys: `${employeeId}|${fundingSourceId}` — hide the fund row on timeline/runway only */
   hiddenEmployeeFunds?: string[];
   /** Keys: `${employeeId}|${fundingSourceId}` — not your account; skip runway for this fund */
@@ -312,8 +317,10 @@ export interface AppSettings {
   alumniEmployeeIds?: string[];
   /** Per-employee planning target % when you only manage part of their appointment */
   employeePlanningScope?: Record<string, number>;
-  /** Roster personnel type pills (employee id → type) */
+  /** Roster personnel group assignment (employee id → group id) */
   employeePersonnelTypes?: Record<string, PersonnelType>;
+  /** Timeline / Projections / Runway employee ordering */
+  employeeGroupSort?: EmployeeGroupSort;
   /** Timeline month window (yyyy-MM); defaults to past 12 months when unset */
   timelineViewRange?: { start: string; end: string };
   /** Keys: `${employeeId}|${normalizedChartstring}` — manual balance override */
@@ -334,7 +341,6 @@ export interface AppSettings {
   /** Keep year/month headers visible while scrolling Timeline and Projections grids */
   freezeGridHeader?: boolean;
 }
-
 export interface WorkingPlan {
   snapshotId: string;
   allocations: MonthlyAllocation[];
@@ -356,6 +362,12 @@ export interface ParsePreview {
 }
 
 export const PARSER_VERSION = "1.5.0";
+
+import {
+  DEFAULT_FUNDING_SOURCE_TYPES,
+  DEFAULT_PERSONNEL_GROUPS,
+} from "@/lib/catalog/defaults";
+
 export const DEFAULT_SETTINGS: AppSettings = {
   fiscalYearStartMonth: 7,
   supportEndingSoonDays: 90,
@@ -364,6 +376,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   displayMode: "percent",
   fundingSourceAliases: {},
   fundingSourceCategories: {},
+  fundingSourceTypes: DEFAULT_FUNDING_SOURCE_TYPES,
+  personnelGroups: DEFAULT_PERSONNEL_GROUPS,
   hiddenEmployeeFunds: [],
   runwayAssumedOkFunds: [],
   runwayAssumedEndDates: {},
@@ -372,6 +386,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   alumniEmployeeIds: [],
   employeePlanningScope: {},
   employeePersonnelTypes: {},
+  employeeGroupSort: "lastName",
   projectionHorizon: { preset: "12" },
   plannedFundingSources: [],
   projectionRules: [],
