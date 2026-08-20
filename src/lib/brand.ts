@@ -1,0 +1,19 @@
+export const PRODUCT_NAME = "Runway";
+
+/** Bakar ImmunoX logo palette (immunox.ucsf.edu). */
+export const IMMUNOX_COLORS = {
+  navy: "#052049",
+  mint: "#89D1B2",
+  gold: "#FFD14A",
+  periwinkle: "#B2C9F2",
+  rose: "#E9A6C0",
+  /** UI accent on light backgrounds */
+  teal: "#028488",
+} as const;
+
+export const PARENT_LABEL_ACADEMIC = "Personnel Funding Planner";
+
+export const LEDGER_EMPTY_MESSAGE =
+  "Upload a Payroll Funding Report to start building your Runway.";
+
+export const LEDGER_EMPTY_TITLE = "Get started with Runway";

@@ -1,36 +1,59 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Runway
 
-## Getting Started
+**Academic Finance Copilot** — ingest a **Payroll Funding Report** Excel file and explore an interactive personnel funding timeline (actual payroll + future distributions).
 
-First, run the development server:
+## Quick start
 
 ```bash
+cd payroll-funding-planner
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Go to **Upload**.
+2. Drop `Payroll Funding Report-15421713.xlsx` (or your UCSF export) from the parent `Financial Reports` folder.
+3. Open **Timeline** to explore funding by person and month.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Persist data (Supabase)
 
-## Learn More
+When configured, planning data syncs to Supabase (this browser’s localStorage / IndexedDB remain a cache):
 
-To learn more about Next.js, take a look at the following resources:
+- Payroll Funding Report snapshot and Timeline edits
+- MyPortfolio balances
+- Runway overrides and Projections rules / planned accounts
+- Chartstring aliases and account types
+- Employee photos, roster extras (personnel type, dates, scope, hidden/alumni)
+- Offer letter files (Storage bucket `employee-offer-letters`)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Create a free project at [supabase.com](https://supabase.com).
+2. In **SQL Editor**, run the script in `supabase/schema.sql` (re-run it to pick up new columns/buckets).
+3. Copy `.env.local.example` → `.env.local` and fill in **Project URL** + **Publishable key** (`sb_publishable_...`) from **Project Settings → API Keys** (not the legacy anon key).
+4. Restart `npm run dev`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Edits save locally immediately and push to cloud about a second later. Reloads use the newer of this browser vs cloud. Dedicated alias/roster tables still overlay the workspace file.
 
-## Deploy on Vercel
+The workspace JSON lives in Storage bucket `app-workspace`. Tighten RLS and add auth before using this with confidential HR files outside a trusted team.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## What gets parsed
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+From sheets like **Payroll Funding Report**:
+
+- Employees (HR ID, name, appointment %)
+- Funding sources (chartstrings)
+- Monthly percent effort and salary/benefits
+- Future distribution rows
+
+## Routes
+
+| Route | Purpose |
+|-------|---------|
+| `/timeline` | Interactive funding grid + KPIs |
+| `/runway` | Months of payroll remaining by account |
+| `/accounts` | Per-funding-source payroll burden |
+| `/employees` | Roster, coverage, org structure |
+| `/upload` | Import payroll + MyPortfolio files |
+| `/settings` | Fiscal year, cliffs, aliases |
+
+Planning and interpretation layer only — not the official payroll system of record. Confirm allowability with your finance/post-award analyst.

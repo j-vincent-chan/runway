@@ -1,0 +1,211 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { Header } from "@/components/layout/Header";
+import { EmptyState } from "@/components/EmptyState";
+import { useApp } from "@/context/AppContext";
+import { RunwayEmployeeSection } from "@/components/runway/RunwayEmployeeSection";
+import { buildSharedAccountBurnIndex, computeEmployeeRunway } from "@/lib/runway/calculate";
+import { filterEmployeesForPlanning } from "@/lib/employees/roster";
+import { RunwayIndicatorLegend } from "@/components/runway/RunwayIndicatorBadge";
+import { RunwayEmployeeSort } from "@/components/runway/RunwayEmployeeSort";
+import { countAllHiddenFunds } from "@/lib/funding/visibility";
+import {
+  loadRunwayEmployeeSort,
+  saveRunwayEmployeeSort,
+  sortEmployeeRunwaySummaries,
+  type RunwayEmployeeSortKey,
+} from "@/lib/runway/sortEmployees";
+import { cn } from "@/lib/utils/cn";
+import { formatIsoDateDisplay } from "@/lib/utils/parse";
+import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
+
+export default function RunwayPage() {
+  const {
+    hasData,
+    snapshot,
+    workingPlan,
+    fundingSources,
+    settings,
+    mergedPortfolioBalances,
+    portfolioImports,
+    setRunwayBalanceOverride,
+    setRunwayBurnOverride,
+    clearRunwayBurnOverride,
+    toggleHiddenEmployeeFund,
+    toggleRunwayAssumedOkFund,
+    setRunwayAssumedEndDate,
+  } = useApp();
+
+  const [showHiddenFunds, setShowHiddenFunds] = useState(false);
+  const [revealHiddenForEmployees, setRevealHiddenForEmployees] = useState<Set<string>>(
+    () => new Set()
+  );
+  const [employeeSort, setEmployeeSort] = useState<RunwayEmployeeSortKey>("runway");
+
+  useEffect(() => {
+    setEmployeeSort(loadRunwayEmployeeSort());
+  }, []);
+
+  const handleEmployeeSortChange = (key: RunwayEmployeeSortKey) => {
+    setEmployeeSort(key);
+    saveRunwayEmployeeSort(key);
+  };
+
+  const totalHiddenFunds = countAllHiddenFunds(settings);
+  const latestPortfolioRunDate = [...portfolioImports]
+    .map((imp) => imp.reportRunDate)
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+  const latestPortfolioAsOf = formatIsoDateDisplay(latestPortfolioRunDate);
+
+  const sharedBurnIndex = useMemo(() => {
+    if (!snapshot) return new Map();
+    return buildSharedAccountBurnIndex(snapshot, workingPlan, fundingSources, settings);
+  }, [snapshot, workingPlan, fundingSources, settings]);
+
+  const summaries = useMemo(() => {
+    if (!snapshot) return [];
+    const rows = filterEmployeesForPlanning(snapshot.employees, settings)
+      .map((emp) =>
+        computeEmployeeRunway(
+          emp,
+          snapshot,
+          workingPlan,
+          fundingSources,
+          settings,
+          mergedPortfolioBalances,
+          sharedBurnIndex,
+          {
+            revealHidden:
+              showHiddenFunds || revealHiddenForEmployees.has(emp.id),
+          }
+        )
+      )
+      .filter((s) => s.accounts.length > 0 || s.hiddenAccountCount > 0);
+    return sortEmployeeRunwaySummaries(rows, employeeSort);
+  }, [
+    snapshot,
+    workingPlan,
+    fundingSources,
+    settings,
+    mergedPortfolioBalances,
+    sharedBurnIndex,
+    showHiddenFunds,
+    revealHiddenForEmployees,
+    employeeSort,
+  ]);
+
+  return (
+    <>
+      <Header
+        ledgerTitle
+        title="Runway"
+        subtitle="Months of payroll remaining by active account · balances from MyPortfolio or manual entry"
+      />
+      <main className="flex-1 overflow-auto p-6">
+        <div className="mx-auto w-full max-w-7xl space-y-6">
+          {!hasData || !snapshot ? (
+            <EmptyState message="Runway uses each person’s active payroll accounts from your funding timeline. Import a Payroll Funding Report on Upload, then return here." />
+          ) : summaries.length === 0 ? (
+            <EmptyState
+              title="No active accounts found"
+              message="No personnel have funded accounts in the imported payroll data."
+            />
+          ) : (
+            <div className="space-y-4">
+              {portfolioImports.length === 0 ? (
+                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  No MyPortfolio files uploaded yet.{" "}
+                  <Link href="/upload" className="font-medium underline hover:text-amber-950">
+                    Upload balances on the Upload page
+                  </Link>{" "}
+                  or enter balances manually on each account row.
+                </p>
+              ) : (
+                latestPortfolioAsOf && (
+                  <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
+                    Net balances from MyPortfolio as of{" "}
+                    <span className="font-medium text-slate-800">{latestPortfolioAsOf}</span>
+                    {portfolioImports.length > 1 ? " (latest report run date)" : ""}.{" "}
+                    <Link href="/upload" className="font-medium underline hover:text-slate-900">
+                      Upload a newer file
+                    </Link>{" "}
+                    to refresh.
+                  </p>
+                )
+              )}
+              <RunwayIndicatorLegend />
+              <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
+                Active payroll accounts only. Runway uses combined monthly burn on shared accounts.
+                <span className="font-medium text-slate-700"> Shield</span> = external (not yours);
+                add an optional fund end date to estimate balance and runway.
+                <span className="font-medium text-slate-700"> Eye</span> = hide from timeline and totals.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+                {totalHiddenFunds > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHiddenFunds((v) => !v);
+                      if (showHiddenFunds) setRevealHiddenForEmployees(new Set());
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
+                      showHiddenFunds
+                        ? "border-teal-600 bg-teal-50 text-teal-800"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    )}
+                  >
+                    {showHiddenFunds ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    {showHiddenFunds ? "Collapse hidden" : `Show hidden (${totalHiddenFunds})`}
+                  </button>
+                )}
+              </div>
+              {summaries.map((summary) => {
+                const revealHidden =
+                  showHiddenFunds || revealHiddenForEmployees.has(summary.employee.id);
+                return (
+                  <RunwayEmployeeSection
+                    key={summary.employee.id}
+                    summary={summary}
+                    revealHidden={revealHidden}
+                    onRevealHidden={() =>
+                      setRevealHiddenForEmployees((prev) => new Set(prev).add(summary.employee.id))
+                    }
+                    onToggleHidden={(fundingSourceId) =>
+                      toggleHiddenEmployeeFund(summary.employee.id, fundingSourceId)
+                    }
+                    onToggleAssumedOk={(fundingSourceId) =>
+                      toggleRunwayAssumedOkFund(summary.employee.id, fundingSourceId)
+                    }
+                    onAssumedEndDateChange={(fundingSourceId, endDate) =>
+                      setRunwayAssumedEndDate(summary.employee.id, fundingSourceId, endDate)
+                    }
+                    onBalanceChange={(chartstring, value) =>
+                      setRunwayBalanceOverride(summary.employee.id, chartstring, value)
+                    }
+                    onBurnChange={(fundingSourceId, percentEffort, monthlyBurn) =>
+                      setRunwayBurnOverride(
+                        summary.employee.id,
+                        fundingSourceId,
+                        percentEffort,
+                        monthlyBurn
+                      )
+                    }
+                    onBurnReset={(fundingSourceId) =>
+                      clearRunwayBurnOverride(summary.employee.id, fundingSourceId)
+                    }
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+}

@@ -1,0 +1,58 @@
+import type { AppSettings, Employee } from "@/types";
+
+export function hiddenFundKey(employeeId: string, fundingSourceId: string): string {
+  return `${employeeId}|${fundingSourceId}`;
+}
+
+export function isEmployeeFundHidden(
+  settings: AppSettings,
+  employeeId: string,
+  fundingSourceId: string
+): boolean {
+  const key = hiddenFundKey(employeeId, fundingSourceId);
+  return (settings.hiddenEmployeeFunds ?? []).includes(key);
+}
+
+export function isRunwayFundAssumedOk(
+  settings: AppSettings,
+  employeeId: string,
+  fundingSourceId: string
+): boolean {
+  const key = hiddenFundKey(employeeId, fundingSourceId);
+  return (settings.runwayAssumedOkFunds ?? []).includes(key);
+}
+
+export function getEffectiveExpectedPercent(employee: Employee, settings: AppSettings): number {
+  const scope = settings.employeePlanningScope?.[employee.id];
+  return scope !== undefined ? scope : employee.appointmentPercent;
+}
+
+export interface CoverageOptions {
+  excludedFundingSourceIds?: Set<string>;
+  expectedPercentOverride?: number;
+}
+
+export function coverageOptionsFromSettings(
+  employee: Employee,
+  settings: AppSettings
+): CoverageOptions | undefined {
+  const scope = settings.employeePlanningScope?.[employee.id];
+  if (scope === undefined) return undefined;
+  return { expectedPercentOverride: scope };
+}
+
+export function countHiddenFundsForEmployee(employeeId: string, settings: AppSettings): number {
+  return (settings.hiddenEmployeeFunds ?? []).filter((k) => k.startsWith(`${employeeId}|`)).length;
+}
+
+export function countAllHiddenFunds(settings: AppSettings): number {
+  return (settings.hiddenEmployeeFunds ?? []).length;
+}
+
+export function withoutHiddenFundsForEmployee(
+  hidden: string[],
+  employeeId: string
+): string[] {
+  const prefix = `${employeeId}|`;
+  return hidden.filter((k) => !k.startsWith(prefix));
+}
