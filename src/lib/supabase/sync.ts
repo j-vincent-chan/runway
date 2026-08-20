@@ -1,6 +1,7 @@
 import type { AppSettings, Employee, EmployeeOfferLetterMeta } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import { getCurrentUserId } from "@/lib/supabase/authUser";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   applyRemoteRosterToSettings,
@@ -23,6 +24,10 @@ export type RemoteAliasRow = {
   notes: string | null;
   color: string | null;
 };
+
+function userScopedPath(userId: string, ...parts: string[]): string {
+  return [userId, ...parts.map((p) => p.replace(/^\/+|\/+$/g, ""))].join("/");
+}
 
 export async function fetchRemoteAliases(): Promise<
   AppSettings["fundingSourceAliases"]
@@ -114,17 +119,19 @@ export async function upsertFundingSourceAlias(input: {
   color?: string;
 }): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
 
   const { error } = await supabase.from("funding_source_aliases").upsert(
     {
+      user_id: userId,
       chartstring_key: input.chartstringKey,
       alias: input.alias,
       notes: input.notes ?? null,
       color: input.color ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "chartstring_key" }
+    { onConflict: "user_id,chartstring_key" }
   );
 
   if (error) console.warn("[supabase] upsert alias failed:", error.message);
@@ -137,20 +144,22 @@ export async function upsertEmployeePhoto(input: {
   photoPath?: string | null;
 }): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
 
   if (!input.photoUrl && !input.photoPath) {
     const { error } = await supabase
       .from("employee_roster_meta")
       .upsert(
         {
+          user_id: userId,
           person_key: input.personKey,
           display_name: input.displayName ?? null,
           photo_url: null,
           photo_path: null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "person_key" }
+        { onConflict: "user_id,person_key" }
       );
     if (error) console.warn("[supabase] clear photo failed:", error.message);
     return;
@@ -158,13 +167,14 @@ export async function upsertEmployeePhoto(input: {
 
   const { error } = await supabase.from("employee_roster_meta").upsert(
     {
+      user_id: userId,
       person_key: input.personKey,
       display_name: input.displayName ?? null,
       photo_url: input.photoUrl,
       photo_path: input.photoPath ?? null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "person_key" }
+    { onConflict: "user_id,person_key" }
   );
 
   if (error) console.warn("[supabase] upsert photo failed:", error.message);
@@ -176,15 +186,20 @@ export async function uploadEmployeePhotoFile(
   file: File
 ): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
-  if (!supabase) {
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) {
     throw new Error(
-      "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local."
+      "Sign in to upload photos to private cloud storage."
     );
   }
 
   const personKey = employeePersonKey(emp);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${personKey.replace(/[/\\]/g, "_")}/${Date.now()}-${safeName}`;
+  const path = userScopedPath(
+    userId,
+    personKey.replace(/[/\\]/g, "_"),
+    `${Date.now()}-${safeName}`
+  );
 
   const { error: uploadError } = await supabase.storage
     .from(PHOTO_BUCKET)
@@ -225,9 +240,11 @@ export type RosterCloudPatch = {
 
 export async function upsertEmployeeRosterMeta(patch: RosterCloudPatch): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
 
   const row: Record<string, unknown> = {
+    user_id: userId,
     person_key: patch.personKey,
     updated_at: new Date().toISOString(),
   };
@@ -253,7 +270,7 @@ export async function upsertEmployeeRosterMeta(patch: RosterCloudPatch): Promise
 
   const { error } = await supabase
     .from("employee_roster_meta")
-    .upsert(row, { onConflict: "person_key" });
+    .upsert(row, { onConflict: "user_id,person_key" });
   if (error) console.warn("[supabase] upsert roster meta failed:", error.message);
 }
 
@@ -262,15 +279,20 @@ export async function uploadEmployeeOfferLetterFile(
   file: File
 ): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
-  if (!supabase) {
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) {
     throw new Error(
-      "Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY to .env.local."
+      "Sign in to upload offer letters to private cloud storage."
     );
   }
 
   const personKey = employeePersonKey(emp);
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `${personKey.replace(/[/\\]/g, "_")}/${Date.now()}-${safeName}`;
+  const storagePath = userScopedPath(
+    userId,
+    personKey.replace(/[/\\]/g, "_"),
+    `${Date.now()}-${safeName}`
+  );
 
   const { error: uploadError } = await supabase.storage.from(OFFER_LETTER_BUCKET).upload(
     storagePath,
@@ -322,6 +344,8 @@ export async function backfillOfferLettersToCloud(
   settings: AppSettings
 ): Promise<void> {
   if (!isSupabaseConfigured()) return;
+  const userId = await getCurrentUserId();
+  if (!userId) return;
   for (const emp of employees) {
     const profile = resolveEmployeeProfile(settings, emp);
     const letter = profile?.offerLetter;

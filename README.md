@@ -12,7 +12,7 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 1. Go to **Upload**.
-2. Drop your Payroll Funding Report `.xlsx` (keep real exports local — they are gitignored).
+2. Drop your Payroll Funding Report `.xlsx` from `financial-reports/` (kept local — gitignored).
 3. Open **Timeline** to explore funding by person and month.
 
 ## Persist data (Supabase)
@@ -33,7 +33,7 @@ When configured, planning data syncs to Supabase (this browser’s localStorage 
 
 Edits save locally immediately and push to cloud about a second later. Reloads use the newer of this browser vs cloud. Dedicated alias/roster tables still overlay the workspace file.
 
-The workspace JSON lives in Storage bucket `app-workspace`. Tighten RLS and add auth before using this with confidential HR files outside a trusted team.
+The workspace JSON lives in Storage bucket `app-workspace` under `{userId}/workspace.json`. The lab owner account (`vincent.chan@ucsf.edu`) inherits any pre-auth `default.json` / browser data on first sign-in; every other login gets a blank private workspace.
 
 ## What gets parsed
 

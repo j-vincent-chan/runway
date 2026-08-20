@@ -18,8 +18,8 @@ export function CloudPrivacyPanel() {
       <h3 className="font-semibold text-[#0c2340]">Privacy &amp; cloud sync</h3>
       <p className="text-sm text-slate-600">
         Payroll data stays in this browser by default. Cloud sync (when enabled) stores
-        parsed planning data in a <strong>private</strong> Supabase bucket — not public
-        Excel files, and not world-readable URLs.
+        parsed planning data in a <strong>private, per-user</strong> Supabase workspace —
+        other accounts cannot see or overwrite your datasets.
       </p>
 
       {!configured && (
@@ -78,8 +78,7 @@ export function CloudPrivacyPanel() {
       <p className="text-xs text-slate-500">
         After deploying schema changes, re-run{" "}
         <code className="rounded bg-slate-100 px-1">supabase/schema.sql</code> in the
-        SQL editor so buckets are private and RLS is authenticated-only. Rotate API keys
-        if they were ever shared — see{" "}
+        SQL editor so each account gets its own private dataset. See{" "}
         <code className="rounded bg-slate-100 px-1">PRIVACY.md</code>.
       </p>
     </section>

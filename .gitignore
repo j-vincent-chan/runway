@@ -27,6 +27,7 @@
 # Real finance exports — keep local; use Upload in the app
 *.xlsx
 *.xls
+/financial-reports/
 # Sanitized fixtures only (if added under fixtures/)
 !fixtures/**/*.xlsx
 !fixtures/**/*.xls
@@ -49,6 +50,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Sibling / legacy projects in this folder (not part of the Runway app)
-/lab-finance-copilot/

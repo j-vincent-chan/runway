@@ -19,7 +19,7 @@ import type {
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/types";
 import { generateId, hasPercentEffort } from "@/lib/utils/parse";
-import { loadState, saveState } from "@/lib/storage/localStorage";
+import { loadStateForAccount, saveState } from "@/lib/storage/localStorage";
 import { readWorkbook, parsePayrollFundingWorkbook } from "@/lib/parsers/payrollFundingParser";
 import { getAllocations, applyAliases, getCurrentMonth } from "@/lib/calculations";
 import { refreshFundingSourceColors } from "@/lib/timeline/colors";
@@ -84,7 +84,14 @@ import {
   upsertFundingSourceType,
   deleteFundingSourceTypeRemote,
 } from "@/lib/supabase/catalog";
-import { fetchCloudWorkspace, pickWorkspace, saveCloudWorkspace } from "@/lib/supabase/workspace";
+import {
+  claimLegacyCloudWorkspace,
+  fetchCloudWorkspace,
+  pickWorkspace,
+  saveCloudWorkspace,
+  workspaceHasPlanningData,
+} from "@/lib/supabase/workspace";
+import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
 
 interface AppContextValue {
   snapshot: PayrollReportSnapshot | null;
@@ -175,7 +182,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<PayrollReportSnapshot | null>(null);
   const [workingPlan, setWorkingPlan] = useState<WorkingPlan | null>(null);
-  const [settings, setSettings] = useState<AppSettings>(loadState().settings);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
   const [pendingPreview, setPendingPreview] = useState<ParsePreview | null>(null);
@@ -190,15 +197,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { ready: authReady, cloudSyncEnabled } = useAuth();
+  const { ready: authReady, cloudSyncEnabled, user } = useAuth();
+  const userId = user?.id ?? null;
+  const userIdRef = useRef(userId);
+  userIdRef.current = userId;
   const cloudSyncRef = useRef(cloudSyncEnabled);
   cloudSyncRef.current = cloudSyncEnabled;
 
   useEffect(() => {
     if (!authReady) return;
     let cancelled = false;
+    setLoading(true);
 
-    async function hydrateLocal(s: ReturnType<typeof loadState>) {
+    async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
       setPortfolioImports(s.portfolioImports ?? []);
       let normalizedAliases = s.snapshot
         ? migrateAliasKeys(s.settings.fundingSourceAliases, s.snapshot.fundingSources)
@@ -243,20 +254,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function hydrate() {
-      const s = loadState();
+      const ownerEmail = user?.email ?? (user?.user_metadata?.email as string | undefined);
+      const s = await loadStateForAccount(userId, ownerEmail);
 
       if (!cloudSyncEnabled) {
         await hydrateLocal(s);
         return;
       }
 
-      const [remoteAliases, remoteRoster, cloud] = await Promise.all([
+      let cloud = await fetchCloudWorkspace();
+      if (!workspaceHasPlanningData(cloud ?? {}) && isLabOwnerEmail(ownerEmail)) {
+        cloud = (await claimLegacyCloudWorkspace(ownerEmail)) ?? cloud;
+      }
+
+      const [remoteAliases, remoteRoster] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
-        fetchCloudWorkspace(),
       ]);
       if (cancelled) return;
       const workspace = pickWorkspace(s, cloud);
+
+      // Persist recovered lab data into the owner browser slot immediately.
+      if (userId && workspaceHasPlanningData(workspace) && !workspaceHasPlanningData(s)) {
+        void saveState(workspace, userId);
+      }
 
       let settingsLocal: AppSettings = {
         ...workspace.settings,
@@ -325,13 +346,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [authReady, cloudSyncEnabled]);
+  }, [authReady, cloudSyncEnabled, userId, user?.email, user?.user_metadata?.email]);
 
   useEffect(() => {
     if (loading) return;
     const savedAt = new Date().toISOString();
     const state = { snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, savedAt };
-    saveState(state);
+    void saveState(state, userIdRef.current);
     if (!cloudSyncRef.current) return;
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     cloudSaveTimer.current = setTimeout(() => {
@@ -341,7 +362,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     };
-  }, [snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, loading, cloudSyncEnabled]);
+  }, [snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, loading, cloudSyncEnabled, userId]);
 
   const mergedPortfolioBalances = useMemo(
     () => mergePortfolioBalances(portfolioImports),
@@ -1148,14 +1169,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         personnelGroups: prev.personnelGroups,
         fundingSourceTypes: prev.fundingSourceTypes,
       };
-      saveState({
-        snapshot: null,
-        workingPlan: null,
-        scenarios: [],
-        settings: keptSettings,
-        portfolioImports,
-        payrollImports: [],
-      });
+      void saveState(
+        {
+          snapshot: null,
+          workingPlan: null,
+          scenarios: [],
+          settings: keptSettings,
+          portfolioImports,
+          payrollImports: [],
+        },
+        userIdRef.current
+      );
       return keptSettings;
     });
     setSnapshot(null);

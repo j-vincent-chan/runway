@@ -3,6 +3,7 @@ import {
   DEFAULT_FUNDING_SOURCE_TYPES,
   DEFAULT_PERSONNEL_GROUPS,
 } from "@/lib/catalog/defaults";
+import { getCurrentUserId } from "@/lib/supabase/authUser";
 import { getSupabase } from "@/lib/supabase/client";
 import { ensureFundingSourceTypes } from "@/lib/funding/accountCategory";
 import { ensurePersonnelGroups } from "@/lib/employees/personnelType";
@@ -79,46 +80,66 @@ export async function fetchRemoteFundingSourceTypes(): Promise<FundingSourceType
 
 export async function upsertPersonnelGroup(group: PersonnelGroupDef): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
-  const { error } = await supabase.from("personnel_groups").upsert({
-    id: group.id,
-    label: group.label,
-    short_label: group.shortLabel ?? null,
-    pill_class: group.pillClass,
-    dot_class: group.dotClass,
-    chart_color: group.chartColor,
-    sort_order: group.sortOrder,
-    updated_at: new Date().toISOString(),
-  });
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase.from("personnel_groups").upsert(
+    {
+      user_id: userId,
+      id: group.id,
+      label: group.label,
+      short_label: group.shortLabel ?? null,
+      pill_class: group.pillClass,
+      dot_class: group.dotClass,
+      chart_color: group.chartColor,
+      sort_order: group.sortOrder,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
   if (error) console.warn("[supabase] upsert personnel_groups failed:", error.message);
 }
 
 export async function deletePersonnelGroupRemote(id: string): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
-  const { error } = await supabase.from("personnel_groups").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("personnel_groups")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
   if (error) console.warn("[supabase] delete personnel_groups failed:", error.message);
 }
 
 export async function upsertFundingSourceType(type: FundingSourceTypeDef): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
-  const { error } = await supabase.from("funding_source_types").upsert({
-    id: type.id,
-    label: type.label,
-    pill_class: type.pillClass,
-    dot_class: type.dotClass,
-    chart_color: type.chartColor,
-    sort_order: type.sortOrder,
-    updated_at: new Date().toISOString(),
-  });
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase.from("funding_source_types").upsert(
+    {
+      user_id: userId,
+      id: type.id,
+      label: type.label,
+      pill_class: type.pillClass,
+      dot_class: type.dotClass,
+      chart_color: type.chartColor,
+      sort_order: type.sortOrder,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
   if (error) console.warn("[supabase] upsert funding_source_types failed:", error.message);
 }
 
 export async function deleteFundingSourceTypeRemote(id: string): Promise<void> {
   const supabase = getSupabase();
-  if (!supabase) return;
-  const { error } = await supabase.from("funding_source_types").delete().eq("id", id);
+  const userId = await getCurrentUserId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("funding_source_types")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
   if (error) console.warn("[supabase] delete funding_source_types failed:", error.message);
 }
 
