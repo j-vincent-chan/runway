@@ -80,4 +80,24 @@ describe("getEmployeeCompTrend", () => {
     expect(monthly.map((p) => p.month)).toEqual(["2025-06", "2026-01"]);
     expect(monthly[0]?.yearlyTotal).toBe(120000);
   });
+
+  it("starts at offer letter month with starting salary when provided", () => {
+    const costs = [...cost("2025-06", 9000, 1000, 10000)];
+    const { monthly } = getEmployeeCompTrend("e1", snap(["2025-06"], costs), {
+      offerStartDate: "2025-01-15",
+      startingSalaryAnnual: 100000,
+    });
+    expect(monthly[0]?.month).toBe("2025-01");
+    expect(monthly[0]?.yearlySalary).toBe(100000);
+    expect(monthly.map((p) => p.month)).toEqual(["2025-01", "2025-06"]);
+  });
+
+  it("skips zero-dollar months when no offer baseline", () => {
+    const costs = [
+      ...cost("2025-01", 0, 0, 0),
+      ...cost("2025-02", 8000, 1000, 9000),
+    ];
+    const { monthly } = getEmployeeCompTrend("e1", snap(["2025-01", "2025-02"], costs));
+    expect(monthly.map((p) => p.month)).toEqual(["2025-02"]);
+  });
 });

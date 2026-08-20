@@ -56,7 +56,7 @@ body {
   );
 }
 
-/* Timeline grid header — opaque sticky layer, white grid lines */
+/* Timeline grid header — opaque sticky layer, solid white grid lines */
 .timeline-thead {
   background-color: #0c2340;
   box-shadow: 0 0 0 1px #ffffff, 0 4px 12px rgba(12, 35, 64, 0.45);
@@ -65,18 +65,20 @@ body {
 .timeline-thead th {
   background-color: #0c2340;
   background-image: linear-gradient(180deg, #103456 0%, #0c2340 55%, #0a1e36 100%);
-  background-clip: padding-box;
+  background-clip: border-box;
+  border-color: #ffffff;
 }
 
 .timeline-th-sticky {
   background-color: #0c2340 !important;
   background-image: linear-gradient(180deg, #103456 0%, #0c2340 55%, #0a1e36 100%) !important;
   box-shadow: 2px 0 0 0 #ffffff, 4px 0 8px rgba(0, 0, 0, 0.2);
+  border-color: #ffffff !important;
 }
 
 .timeline-th-month {
   border-left: 1px solid #ffffff;
-  border-top: 1px solid rgba(255, 255, 255, 0.55);
+  border-top: 1px solid #ffffff;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.04em;
 }

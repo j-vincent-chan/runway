@@ -60,7 +60,8 @@ export function ProjectionAllocationBar({
       title={tooltip}
       onClick={onClick}
       className={cn(
-        "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-[10px] font-medium",
+        "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-center text-[10px] font-medium",
+        display === "both" && "px-0.5 leading-tight",
         projected ? "text-slate-600" : "text-slate-800",
         isReversal && "allocation-bar--reversal"
       )}

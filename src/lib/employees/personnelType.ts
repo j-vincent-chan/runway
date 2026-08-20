@@ -1,47 +1,51 @@
-import type { AppSettings, PersonnelType } from "@/types";
+import type { AppSettings, PersonnelGroupDef, PersonnelType } from "@/types";
+import { DEFAULT_PERSONNEL_GROUPS } from "@/lib/catalog/defaults";
+import { compareEmployeesByLastName } from "@/lib/employees/lastName";
 
-export const PERSONNEL_TYPES: {
-  value: PersonnelType;
-  label: string;
-  /** Shorter text in table pills and dropdown */
-  shortLabel?: string;
-  pillClass: string;
-  dotClass: string;
-}[] = [
-  {
-    value: "researchDevelopment",
-    label: "Research development",
-    pillClass: "bg-[#99f6e4] text-[#134e4a] ring-1 ring-[#99f6e4]/50",
-    dotClass: "bg-[#0f766e]",
-  },
-  {
-    value: "projectManagementClinical",
-    label: "Project management & clinical coordination",
-    shortLabel: "PM & clinical coord.",
-    pillClass: "bg-[#ddd6fe] text-[#4c1d95] ring-1 ring-[#ddd6fe]/50",
-    dotClass: "bg-[#5b21b6]",
-  },
-  {
-    value: "dataManagement",
-    label: "Data management",
-    pillClass: "bg-[#bfdbfe] text-[#1e3a8a] ring-1 ring-[#bfdbfe]/50",
-    dotClass: "bg-[#1d4ed8]",
-  },
-  {
-    value: "communityManagement",
-    label: "Community management",
-    pillClass: "bg-[#fed7aa] text-[#7c2d12] ring-1 ring-[#fed7aa]/50",
-    dotClass: "bg-[#c2410c]",
-  },
-];
+/** @deprecated Prefer getPersonnelGroups(settings) — kept for older imports */
+export const PERSONNEL_TYPES = DEFAULT_PERSONNEL_GROUPS.map((g) => ({
+  value: g.id as PersonnelType,
+  label: g.label,
+  shortLabel: g.shortLabel,
+  pillClass: g.pillClass,
+  dotClass: g.dotClass,
+}));
 
-export function getPersonnelTypeDisplayLabel(value: PersonnelType): string {
-  const meta = getPersonnelTypeMeta(value);
+export function getPersonnelGroups(settings: AppSettings): PersonnelGroupDef[] {
+  const groups = settings.personnelGroups ?? [];
+  if (groups.length === 0) return DEFAULT_PERSONNEL_GROUPS;
+  return [...groups].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+}
+
+export function getPersonnelTypeDisplayLabel(
+  value: PersonnelType,
+  settings?: AppSettings
+): string {
+  const meta = getPersonnelTypeMeta(value, settings);
   return meta.shortLabel ?? meta.label;
 }
 
-export function getPersonnelTypeMeta(value: PersonnelType) {
-  return PERSONNEL_TYPES.find((t) => t.value === value)!;
+export function getPersonnelTypeMeta(value: PersonnelType, settings?: AppSettings) {
+  const groups = settings ? getPersonnelGroups(settings) : DEFAULT_PERSONNEL_GROUPS;
+  const found = groups.find((t) => t.id === value);
+  if (found) {
+    return {
+      value: found.id,
+      label: found.label,
+      shortLabel: found.shortLabel,
+      pillClass: found.pillClass,
+      dotClass: found.dotClass,
+      chartColor: found.chartColor,
+    };
+  }
+  return {
+    value,
+    label: value,
+    shortLabel: value,
+    pillClass: "bg-slate-200 text-slate-700 ring-1 ring-slate-200/50",
+    dotClass: "bg-slate-500",
+    chartColor: "#64748b",
+  };
 }
 
 export function getEmployeePersonnelType(
@@ -49,4 +53,65 @@ export function getEmployeePersonnelType(
   employeeId: string
 ): PersonnelType | undefined {
   return settings.employeePersonnelTypes?.[employeeId];
+}
+
+export function ensurePersonnelGroups(settings: AppSettings): AppSettings {
+  if ((settings.personnelGroups?.length ?? 0) > 0) return settings;
+  return { ...settings, personnelGroups: DEFAULT_PERSONNEL_GROUPS };
+}
+
+export type EmployeeSortGroup = {
+  key: string;
+  label: string;
+  employees: { id: string; name: string }[];
+};
+
+/** Order employees by last name or by personnel group (with unassigned last). */
+export function sortEmployeesForPlanning<T extends { id: string; name: string }>(
+  employees: T[],
+  settings: AppSettings
+): T[] {
+  const mode = settings.employeeGroupSort ?? "lastName";
+  if (mode !== "personnelGroup") {
+    return [...employees].sort(compareEmployeesByLastName);
+  }
+  const groups = getPersonnelGroups(settings);
+  const order = new Map(groups.map((g, i) => [g.id, i]));
+  return [...employees].sort((a, b) => {
+    const ga = getEmployeePersonnelType(settings, a.id);
+    const gb = getEmployeePersonnelType(settings, b.id);
+    const ia = ga != null && order.has(ga) ? order.get(ga)! : 9999;
+    const ib = gb != null && order.has(gb) ? order.get(gb)! : 9999;
+    if (ia !== ib) return ia - ib;
+    return compareEmployeesByLastName(a, b);
+  });
+}
+
+export function groupEmployeesByPersonnelGroup<T extends { id: string; name: string }>(
+  employees: T[],
+  settings: AppSettings
+): EmployeeSortGroup[] {
+  const sorted = sortEmployeesForPlanning(employees, settings);
+  if ((settings.employeeGroupSort ?? "lastName") !== "personnelGroup") {
+    return [{ key: "all", label: "Alphabetical (last name)", employees: sorted }];
+  }
+  const groups = getPersonnelGroups(settings);
+  const buckets = new Map<string, T[]>();
+  for (const g of groups) buckets.set(g.id, []);
+  buckets.set("unassigned", []);
+  for (const emp of sorted) {
+    const t = getEmployeePersonnelType(settings, emp.id);
+    if (t && buckets.has(t)) buckets.get(t)!.push(emp);
+    else buckets.get("unassigned")!.push(emp);
+  }
+  const result: EmployeeSortGroup[] = [];
+  for (const g of groups) {
+    const list = buckets.get(g.id) ?? [];
+    if (list.length > 0) result.push({ key: g.id, label: g.label, employees: list });
+  }
+  const unassigned = buckets.get("unassigned") ?? [];
+  if (unassigned.length > 0) {
+    result.push({ key: "unassigned", label: "Unassigned", employees: unassigned });
+  }
+  return result;
 }

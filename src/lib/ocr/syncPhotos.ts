@@ -9,68 +9,73 @@ import {
 import { OCR_PEOPLE_PHOTOS } from "@/lib/ocr/peoplePhotos";
 import { upsertEmployeePhoto } from "@/lib/supabase/sync";
 
-export type OcrPhotoSyncResult = {
+export type LabPhotoPerson = {
+  name: string;
+  photoUrl: string;
+};
+
+export type LabPhotoSyncResult = {
   matched: number;
   savedRemote: number;
   unmatchedOcrNames: string[];
 };
 
-function findOcrPhoto(employeeName: string) {
-  const exact = OCR_PEOPLE_PHOTOS.find(
+function findPhoto(employeeName: string, photos: LabPhotoPerson[]) {
+  const exact = photos.find(
     (p) => normalizePersonName(p.name) === normalizePersonName(employeeName)
   );
   if (exact) return exact;
-  return OCR_PEOPLE_PHOTOS.find((p) => namesLooselyMatch(p.name, employeeName));
+  return photos.find((p) => namesLooselyMatch(p.name, employeeName));
 }
 
-/** Apply OCR website photos onto local settings + optional Supabase. */
-export async function syncOcrPeoplePhotos(input: {
+/** Apply lab website photos onto local settings + optional Supabase. */
+export async function syncLabPeoplePhotos(input: {
   settings: AppSettings;
   employees: Employee[];
-}): Promise<{ settings: AppSettings; result: OcrPhotoSyncResult }> {
+  photos: LabPhotoPerson[];
+}): Promise<{ settings: AppSettings; result: LabPhotoSyncResult }> {
   const profiles: Record<string, EmployeeProfile> = {
     ...(input.settings.employeeProfiles ?? {}),
   };
   const matchedEmployeeIds = new Set<string>();
-  const matchedOcrNames = new Set<string>();
+  const matchedNames = new Set<string>();
   let savedRemote = 0;
 
   for (const emp of input.employees) {
-    const ocr = findOcrPhoto(emp.name);
-    if (!ocr) continue;
+    const photo = findPhoto(emp.name, input.photos);
+    if (!photo) continue;
     matchedEmployeeIds.add(emp.id);
-    matchedOcrNames.add(ocr.name);
+    matchedNames.add(photo.name);
     const nameKey = employeeNameKey(emp);
-    const ocrKey = `name:${normalizePersonName(ocr.name)}`;
+    const photoKey = `name:${normalizePersonName(photo.name)}`;
     const next: EmployeeProfile = {
-      ...(profiles[ocrKey] ?? {}),
+      ...(profiles[photoKey] ?? {}),
       ...(profiles[nameKey] ?? {}),
       ...(profiles[emp.id] ?? {}),
-      photoUrl: ocr.photoUrl,
+      photoUrl: photo.photoUrl,
     };
     profiles[emp.id] = next;
-    profiles[nameKey] = { photoUrl: ocr.photoUrl };
-    profiles[ocrKey] = { photoUrl: ocr.photoUrl };
+    profiles[nameKey] = { photoUrl: photo.photoUrl };
+    profiles[photoKey] = { photoUrl: photo.photoUrl };
     for (const key of employeePersonKeys(emp)) {
       if (key.startsWith("hr:")) {
         profiles[key] = {
           ...(profiles[key] ?? {}),
-          photoUrl: ocr.photoUrl,
+          photoUrl: photo.photoUrl,
         };
       }
     }
     try {
       await upsertEmployeePhoto({
-        personKey: ocrKey,
-        displayName: ocr.name,
-        photoUrl: ocr.photoUrl,
+        personKey: photoKey,
+        displayName: photo.name,
+        photoUrl: photo.photoUrl,
       });
-      // Also store under the payroll-normalized name key when it differs
-      if (nameKey !== ocrKey) {
+      if (nameKey !== photoKey) {
         await upsertEmployeePhoto({
           personKey: nameKey,
           displayName: emp.name,
-          photoUrl: ocr.photoUrl,
+          photoUrl: photo.photoUrl,
         });
       }
       savedRemote += 1;
@@ -80,9 +85,9 @@ export async function syncOcrPeoplePhotos(input: {
   }
 
   const rematched = rematchEmployeeProfiles(profiles, input.employees);
-  const unmatchedOcrNames = OCR_PEOPLE_PHOTOS.filter(
-    (p) => !matchedOcrNames.has(p.name)
-  ).map((p) => p.name);
+  const unmatchedOcrNames = input.photos
+    .filter((p) => !matchedNames.has(p.name))
+    .map((p) => p.name);
 
   return {
     settings: { ...input.settings, employeeProfiles: rematched },
@@ -92,4 +97,15 @@ export async function syncOcrPeoplePhotos(input: {
       unmatchedOcrNames,
     },
   };
+}
+
+/** @deprecated Prefer syncLabPeoplePhotos with curated or scraped photos */
+export async function syncOcrPeoplePhotos(input: {
+  settings: AppSettings;
+  employees: Employee[];
+}): Promise<{ settings: AppSettings; result: LabPhotoSyncResult }> {
+  return syncLabPeoplePhotos({
+    ...input,
+    photos: OCR_PEOPLE_PHOTOS.map((p) => ({ name: p.name, photoUrl: p.photoUrl })),
+  });
 }

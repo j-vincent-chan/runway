@@ -1,53 +1,41 @@
-import type { AccountCategory, AppSettings, FundingSource } from "@/types";
+import type { AccountCategory, AppSettings, FundingSource, FundingSourceTypeDef } from "@/types";
 export type { AccountCategory };
 import { fundingSourceKey } from "@/lib/funding/sourceKey";
+import { DEFAULT_FUNDING_SOURCE_TYPES } from "@/lib/catalog/defaults";
 
-export const ACCOUNT_CATEGORIES: {
-  value: AccountCategory;
-  label: string;
-  pillClass: string;
-  dotClass: string;
-}[] = [
-  {
-    value: "startup",
-    label: "Start-up",
-    pillClass: "bg-[#0c2340] text-white ring-1 ring-[#0c2340]/30",
-    dotClass: "bg-slate-200",
-  },
-  {
-    value: "projects",
-    label: "Projects",
-    pillClass: "bg-[#f4a89a] text-[#5c2018] ring-1 ring-[#f4a89a]/50",
-    dotClass: "bg-[#b42318]",
-  },
-  {
-    value: "endowment",
-    label: "Endowment",
-    pillClass: "bg-[#9ee0c4] text-[#134d32] ring-1 ring-[#9ee0c4]/50",
-    dotClass: "bg-[#047857]",
-  },
-  {
-    value: "institutional",
-    label: "Institutional support",
-    pillClass: "bg-[#f5d76e] text-[#5c4a0a] ring-1 ring-[#f5d76e]/50",
-    dotClass: "bg-[#a16207]",
-  },
-  {
-    value: "largeGrants",
-    label: "Large grants",
-    pillClass: "bg-[#c4b5fd] text-[#3b2667] ring-1 ring-[#c4b5fd]/50",
-    dotClass: "bg-[#6d28d9]",
-  },
-  {
-    value: "researchPlanReviews",
-    label: "Research plan reviews",
-    pillClass: "bg-[#93c5fd] text-[#1e3a5f] ring-1 ring-[#93c5fd]/50",
-    dotClass: "bg-[#1d4ed8]",
-  },
-];
+/** @deprecated Prefer getFundingSourceTypes(settings) */
+export const ACCOUNT_CATEGORIES = DEFAULT_FUNDING_SOURCE_TYPES.map((c) => ({
+  value: c.id as AccountCategory,
+  label: c.label,
+  pillClass: c.pillClass,
+  dotClass: c.dotClass,
+}));
 
-export function getAccountCategoryMeta(value: AccountCategory) {
-  return ACCOUNT_CATEGORIES.find((c) => c.value === value)!;
+export function getFundingSourceTypes(settings: AppSettings): FundingSourceTypeDef[] {
+  const types = settings.fundingSourceTypes ?? [];
+  if (types.length === 0) return DEFAULT_FUNDING_SOURCE_TYPES;
+  return [...types].sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label));
+}
+
+export function getAccountCategoryMeta(value: AccountCategory, settings?: AppSettings) {
+  const types = settings ? getFundingSourceTypes(settings) : DEFAULT_FUNDING_SOURCE_TYPES;
+  const found = types.find((c) => c.id === value);
+  if (found) {
+    return {
+      value: found.id,
+      label: found.label,
+      pillClass: found.pillClass,
+      dotClass: found.dotClass,
+      chartColor: found.chartColor,
+    };
+  }
+  return {
+    value,
+    label: value,
+    pillClass: "bg-slate-200 text-slate-700 ring-1 ring-slate-200/50",
+    dotClass: "bg-slate-500",
+    chartColor: "#94a3b8",
+  };
 }
 
 export function getFundingSourceCategory(
@@ -72,4 +60,9 @@ export function migrateCategoryKeys(
     if (!result[stableKey]) result[stableKey] = category;
   }
   return result;
+}
+
+export function ensureFundingSourceTypes(settings: AppSettings): AppSettings {
+  if ((settings.fundingSourceTypes?.length ?? 0) > 0) return settings;
+  return { ...settings, fundingSourceTypes: DEFAULT_FUNDING_SOURCE_TYPES };
 }

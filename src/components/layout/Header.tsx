@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Upload, Info, PanelLeftOpen, PanelLeftClose } from "lucide-react";
+import { Upload, Info, PanelLeft, PanelLeftOpen, LogIn, LogOut } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 import { AlertsBell } from "@/components/alerts/AlertsBell";
 import { IMMUNOX_COLORS, PARENT_LABEL_ACADEMIC } from "@/lib/brand";
 import { LedgerLogo } from "@/components/brand/LedgerLogo";
@@ -30,6 +31,7 @@ export function Header({
   topAction?: { label: string; href: string };
 }) {
   const { snapshot, settings, updateSettings } = useApp();
+  const { configured, user, cloudSyncEnabled, signOut } = useAuth();
 
   return (
     <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
@@ -46,7 +48,7 @@ export function Header({
               {settings.sidebarHidden ? (
                 <PanelLeftOpen className="h-5 w-5" />
               ) : (
-                <PanelLeftClose className="h-5 w-5" />
+                <PanelLeft className="h-5 w-5" />
               )}
             </button>
             {settings.sidebarHidden && <LedgerLogo size={28} />}
@@ -83,12 +85,42 @@ export function Header({
                 <span className="font-medium text-teal-800">{snapshot.sourceFileName}</span>
                 {" · "}
                 Imported {new Date(snapshot.uploadedAt).toLocaleString()}
+                {configured && (
+                  <>
+                    {" · "}
+                    {cloudSyncEnabled ? (
+                      <span className="text-teal-800">Cloud sync on</span>
+                    ) : (
+                      <span className="text-slate-500">Local only</span>
+                    )}
+                  </>
+                )}
               </p>
             )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <AlertsBell />
+          {configured &&
+            (user ? (
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                title={user.email ?? "Sign out"}
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            ) : (
+              <Link
+                href="/login"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <LogIn className="h-4 w-4" />
+                Sign in
+              </Link>
+            ))}
           {topAction && (
             <Link
               href={topAction.href}

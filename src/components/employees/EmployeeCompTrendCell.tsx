@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Employee, PayrollReportSnapshot } from "@/types";
+import type { AppSettings, Employee, PayrollReportSnapshot } from "@/types";
 import { getEmployeeCompTrend, getYearlyCompBreakdown } from "@/lib/calculations";
 import { CompSparkline } from "@/components/employees/CompSparkline";
 import { EmployeeCompTrendDialog } from "@/components/employees/EmployeeCompTrendDialog";
+import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 
 function changeFromFirstToLast(values: number[]): { pct: number; rising: boolean | null } {
   const first = values[0];
@@ -20,14 +21,22 @@ function changeFromFirstToLast(values: number[]): { pct: number; rising: boolean
 export function EmployeeCompTrendCell({
   employee,
   snapshot,
+  settings,
 }: {
   employee: Employee;
   snapshot: PayrollReportSnapshot;
+  settings: AppSettings;
 }) {
   const [open, setOpen] = useState(false);
+  const profile = resolveEmployeeProfile(settings, employee);
+  const offer = profile?.offerLetter;
   const trend = useMemo(
-    () => getEmployeeCompTrend(employee.id, snapshot),
-    [employee.id, snapshot]
+    () =>
+      getEmployeeCompTrend(employee.id, snapshot, {
+        offerStartDate: offer?.extractedStartDate ?? profile?.startDate,
+        startingSalaryAnnual: offer?.extractedStartingSalary,
+      }),
+    [employee.id, snapshot, offer?.extractedStartDate, offer?.extractedStartingSalary, profile?.startDate]
   );
   const values = useMemo(() => {
     const series = trend.monthly.map((p) => p.yearlyTotal);

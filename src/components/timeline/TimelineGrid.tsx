@@ -35,8 +35,9 @@ import { getTimelineFundingSources } from "@/lib/funding/employeeSources";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
 import { filterEmployeesForPlanning, getEmployeePhotoUrlFor } from "@/lib/employees/roster";
+import { sortEmployeesForPlanning } from "@/lib/employees/personnelType";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
-import type { AppSettings } from "@/types";
+import type { AppSettings, EmployeeGroupSort } from "@/types";
 
 /** Minimum month column width; columns grow equally to fill available space above this. */
 const MONTH_COL_MIN_WIDTH = 52;
@@ -135,7 +136,8 @@ function MergedAllocationBar({
       ) : (
         <div
           className={cn(
-            "allocation-bar allocation-bar-flat flex h-full w-full items-center justify-center text-[10px] font-medium text-slate-800",
+            "allocation-bar allocation-bar-flat flex h-full w-full items-center justify-center text-center text-[10px] font-medium text-slate-800",
+            display === "both" && "px-0.5 leading-tight",
             segment.isFuture && "pattern-future-flat",
             segment.isEdited && "allocation-bar--edited",
             pct < 0 && "allocation-bar--reversal"
@@ -209,7 +211,10 @@ export function TimelineGrid() {
   const monthsByYear = useMemo(() => groupMonthsByYear(months), [months]);
 
   const planningEmployees = useMemo(
-    () => (snapshot ? filterEmployeesForPlanning(snapshot.employees, settings) : []),
+    () =>
+      snapshot
+        ? sortEmployeesForPlanning(filterEmployeesForPlanning(snapshot.employees, settings), settings)
+        : [],
     [snapshot, settings]
   );
 
@@ -252,6 +257,10 @@ export function TimelineGrid() {
         }
         freezeHeader={settings.freezeGridHeader !== false}
         onFreezeHeaderChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
+        groupSort={settings.employeeGroupSort ?? "lastName"}
+        onGroupSortChange={(employeeGroupSort: EmployeeGroupSort) =>
+          updateSettings({ employeeGroupSort })
+        }
       />
 
       <FreezeableGrid freeze={settings.freezeGridHeader !== false}>

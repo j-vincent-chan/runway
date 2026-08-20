@@ -8,6 +8,13 @@ import {
   type RemoteRosterRecord,
   type RemoteRosterRow,
 } from "@/lib/supabase/rosterCloud";
+import {
+  createSignedStorageUrl,
+  encodeStorageRef,
+  OFFER_LETTER_BUCKET,
+  PHOTO_BUCKET,
+  resolveAccessibleUrl,
+} from "@/lib/supabase/signedUrl";
 
 export type { RemoteRosterRecord, RemoteRosterRow };
 export type RemoteAliasRow = {
@@ -16,9 +23,6 @@ export type RemoteAliasRow = {
   notes: string | null;
   color: string | null;
 };
-
-const OFFER_LETTER_BUCKET = "employee-offer-letters";
-const PHOTO_BUCKET = "employee-photos";
 
 export async function fetchRemoteAliases(): Promise<
   AppSettings["fundingSourceAliases"]
@@ -56,6 +60,7 @@ export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
       "person_key",
       "display_name",
       "photo_url",
+      "photo_path",
       "start_date",
       "end_date",
       "personnel_type",
@@ -129,11 +134,12 @@ export async function upsertEmployeePhoto(input: {
   personKey: string;
   displayName?: string;
   photoUrl: string | null;
+  photoPath?: string | null;
 }): Promise<void> {
   const supabase = getSupabase();
   if (!supabase) return;
 
-  if (!input.photoUrl) {
+  if (!input.photoUrl && !input.photoPath) {
     const { error } = await supabase
       .from("employee_roster_meta")
       .upsert(
@@ -141,6 +147,7 @@ export async function upsertEmployeePhoto(input: {
           person_key: input.personKey,
           display_name: input.displayName ?? null,
           photo_url: null,
+          photo_path: null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "person_key" }
@@ -154,6 +161,7 @@ export async function upsertEmployeePhoto(input: {
       person_key: input.personKey,
       display_name: input.displayName ?? null,
       photo_url: input.photoUrl,
+      photo_path: input.photoPath ?? null,
       updated_at: new Date().toISOString(),
     },
     { onConflict: "person_key" }
@@ -162,11 +170,11 @@ export async function upsertEmployeePhoto(input: {
   if (error) console.warn("[supabase] upsert photo failed:", error.message);
 }
 
-/** Upload an image file to Supabase Storage and return its public URL. */
+/** Upload an image to private Storage; returns a stable sb:// ref (use signed URLs to display). */
 export async function uploadEmployeePhotoFile(
   emp: Pick<Employee, "employeeId" | "name">,
   file: File
-): Promise<string> {
+): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
   if (!supabase) {
     throw new Error(
@@ -190,17 +198,22 @@ export async function uploadEmployeePhotoFile(
     throw new Error(uploadError.message || "Photo upload failed.");
   }
 
-  const { data } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
-  if (!data?.publicUrl) {
-    throw new Error("Could not get public URL for uploaded photo.");
+  const signedUrl = await createSignedStorageUrl(PHOTO_BUCKET, path);
+  if (!signedUrl) {
+    throw new Error("Could not create signed URL for uploaded photo.");
   }
-  return data.publicUrl;
+  return {
+    storagePath: path,
+    storageRef: encodeStorageRef(PHOTO_BUCKET, path),
+    signedUrl,
+  };
 }
 
 export type RosterCloudPatch = {
   personKey: string;
   displayName?: string | null;
   photoUrl?: string | null;
+  photoPath?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   personnelType?: string | null;
@@ -220,6 +233,7 @@ export async function upsertEmployeeRosterMeta(patch: RosterCloudPatch): Promise
   };
   if (patch.displayName !== undefined) row.display_name = patch.displayName;
   if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
+  if (patch.photoPath !== undefined) row.photo_path = patch.photoPath;
   if (patch.startDate !== undefined) row.start_date = patch.startDate;
   if (patch.endDate !== undefined) row.end_date = patch.endDate;
   if (patch.personnelType !== undefined) row.personnel_type = patch.personnelType;
@@ -246,7 +260,7 @@ export async function upsertEmployeeRosterMeta(patch: RosterCloudPatch): Promise
 export async function uploadEmployeeOfferLetterFile(
   emp: Pick<Employee, "employeeId" | "name">,
   file: File
-): Promise<{ publicUrl: string; storagePath: string }> {
+): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
   if (!supabase) {
     throw new Error(
@@ -271,11 +285,15 @@ export async function uploadEmployeeOfferLetterFile(
     throw new Error(uploadError.message || "Offer letter upload failed.");
   }
 
-  const { data } = supabase.storage.from(OFFER_LETTER_BUCKET).getPublicUrl(storagePath);
-  if (!data?.publicUrl) {
-    throw new Error("Could not get public URL for uploaded offer letter.");
+  const signedUrl = await createSignedStorageUrl(OFFER_LETTER_BUCKET, storagePath);
+  if (!signedUrl) {
+    throw new Error("Could not create signed URL for uploaded offer letter.");
   }
-  return { publicUrl: data.publicUrl, storagePath };
+  return {
+    storagePath,
+    storageRef: encodeStorageRef(OFFER_LETTER_BUCKET, storagePath),
+    signedUrl,
+  };
 }
 
 export async function deleteEmployeeOfferLetterFile(storagePath: string | undefined): Promise<void> {
@@ -283,6 +301,19 @@ export async function deleteEmployeeOfferLetterFile(storagePath: string | undefi
   if (!supabase || !storagePath) return;
   const { error } = await supabase.storage.from(OFFER_LETTER_BUCKET).remove([storagePath]);
   if (error) console.warn("[supabase] delete offer letter failed:", error.message);
+}
+
+export async function openOfferLetterFromCloud(meta: {
+  fileUrl?: string;
+  storagePath?: string;
+}): Promise<void> {
+  const url = await resolveAccessibleUrl(
+    meta.fileUrl,
+    meta.storagePath,
+    OFFER_LETTER_BUCKET
+  );
+  if (!url) throw new Error("No offer letter on file.");
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 /** Upload locally cached offer letters that are not yet in Storage. */
@@ -294,7 +325,7 @@ export async function backfillOfferLettersToCloud(
   for (const emp of employees) {
     const profile = resolveEmployeeProfile(settings, emp);
     const letter = profile?.offerLetter;
-    if (!letter || letter.fileUrl) continue;
+    if (!letter || letter.storagePath || letter.fileUrl) continue;
     const stored = await getOfferLetterFile(emp.id);
     if (!stored) continue;
     try {
@@ -309,7 +340,7 @@ export async function backfillOfferLettersToCloud(
         endDate: profile?.endDate ?? null,
         offerLetter: {
           ...letter,
-          fileUrl: uploaded.publicUrl,
+          fileUrl: uploaded.storageRef,
           storagePath: uploaded.storagePath,
         },
       });

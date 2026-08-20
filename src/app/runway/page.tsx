@@ -85,7 +85,7 @@ export default function RunwayPage() {
         )
       )
       .filter((s) => s.accounts.length > 0 || s.hiddenAccountCount > 0);
-    return sortEmployeeRunwaySummaries(rows, employeeSort);
+    return sortEmployeeRunwaySummaries(rows, employeeSort, settings);
   }, [
     snapshot,
     workingPlan,

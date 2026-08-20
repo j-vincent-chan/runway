@@ -170,7 +170,13 @@ export interface EmployeeYearlyRatePoint {
 /** Annualized salary / S+B for each payroll month on file — used for roster sparklines. */
 export function getEmployeeCompTrend(
   employeeId: string,
-  snapshot: PayrollReportSnapshot
+  snapshot: PayrollReportSnapshot,
+  options?: {
+    /** yyyy-MM-dd offer start — first chart month when starting salary is known */
+    offerStartDate?: string;
+    /** Annual starting salary (USD) from offer letter */
+    startingSalaryAnnual?: number;
+  }
 ): { monthly: EmployeeCompTrendPoint[]; yearly: EmployeeYearlyRatePoint[] } {
   const fromCosts = snapshot.monthlyCosts
     .filter((c) => c.employeeId === employeeId && c.month)
@@ -191,6 +197,26 @@ export function getEmployeeCompTrend(
       yearlyTotal: total * 12,
       monthlyTotal: total,
     });
+  }
+
+  const offerMonth = options?.offerStartDate?.slice(0, 7);
+  const startingAnnual = options?.startingSalaryAnnual;
+  if (
+    offerMonth &&
+    startingAnnual != null &&
+    Number.isFinite(startingAnnual) &&
+    startingAnnual > 0
+  ) {
+    const baseline: EmployeeCompTrendPoint = {
+      month: offerMonth,
+      yearlySalary: startingAnnual,
+      yearlyTotal: startingAnnual,
+      monthlyTotal: startingAnnual / 12,
+    };
+    const withoutDup = monthly.filter((p) => p.month !== offerMonth);
+    monthly.length = 0;
+    monthly.push(baseline, ...withoutDup);
+    monthly.sort((a, b) => a.month.localeCompare(b.month));
   }
 
   const byYear = new Map<

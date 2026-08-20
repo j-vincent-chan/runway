@@ -4,7 +4,9 @@ import { Eye, EyeOff, RotateCcw, Save, PanelRightClose, PanelRightOpen } from "l
 import { cn } from "@/lib/utils/cn";
 import { TimelineRangeControls } from "@/components/timeline/TimelineRangeControls";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
+import { EmployeeGroupSortControl } from "@/components/employees/EmployeeGroupSortControl";
 import type { MonthRange } from "@/lib/timeline/range";
+import type { EmployeeGroupSort } from "@/types";
 
 function ToolbarSection({
   label,
@@ -112,6 +114,8 @@ export function TimelineToolbar({
   onToggleAnalyticsPanel,
   freezeHeader,
   onFreezeHeaderChange,
+  groupSort,
+  onGroupSortChange,
 }: {
   display: "percent" | "dollars" | "both";
   onDisplayChange: (d: "percent" | "dollars" | "both") => void;
@@ -132,6 +136,8 @@ export function TimelineToolbar({
   onToggleAnalyticsPanel: () => void;
   freezeHeader: boolean;
   onFreezeHeaderChange: (v: boolean) => void;
+  groupSort: EmployeeGroupSort;
+  onGroupSortChange: (v: EmployeeGroupSort) => void;
 }) {
   return (
     <div className="shrink-0 border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
@@ -150,6 +156,8 @@ export function TimelineToolbar({
               ))}
             </SegmentedGroup>
           </ToolbarSection>
+
+          <EmployeeGroupSortControl value={groupSort} onChange={onGroupSortChange} />
 
           <ToolbarSection label="Layers">
             <div className="flex flex-wrap gap-1.5">

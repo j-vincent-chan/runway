@@ -5,11 +5,14 @@ import type {
   AccountCategory,
   PersonnelType,
   AppSettings,
+  FundingSourceTypeDef,
   MonthlyAllocation,
   OrgStructure,
   ParsePreview,
   ParseWarning,
+  PayrollReportImport,
   PayrollReportSnapshot,
+  PersonnelGroupDef,
   PortfolioReportImport,
   Scenario,
   WorkingPlan,
@@ -27,6 +30,11 @@ import {
   mergePayrollSnapshots,
   mergeWorkingPlanAllocations,
 } from "@/lib/import/mergeSnapshots";
+import {
+  ensurePayrollImports,
+  foldPayrollImports,
+  payrollImportFromSnapshot,
+} from "@/lib/import/foldPayrollImports";
 import { migrateSnapshotIfNeeded } from "@/lib/import/migrateSnapshot";
 import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
@@ -54,12 +62,14 @@ import {
   getOfferLetterFile,
   saveOfferLetterFile,
 } from "@/lib/storage/offerLetterStore";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+import { parseStorageRef } from "@/lib/supabase/signedUrl";
 import {
   deleteEmployeeOfferLetterFile,
   fetchRemoteAliases,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
+  openOfferLetterFromCloud,
   upsertEmployeePhoto,
   upsertEmployeeRosterMeta,
   upsertFundingSourceAlias,
@@ -67,7 +77,13 @@ import {
   backfillOfferLettersToCloud,
   type RosterCloudPatch,
 } from "@/lib/supabase/sync";
-import { syncOcrPeoplePhotos } from "@/lib/ocr/syncPhotos";
+import {
+  syncCatalogFromCloud,
+  upsertPersonnelGroup,
+  deletePersonnelGroupRemote,
+  upsertFundingSourceType,
+  deleteFundingSourceTypeRemote,
+} from "@/lib/supabase/catalog";
 import { fetchCloudWorkspace, pickWorkspace, saveCloudWorkspace } from "@/lib/supabase/workspace";
 
 interface AppContextValue {
@@ -82,7 +98,8 @@ interface AppContextValue {
   pendingMergeInfo: { overwrittenMonths: string[]; preservedMonths: string[]; isMerge: boolean } | null;
   dataMigrated: boolean;
   hasData: boolean;
-  parseFile: (file: File) => Promise<void>;
+  parsePayrollFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  parseFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
   confirmImport: () => void;
   cancelImport: () => void;
   resetToImported: () => void;
@@ -107,7 +124,11 @@ interface AppContextValue {
   setEmployeePlanningScope: (employeeId: string, percent: number | null) => void;
   setEmployeePersonnelType: (employeeId: string, type: PersonnelType | null) => void;
   setEmployeePhotoUrl: (employeeId: string, photoUrl: string | null) => void;
-  importOcrPeoplePhotos: () => Promise<{ matched: number; savedRemote: number; unmatchedOcrNames: string[] }>;
+  importOcrPeoplePhotos: (pageUrl?: string) => Promise<{
+    matched: number;
+    savedRemote: number;
+    unmatchedOcrNames: string[];
+  }>;
   setEmployeeStartDate: (employeeId: string, startDate: string | null) => void;
   setEmployeeEndDate: (employeeId: string, endDate: string | null) => void;
   uploadEmployeeOfferLetter: (
@@ -125,10 +146,16 @@ interface AppContextValue {
   fundingSources: ReturnType<typeof applyAliases>;
   portfolioTitlesByChartstring: Map<string, string>;
   portfolioImports: PortfolioReportImport[];
+  payrollImports: PayrollReportImport[];
   mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
   parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
   importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removePortfolioImport: (id: string) => void;
+  removePayrollImport: (id: string) => void;
+  upsertPersonnelGroupDef: (group: PersonnelGroupDef) => void;
+  deletePersonnelGroupDef: (id: string) => void;
+  upsertFundingSourceTypeDef: (type: FundingSourceTypeDef) => void;
+  deleteFundingSourceTypeDef: (id: string) => void;
   setRunwayBalanceOverride: (
     employeeId: string,
     chartstring: string,
@@ -160,85 +187,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   } | null>(null);
   const [dataMigrated, setDataMigrated] = useState(false);
   const [portfolioImports, setPortfolioImports] = useState<PortfolioReportImport[]>([]);
+  const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
+  const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { ready: authReady, cloudSyncEnabled } = useAuth();
+  const cloudSyncRef = useRef(cloudSyncEnabled);
+  cloudSyncRef.current = cloudSyncEnabled;
 
   useEffect(() => {
+    if (!authReady) return;
     let cancelled = false;
 
-    async function hydrate() {
-      const s = loadState();
-      let workspace = s;
-
-      if (isSupabaseConfigured()) {
-        const [remoteAliases, remoteRoster, cloud] = await Promise.all([
-          fetchRemoteAliases(),
-          fetchRemoteRosterMeta(),
-          fetchCloudWorkspace(),
-        ]);
-        if (cancelled) return;
-        workspace = pickWorkspace(s, cloud);
-
-        let settingsLocal: AppSettings = {
-          ...workspace.settings,
-          fundingSourceAliases: workspace.snapshot
-            ? migrateAliasKeys(workspace.settings.fundingSourceAliases, workspace.snapshot.fundingSources)
-            : { ...workspace.settings.fundingSourceAliases },
-          fundingSourceCategories: workspace.snapshot
-            ? migrateCategoryKeys(workspace.settings.fundingSourceCategories, workspace.snapshot.fundingSources)
-            : { ...(workspace.settings.fundingSourceCategories ?? {}) },
-          employeeProfiles: workspace.snapshot
-            ? rematchEmployeeProfiles(workspace.settings.employeeProfiles, workspace.snapshot.employees)
-            : { ...(workspace.settings.employeeProfiles ?? {}) },
-        };
-
-        if (workspace.snapshot) {
-          for (const fs of workspace.snapshot.fundingSources) {
-            const entry = settingsLocal.fundingSourceAliases[fundingSourceKey(fs)];
-            if (entry?.alias) {
-              entry.alias = stripProjectFromAlias(entry.alias, getProjectNumber(fs));
-            }
-          }
-        }
-
-        settingsLocal = mergeRemoteSettings(
-          settingsLocal,
-          remoteAliases,
-          remoteRoster,
-          workspace.snapshot?.employees ?? []
-        );
-        if (workspace.snapshot) {
-          settingsLocal = {
-            ...settingsLocal,
-            fundingSourceAliases: migrateAliasKeys(
-              settingsLocal.fundingSourceAliases,
-              workspace.snapshot.fundingSources
-            ),
-            employeeProfiles: rematchEmployeeProfiles(
-              settingsLocal.employeeProfiles,
-              workspace.snapshot.employees
-            ),
-          };
-        }
-
-        let snap = workspace.snapshot ? refreshFundingSourceColors(workspace.snapshot) : null;
-        let plan = workspace.workingPlan;
-        if (snap) {
-          const migrated = migrateSnapshotIfNeeded(snap, plan);
-          snap = refreshFundingSourceColors(migrated.snapshot);
-          plan = migrated.workingPlan;
-          setDataMigrated(migrated.migrated);
-        }
-        if (cancelled) return;
-        setPortfolioImports(workspace.portfolioImports ?? []);
-        setSnapshot(snap);
-        setWorkingPlan(plan);
-        setSettings(settingsLocal);
-        setScenarios(workspace.scenarios ?? []);
-        setLoading(false);
-        if (snap) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
-        return;
-      }
-
+    async function hydrateLocal(s: ReturnType<typeof loadState>) {
       setPortfolioImports(s.portfolioImports ?? []);
       let normalizedAliases = s.snapshot
         ? migrateAliasKeys(s.settings.fundingSourceAliases, s.snapshot.fundingSources)
@@ -255,7 +215,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      const settingsLocal: AppSettings = {
+      let settingsLocal: AppSettings = {
         ...s.settings,
         fundingSourceAliases: normalizedAliases,
         fundingSourceCategories: normalizedCategories,
@@ -274,6 +234,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plan = migrated.workingPlan;
         setDataMigrated(migrated.migrated);
       }
+      setPayrollImports(ensurePayrollImports(snap, s.payrollImports));
       setSnapshot(snap);
       setWorkingPlan(plan);
       setSettings(settingsLocal);
@@ -281,26 +242,106 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
 
+    async function hydrate() {
+      const s = loadState();
+
+      if (!cloudSyncEnabled) {
+        await hydrateLocal(s);
+        return;
+      }
+
+      const [remoteAliases, remoteRoster, cloud] = await Promise.all([
+        fetchRemoteAliases(),
+        fetchRemoteRosterMeta(),
+        fetchCloudWorkspace(),
+      ]);
+      if (cancelled) return;
+      const workspace = pickWorkspace(s, cloud);
+
+      let settingsLocal: AppSettings = {
+        ...workspace.settings,
+        fundingSourceAliases: workspace.snapshot
+          ? migrateAliasKeys(workspace.settings.fundingSourceAliases, workspace.snapshot.fundingSources)
+          : { ...workspace.settings.fundingSourceAliases },
+        fundingSourceCategories: workspace.snapshot
+          ? migrateCategoryKeys(workspace.settings.fundingSourceCategories, workspace.snapshot.fundingSources)
+          : { ...(workspace.settings.fundingSourceCategories ?? {}) },
+        employeeProfiles: workspace.snapshot
+          ? rematchEmployeeProfiles(workspace.settings.employeeProfiles, workspace.snapshot.employees)
+          : { ...(workspace.settings.employeeProfiles ?? {}) },
+      };
+
+      if (workspace.snapshot) {
+        for (const fs of workspace.snapshot.fundingSources) {
+          const entry = settingsLocal.fundingSourceAliases[fundingSourceKey(fs)];
+          if (entry?.alias) {
+            entry.alias = stripProjectFromAlias(entry.alias, getProjectNumber(fs));
+          }
+        }
+      }
+
+      settingsLocal = mergeRemoteSettings(
+        settingsLocal,
+        remoteAliases,
+        remoteRoster,
+        workspace.snapshot?.employees ?? []
+      );
+      if (workspace.snapshot) {
+        settingsLocal = {
+          ...settingsLocal,
+          fundingSourceAliases: migrateAliasKeys(
+            settingsLocal.fundingSourceAliases,
+            workspace.snapshot.fundingSources
+          ),
+          employeeProfiles: rematchEmployeeProfiles(
+            settingsLocal.employeeProfiles,
+            workspace.snapshot.employees
+          ),
+        };
+      }
+
+      settingsLocal = await syncCatalogFromCloud(settingsLocal);
+
+      let snap = workspace.snapshot ? refreshFundingSourceColors(workspace.snapshot) : null;
+      let plan = workspace.workingPlan;
+      if (snap) {
+        const migrated = migrateSnapshotIfNeeded(snap, plan);
+        snap = refreshFundingSourceColors(migrated.snapshot);
+        plan = migrated.workingPlan;
+        setDataMigrated(migrated.migrated);
+      }
+      if (cancelled) return;
+      setPortfolioImports(workspace.portfolioImports ?? []);
+      setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
+      setSnapshot(snap);
+      setWorkingPlan(plan);
+      setSettings(settingsLocal);
+      setScenarios(workspace.scenarios ?? []);
+      setLoading(false);
+      if (snap) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
+    }
+
     void hydrate();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authReady, cloudSyncEnabled]);
 
   useEffect(() => {
     if (loading) return;
     const savedAt = new Date().toISOString();
-    const state = { snapshot, workingPlan, scenarios, settings, portfolioImports, savedAt };
+    const state = { snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, savedAt };
     saveState(state);
-    if (!isSupabaseConfigured()) return;
+    if (!cloudSyncRef.current) return;
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     cloudSaveTimer.current = setTimeout(() => {
+      if (!cloudSyncRef.current) return;
       void saveCloudWorkspace(state);
     }, 1500);
     return () => {
       if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     };
-  }, [snapshot, workingPlan, scenarios, settings, portfolioImports, loading]);
+  }, [snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, loading, cloudSyncEnabled]);
 
   const mergedPortfolioBalances = useMemo(
     () => mergePortfolioBalances(portfolioImports),
@@ -338,20 +379,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, settings.fundingSourceAliases, portfolioTitlesByChartstring]
   );
 
-  const parseFile = useCallback(
-    async (file: File) => {
-      const wb = await readWorkbook(file);
-      const { snapshot: incoming, preview } = parsePayrollFundingWorkbook(wb, file.name);
-      const merge = mergePayrollSnapshots(snapshot, incoming);
-      setPendingSnapshot(merge.snapshot);
+  const parsePayrollFiles = useCallback(
+    async (files: File[]): Promise<{ warnings: ParseWarning[] }> => {
+      const warnings: ParseWarning[] = [];
+      const incomingImports: PayrollReportImport[] = [];
+      let merged = snapshot;
+      const overwritten = new Set<string>();
+      let isMerge = false;
+      let lastPreview: ParsePreview | null = null;
+
+      for (const file of files) {
+        try {
+          const wb = await readWorkbook(file);
+          const { snapshot: incoming, preview } = parsePayrollFundingWorkbook(wb, file.name);
+          warnings.push(...preview.warnings);
+          incomingImports.push(payrollImportFromSnapshot(incoming));
+          const merge = mergePayrollSnapshots(merged, incoming);
+          merge.overwrittenMonths.forEach((m) => overwritten.add(m));
+          if (merge.isMerge) isMerge = true;
+          merged = merge.snapshot;
+          lastPreview = preview;
+        } catch (err) {
+          warnings.push({
+            id: generateId(),
+            severity: "error",
+            message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+          });
+        }
+      }
+
+      if (!merged || incomingImports.length === 0) {
+        return { warnings };
+      }
+
+      const existingMonths = new Set<string>();
+      if (snapshot) {
+        snapshot.monthlyAllocations.forEach((a) => existingMonths.add(a.month));
+        snapshot.monthlyCosts.forEach((c) => existingMonths.add(c.month));
+      }
+      const preservedMonths = [...existingMonths].filter((m) => !overwritten.has(m)).sort();
+
+      setPendingPayrollImports(incomingImports);
+      setPendingSnapshot(merged);
       setPendingMergeInfo({
-        overwrittenMonths: merge.overwrittenMonths,
-        preservedMonths: merge.preservedMonths,
-        isMerge: merge.isMerge,
+        overwrittenMonths: [...overwritten].sort(),
+        preservedMonths,
+        isMerge,
       });
-      setPendingPreview(preview);
+      setPendingPreview(lastPreview);
+
+      return { warnings };
     },
     [snapshot]
+  );
+
+  const parseFile = useCallback(
+    (file: File) => parsePayrollFiles([file]),
+    [parsePayrollFiles]
   );
 
   const confirmImport = useCallback(() => {
@@ -389,15 +473,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
+    if (pendingPayrollImports.length > 0) {
+      setPayrollImports((prev) => [...prev, ...pendingPayrollImports]);
+    }
+    setPendingPayrollImports([]);
     setPendingSnapshot(null);
     setPendingPreview(null);
     setPendingMergeInfo(null);
-  }, [pendingSnapshot, pendingMergeInfo, settings.fundingSourceAliases]);
+  }, [pendingSnapshot, pendingMergeInfo, pendingPayrollImports]);
 
   const cancelImport = useCallback(() => {
     setPendingSnapshot(null);
     setPendingPreview(null);
     setPendingMergeInfo(null);
+    setPendingPayrollImports([]);
   }, []);
 
   const resetToImported = useCallback(() => {
@@ -516,7 +605,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const pushRosterCloud = useCallback(
     (employeeId: string, patch: Omit<RosterCloudPatch, "personKey" | "displayName">) => {
       const emp = snapshot?.employees.find((e) => e.id === employeeId);
-      if (!emp || !isSupabaseConfigured()) return;
+      if (!emp || !cloudSyncRef.current) return;
       void upsertEmployeeRosterMeta({
         ...patch,
         personKey: employeePersonKey(emp),
@@ -597,28 +686,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (photoUrl?.trim()) current.photoUrl = photoUrl.trim();
         else delete current.photoUrl;
       });
-      if (emp) {
+      if (emp && cloudSyncRef.current) {
+        const ref = parseStorageRef(photoUrl);
         void upsertEmployeePhoto({
           personKey: employeePersonKey(emp),
           displayName: emp.name,
           photoUrl: photoUrl?.trim() || null,
+          photoPath: ref?.bucket === "employee-photos" ? ref.path : null,
         });
       }
     },
     [patchEmployeeProfile, snapshot]
   );
 
-  const importOcrPeoplePhotos = useCallback(async () => {
-    if (!snapshot) {
-      return { matched: 0, savedRemote: 0, unmatchedOcrNames: [] as string[] };
-    }
-    const { settings: nextSettings, result } = await syncOcrPeoplePhotos({
-      settings,
-      employees: snapshot.employees,
-    });
-    setSettings(nextSettings);
-    return result;
-  }, [snapshot, settings]);
+  const importOcrPeoplePhotos = useCallback(
+    async (pageUrl?: string) => {
+      if (!snapshot) {
+        return { matched: 0, savedRemote: 0, unmatchedOcrNames: [] as string[] };
+      }
+      let photos:
+        | { name: string; photoUrl: string }[]
+        | undefined;
+      if (pageUrl?.trim()) {
+        const res = await fetch("/api/lab-photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageUrl: pageUrl.trim() }),
+        });
+        const body = (await res.json()) as {
+          photos?: { name: string; photoUrl: string }[];
+          error?: string;
+        };
+        if (!res.ok) {
+          throw new Error(body.error || "Could not import photos from that page.");
+        }
+        photos = body.photos ?? [];
+        if (photos.length === 0) {
+          throw new Error(
+            "No person photos found on that page. Try a People/Team page with named headshots."
+          );
+        }
+      }
+      const { syncLabPeoplePhotos, syncOcrPeoplePhotos } = await import("@/lib/ocr/syncPhotos");
+      const { settings: nextSettings, result } = photos
+        ? await syncLabPeoplePhotos({
+            settings,
+            employees: snapshot.employees,
+            photos,
+          })
+        : await syncOcrPeoplePhotos({
+            settings,
+            employees: snapshot.employees,
+          });
+      setSettings(nextSettings);
+      return result;
+    },
+    [snapshot, settings]
+  );
 
   const setEmployeeStartDate = useCallback(
     (employeeId: string, startDate: string | null) => {
@@ -647,7 +771,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (file.size > OFFER_LETTER_MAX_BYTES) {
         throw new Error("Offer letter must be under 12 MB.");
       }
-      const { startDate, endDate } = await parseOfferLetterFile(file);
+      const { startDate, endDate, startingSalary } = await parseOfferLetterFile(file);
       const uploadedAt = new Date().toISOString();
       await saveOfferLetterFile({
         employeeId,
@@ -659,10 +783,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const emp = snapshot?.employees.find((e) => e.id === employeeId);
       let fileUrl: string | undefined;
       let storagePath: string | undefined;
-      if (emp && isSupabaseConfigured()) {
+      if (emp && cloudSyncRef.current) {
         try {
           const uploaded = await uploadEmployeeOfferLetterFile(emp, file);
-          fileUrl = uploaded.publicUrl;
+          fileUrl = uploaded.storageRef;
           storagePath = uploaded.storagePath;
         } catch (err) {
           console.warn("[supabase] offer letter upload failed:", err);
@@ -674,6 +798,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         uploadedAt,
         extractedStartDate: startDate,
         extractedEndDate: endDate,
+        extractedStartingSalary: startingSalary,
         fileUrl,
         storagePath,
       };
@@ -701,11 +826,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     const emp = snapshot?.employees.find((e) => e.id === employeeId);
-    const fileUrl = emp
-      ? resolveEmployeeProfile(settings, emp)?.offerLetter?.fileUrl
-      : settings.employeeProfiles?.[employeeId]?.offerLetter?.fileUrl;
-    if (!fileUrl) throw new Error("No offer letter on file.");
-    window.open(fileUrl, "_blank", "noopener,noreferrer");
+    const letter = emp
+      ? resolveEmployeeProfile(settings, emp)?.offerLetter
+      : settings.employeeProfiles?.[employeeId]?.offerLetter;
+    if (!letter) throw new Error("No offer letter on file.");
+    await openOfferLetterFromCloud(letter);
   }, [snapshot, settings]);
 
   const removeEmployeeOfferLetter = useCallback(
@@ -715,7 +840,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? resolveEmployeeProfile(settings, emp)?.offerLetter
         : settings.employeeProfiles?.[employeeId]?.offerLetter;
       await deleteOfferLetterFile(employeeId);
-      if (existing?.storagePath) await deleteEmployeeOfferLetterFile(existing.storagePath);
+      if (existing?.storagePath && cloudSyncRef.current) {
+        await deleteEmployeeOfferLetterFile(existing.storagePath);
+      }
       patchEmployeeProfile(employeeId, (current) => {
         delete current.offerLetter;
       });
@@ -782,12 +909,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           notes: existing?.notes,
           color: existing?.color,
         };
-        void upsertFundingSourceAlias({
-          chartstringKey: key,
-          alias: aliasBase,
-          notes: existing?.notes,
-          color: existing?.color,
-        });
+        if (cloudSyncRef.current) {
+          void upsertFundingSourceAlias({
+            chartstringKey: key,
+            alias: aliasBase,
+            notes: existing?.notes,
+            color: existing?.color,
+          });
+        }
         return {
           ...prev,
           fundingSourceAliases: {
@@ -871,6 +1000,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPortfolioImports((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const removePayrollImport = useCallback(
+    (id: string) => {
+      const remaining = payrollImports.filter((p) => p.id !== id);
+      setPayrollImports(remaining);
+      const folded = foldPayrollImports(remaining);
+      if (folded) {
+        const refreshed = refreshFundingSourceColors(folded);
+        setSnapshot(refreshed);
+        setWorkingPlan({
+          snapshotId: refreshed.id,
+          allocations: refreshed.monthlyAllocations.map((a) => ({ ...a })),
+          updatedAt: new Date().toISOString(),
+        });
+      } else {
+        setSnapshot(null);
+        setWorkingPlan(null);
+      }
+    },
+    [payrollImports]
+  );
+
+  const upsertPersonnelGroupDef = useCallback((group: PersonnelGroupDef) => {
+    setSettings((prev) => {
+      const groups = [...(prev.personnelGroups ?? [])];
+      const idx = groups.findIndex((g) => g.id === group.id);
+      if (idx >= 0) groups[idx] = group;
+      else groups.push(group);
+      return { ...prev, personnelGroups: groups };
+    });
+    if (cloudSyncRef.current) void upsertPersonnelGroup(group);
+  }, []);
+
+  const deletePersonnelGroupDef = useCallback((id: string) => {
+    setSettings((prev) => {
+      const groups = (prev.personnelGroups ?? []).filter((g) => g.id !== id);
+      const employeePersonnelTypes = { ...(prev.employeePersonnelTypes ?? {}) };
+      for (const [empId, type] of Object.entries(employeePersonnelTypes)) {
+        if (type === id) delete employeePersonnelTypes[empId];
+      }
+      return { ...prev, personnelGroups: groups, employeePersonnelTypes };
+    });
+    if (cloudSyncRef.current) void deletePersonnelGroupRemote(id);
+  }, []);
+
+  const upsertFundingSourceTypeDef = useCallback((type: FundingSourceTypeDef) => {
+    setSettings((prev) => {
+      const types = [...(prev.fundingSourceTypes ?? [])];
+      const idx = types.findIndex((t) => t.id === type.id);
+      if (idx >= 0) types[idx] = type;
+      else types.push(type);
+      return { ...prev, fundingSourceTypes: types };
+    });
+    if (cloudSyncRef.current) void upsertFundingSourceType(type);
+  }, []);
+
+  const deleteFundingSourceTypeDef = useCallback((id: string) => {
+    setSettings((prev) => {
+      const types = (prev.fundingSourceTypes ?? []).filter((t) => t.id !== id);
+      const fundingSourceCategories = { ...(prev.fundingSourceCategories ?? {}) };
+      for (const [key, cat] of Object.entries(fundingSourceCategories)) {
+        if (cat === id) delete fundingSourceCategories[key];
+      }
+      return { ...prev, fundingSourceTypes: types, fundingSourceCategories };
+    });
+    if (cloudSyncRef.current) void deleteFundingSourceTypeRemote(id);
+  }, []);
+
   const setRunwayBalanceOverride = useCallback(
     (employeeId: string, chartstring: string, balance: number | null) => {
       const key = runwayOverrideKey(employeeId, chartstring);
@@ -949,6 +1145,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plannedFundingSources: prev.plannedFundingSources,
         projectionRules: prev.projectionRules,
         projectionIgnoreRosterEndDates: prev.projectionIgnoreRosterEndDates,
+        personnelGroups: prev.personnelGroups,
+        fundingSourceTypes: prev.fundingSourceTypes,
       };
       saveState({
         snapshot: null,
@@ -956,12 +1154,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         scenarios: [],
         settings: keptSettings,
         portfolioImports,
+        payrollImports: [],
       });
       return keptSettings;
     });
     setSnapshot(null);
     setWorkingPlan(null);
     setScenarios([]);
+    setPayrollImports([]);
+    setPendingPayrollImports([]);
     setPendingPreview(null);
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
@@ -980,6 +1181,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     pendingMergeInfo,
     dataMigrated,
     hasData: !!snapshot && snapshot.parseStatus !== "failed",
+    parsePayrollFiles,
     parseFile,
     confirmImport,
     cancelImport,
@@ -1011,10 +1213,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fundingSources,
     portfolioTitlesByChartstring,
     portfolioImports,
+    payrollImports,
     mergedPortfolioBalances,
     parsePortfolioFile,
     importPortfolioFiles,
     removePortfolioImport,
+    removePayrollImport,
+    upsertPersonnelGroupDef,
+    deletePersonnelGroupDef,
+    upsertFundingSourceTypeDef,
+    deleteFundingSourceTypeDef,
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
     clearRunwayBurnOverride,

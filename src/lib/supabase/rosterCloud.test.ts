@@ -21,6 +21,7 @@ describe("applyRemoteRosterToSettings", () => {
           personKey: "hr:1001",
           displayName: "Ada",
           photoUrl: "https://cloud/photo.jpg",
+          photoPath: null,
           startDate: null,
           endDate: null,
           personnelType: "dataManagement",

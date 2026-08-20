@@ -216,9 +216,9 @@ export interface EmployeeOfferLetterMeta {
   extractedEndDate?: string;
   /** Annual starting salary detected from the offer letter (USD) */
   extractedStartingSalary?: number;
-  /** Public URL when the file is stored in Supabase */
+  /** Stable storage ref (sb://…) or signed/external URL when the file is in Supabase */
   fileUrl?: string;
-  /** Storage object path for deletes */
+  /** Storage object path for deletes and signed URL refresh */
   storagePath?: string;
 }
 export interface EmployeeProfile {
@@ -362,12 +362,6 @@ export interface ParsePreview {
 }
 
 export const PARSER_VERSION = "1.5.0";
-
-import {
-  DEFAULT_FUNDING_SOURCE_TYPES,
-  DEFAULT_PERSONNEL_GROUPS,
-} from "@/lib/catalog/defaults";
-
 export const DEFAULT_SETTINGS: AppSettings = {
   fiscalYearStartMonth: 7,
   supportEndingSoonDays: 90,
@@ -376,8 +370,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   displayMode: "percent",
   fundingSourceAliases: {},
   fundingSourceCategories: {},
-  fundingSourceTypes: DEFAULT_FUNDING_SOURCE_TYPES,
-  personnelGroups: DEFAULT_PERSONNEL_GROUPS,
+  fundingSourceTypes: [],
+  personnelGroups: [],
   hiddenEmployeeFunds: [],
   runwayAssumedOkFunds: [],
   runwayAssumedEndDates: {},

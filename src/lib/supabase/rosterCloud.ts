@@ -5,19 +5,18 @@ import type {
   EmployeeProfile,
   PersonnelType,
 } from "@/types";
-import { PERSONNEL_TYPES } from "@/lib/employees/personnelType";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 
-const PERSONNEL_TYPE_VALUES = new Set<string>(PERSONNEL_TYPES.map((t) => t.value));
-
+/** PersonnelType is now an open string (catalog group id); accept any non-empty value. */
 export function isPersonnelType(value: string | null | undefined): value is PersonnelType {
-  return Boolean(value && PERSONNEL_TYPE_VALUES.has(value));
+  return Boolean(value && value.trim());
 }
 
 export type RemoteRosterRecord = {
   personKey: string;
   displayName: string | null;
   photoUrl: string | null;
+  photoPath: string | null;
   startDate: string | null;
   endDate: string | null;
   personnelType: PersonnelType | null;
@@ -31,6 +30,7 @@ export type RemoteRosterRow = {
   person_key: string;
   display_name: string | null;
   photo_url: string | null;
+  photo_path?: string | null;
   start_date?: string | null;
   end_date?: string | null;
   personnel_type?: string | null;
@@ -61,8 +61,10 @@ export function remoteRosterRowToRecord(row: RemoteRosterRow): RemoteRosterRecor
       : Number(scopeRaw);
   const fileUrl = row.offer_letter_url?.trim() || undefined;
   const fileName = row.offer_letter_file_name?.trim();
+  const photoPath = row.photo_path?.trim() || null;
+  const photoUrlRaw = row.photo_url?.trim() || null;
   const offerLetter: EmployeeOfferLetterMeta | null =
-    fileUrl || fileName
+    fileUrl || fileName || row.offer_letter_path
       ? {
           fileName: fileName || "offer-letter",
           mimeType: row.offer_letter_mime_type?.trim() || "application/octet-stream",
@@ -77,7 +79,8 @@ export function remoteRosterRowToRecord(row: RemoteRosterRow): RemoteRosterRecor
   return {
     personKey: row.person_key,
     displayName: row.display_name,
-    photoUrl: row.photo_url?.trim() || null,
+    photoUrl: photoUrlRaw,
+    photoPath,
     startDate: dateOnly(row.start_date),
     endDate: dateOnly(row.end_date),
     personnelType: isPersonnelType(row.personnel_type) ? row.personnel_type : null,
@@ -93,7 +96,12 @@ function mergeProfile(
   remote: RemoteRosterRecord
 ): EmployeeProfile {
   const next: EmployeeProfile = { ...local };
-  if (remote.photoUrl) next.photoUrl = remote.photoUrl;
+  // Prefer private storage ref / path encoding over stale public URLs
+  if (remote.photoPath) {
+    next.photoUrl = `sb://employee-photos/${remote.photoPath}`;
+  } else if (remote.photoUrl) {
+    next.photoUrl = remote.photoUrl;
+  }
   if (remote.startDate) next.startDate = remote.startDate;
   if (remote.endDate) next.endDate = remote.endDate;
   if (remote.offerLetter) next.offerLetter = remote.offerLetter;

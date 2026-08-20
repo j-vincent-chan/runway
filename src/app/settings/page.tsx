@@ -1,9 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { useApp } from "@/context/AppContext";
 import { PARSER_VERSION } from "@/types";
+import { AccountsPanel } from "@/components/settings/AccountsPanel";
+import {
+  FundingSourceTypesSettings,
+  PersonnelGroupsSettings,
+} from "@/components/settings/CatalogSettings";
+import { CloudPrivacyPanel } from "@/components/settings/CloudPrivacyPanel";
 
 export default function SettingsPage() {
   const { settings, updateSettings, snapshot, clearAll } = useApp();
@@ -12,7 +17,9 @@ export default function SettingsPage() {
     <>
       <Header ledgerTitle title="Settings" />
       <main className="flex-1 overflow-auto p-6">
-        <div className="mx-auto max-w-2xl space-y-6">
+        <div className="mx-auto max-w-5xl space-y-6">
+          <CloudPrivacyPanel />
+
           <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
             <h3 className="font-semibold">Planning defaults</h3>
             <label className="block text-sm">
@@ -49,19 +56,25 @@ export default function SettingsPage() {
             </label>
           </section>
 
-          {snapshot && (
-            <p className="text-sm text-slate-600">
-              Account aliases and funding types are edited on the{" "}
-              <Link href="/accounts" className="font-medium text-teal-700 hover:underline">
-                Accounts
-              </Link>{" "}
-              page.
-            </p>
-          )}
+          <PersonnelGroupsSettings />
+          <FundingSourceTypesSettings />
+
+          <section id="accounts" className="scroll-mt-6 space-y-3">
+            <div>
+              <h3 className="text-lg font-semibold text-[#0c2340]">Accounts</h3>
+              <p className="text-sm text-slate-600">
+                Funding sources, balances, and payroll burden from your imported reports.
+              </p>
+            </div>
+            <AccountsPanel />
+          </section>
 
           <section className="rounded-xl border bg-white p-5 text-sm text-slate-600">
             <p>Parser version: {PARSER_VERSION}</p>
-            <p className="mt-1">Data stored in browser local storage.</p>
+            <p className="mt-1">
+              Planning data is stored in this browser. Private Supabase sync runs only when you
+              are signed in and local-only mode is off.
+            </p>
             {snapshot && (
               <button
                 type="button"

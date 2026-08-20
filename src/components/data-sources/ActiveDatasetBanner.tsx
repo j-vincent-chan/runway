@@ -8,10 +8,8 @@ import { StatusBadge } from "@/components/data-sources/StatusBadge";
 
 export function ActiveDatasetBanner({
   snapshot,
-  onReplace,
 }: {
   snapshot: PayrollReportSnapshot;
-  onReplace: () => void;
 }) {
   return (
     <div className="rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50/80 px-5 py-4 shadow-sm">
@@ -23,12 +21,14 @@ export function ActiveDatasetBanner({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <FileSpreadsheet className="h-4 w-4 shrink-0 text-teal-800" />
-              <p className="truncate font-semibold text-[#0c2340]">{snapshot.sourceFileName}</p>
+              <p className="truncate font-semibold text-[#0c2340]">
+                Merged payroll dataset · {snapshot.sourceFileName}
+              </p>
             </div>
             <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
               <div>
                 <dt className="sr-only">Imported</dt>
-                <dd>Imported {new Date(snapshot.uploadedAt).toLocaleString()}</dd>
+                <dd>Updated {new Date(snapshot.uploadedAt).toLocaleString()}</dd>
               </div>
               <div>
                 <dt className="sr-only">Employees</dt>
@@ -64,13 +64,6 @@ export function ActiveDatasetBanner({
           >
             View Timeline
           </Link>
-          <button
-            type="button"
-            onClick={onReplace}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Replace Report
-          </button>
         </div>
       </div>
     </div>

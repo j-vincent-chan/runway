@@ -6,12 +6,10 @@ import {
   Upload,
   CalendarRange,
   Users,
-  Building2,
   Settings,
   TrendingDown,
   LayoutDashboard,
   LineChart,
-  PanelLeftClose,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
@@ -22,7 +20,6 @@ const nav = [
   { href: "/timeline", label: "Timeline", icon: CalendarRange },
   { href: "/projections", label: "Projections", icon: LineChart },
   { href: "/runway", label: "Runway", icon: TrendingDown },
-  { href: "/accounts", label: "Accounts", icon: Building2 },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/upload", label: "Upload", icon: Upload },
   { href: "/settings", label: "Settings", icon: Settings },
@@ -30,23 +27,14 @@ const nav = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { settings, updateSettings } = useApp();
+  const { settings } = useApp();
 
   if (settings.sidebarHidden) return null;
 
   return (
     <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto bg-[#0c2340] text-white">
-      <div className="flex items-start justify-between gap-1 border-b border-white/10 px-3 py-4">
+      <div className="border-b border-white/10 px-3 py-4">
         <LedgerWordmark variant="sidebar" />
-        <button
-          type="button"
-          className="mt-0.5 shrink-0 rounded-md p-1.5 text-slate-300 hover:bg-white/10 hover:text-white"
-          aria-label="Hide navigation"
-          title="Hide navigation"
-          onClick={() => updateSettings({ sidebarHidden: true })}
-        >
-          <PanelLeftClose className="h-4 w-4" />
-        </button>
       </div>
       <nav className="flex-1 space-y-0.5 p-3">
         {nav.map(({ href, label, icon: Icon }) => {

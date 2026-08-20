@@ -3,6 +3,7 @@ import { withoutHiddenFundsForEmployee } from "@/lib/funding/visibility";
 import { pruneEmployeeFromOrgStructure } from "@/lib/org/structure";
 import { deleteOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import { compareEmployeesByLastName } from "@/lib/employees/lastName";
 
 export function getEmployeePhotoUrl(
   settings: AppSettings,
@@ -64,7 +65,7 @@ export function filterEmployeesForEmployeesPage(
       if (hidden && !showHidden) return false;
       return true;
     })
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort(compareEmployeesByLastName);
 }
 
 export function pruneEmployeeFromSettings(

@@ -1,8 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
 import { useApp } from "@/context/AppContext";
-import { Header } from "@/components/layout/Header";
 import { ActiveDatasetBanner } from "@/components/data-sources/ActiveDatasetBanner";
 import { PayrollReportCard } from "@/components/data-sources/PayrollReportCard";
 import { PortfolioFilesCard } from "@/components/data-sources/PortfolioFilesCard";
@@ -10,39 +8,30 @@ import { ImportHealthCard } from "@/components/data-sources/ImportHealthCard";
 import { WhatThisPowersCard } from "@/components/data-sources/WhatThisPowersCard";
 import { DataRulesCard } from "@/components/data-sources/DataRulesCard";
 import { DangerZone } from "@/components/data-sources/DangerZone";
+import { Header } from "@/components/layout/Header";
 
 export default function DataSourcesPage() {
-  const replaceInputRef = useRef<HTMLInputElement>(null);
-  const [showParsedData, setShowParsedData] = useState(false);
-
   const {
     snapshot,
     pendingPreview,
-    pendingSnapshot,
-    pendingMergeInfo,
     portfolioImports,
-    parseFile,
-    confirmImport,
-    cancelImport,
+    payrollImports,
     clearAll,
   } = useApp();
 
   const hasPayroll = !!snapshot && snapshot.parseStatus !== "failed";
-  const hasStoredData = !!snapshot || !!pendingPreview || portfolioImports.length > 0;
+  const hasStoredData =
+    !!snapshot || !!pendingPreview || portfolioImports.length > 0 || payrollImports.length > 0;
 
   const handleClearAll = () => {
     if (
       !confirm(
-        "Clear all data from this browser?\n\nThis removes imported payroll and MyPortfolio files, timeline edits, scenarios, hidden funds, and planning scope. Account aliases and account types are kept."
+        "Clear all data from this browser?\n\nThis removes imported payroll and MyPortfolio files, timeline edits, scenarios, hidden funds, and planning scope. Account aliases and funding sources are kept."
       )
     ) {
       return;
     }
     clearAll();
-  };
-
-  const triggerReplace = () => {
-    replaceInputRef.current?.click();
   };
 
   return (
@@ -59,23 +48,11 @@ export default function DataSourcesPage() {
       />
       <main className="flex-1 overflow-auto bg-slate-50/60 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
-          {snapshot && !pendingPreview && (
-            <ActiveDatasetBanner snapshot={snapshot} onReplace={triggerReplace} />
-          )}
+          {snapshot && !pendingPreview && <ActiveDatasetBanner snapshot={snapshot} />}
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="space-y-6">
-              <PayrollReportCard
-                snapshot={snapshot}
-                pendingPreview={pendingPreview}
-                pendingSnapshot={pendingSnapshot}
-                pendingMergeInfo={pendingMergeInfo}
-                onFile={(f) => void parseFile(f)}
-                onCancel={cancelImport}
-                onConfirm={confirmImport}
-                showParsedPreview={showParsedData}
-                onToggleParsedPreview={() => setShowParsedData((v) => !v)}
-              />
+              <PayrollReportCard />
               <PortfolioFilesCard />
             </div>
 
@@ -83,6 +60,7 @@ export default function DataSourcesPage() {
               <ImportHealthCard
                 snapshot={snapshot}
                 portfolioImports={portfolioImports}
+                payrollImportCount={payrollImports.length}
                 pendingWarningCount={pendingPreview?.warnings.length ?? 0}
               />
               <WhatThisPowersCard
@@ -95,18 +73,6 @@ export default function DataSourcesPage() {
           </div>
         </div>
       </main>
-
-      <input
-        ref={replaceInputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void parseFile(f);
-          e.target.value = "";
-        }}
-      />
     </>
   );
 }

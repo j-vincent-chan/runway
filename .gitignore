@@ -24,6 +24,15 @@
 .DS_Store
 *.pem
 
+# Real finance exports — keep local; use Upload in the app
+*.xlsx
+*.xls
+# Sanitized fixtures only (if added under fixtures/)
+!fixtures/**/*.xlsx
+!fixtures/**/*.xls
+# Generated chartstring helper export (may contain real account strings)
+/exports/*.xlsx
+
 # debug
 npm-debug.log*
 yarn-debug.log*

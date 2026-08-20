@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import { AppProvider } from "@/context/AppContext";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -15,9 +16,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={geist.variable}>
       <body className="antialiased">
-        <AppProvider>
-          <AppShell>{children}</AppShell>
-        </AppProvider>
+        <AuthProvider>
+          <AppProvider>
+            <AppShell>{children}</AppShell>
+          </AppProvider>
+        </AuthProvider>
       </body>
     </html>
   );

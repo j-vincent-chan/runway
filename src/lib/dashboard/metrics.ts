@@ -3,7 +3,11 @@ import {
   getAllMonths,
   getCurrentMonth,
 } from "@/lib/calculations";
-import { getFundingSourceCategory } from "@/lib/funding/accountCategory";
+import {
+  getAccountCategoryMeta,
+  getFundingSourceCategory,
+  getFundingSourceTypes,
+} from "@/lib/funding/accountCategory";
 import {
   employeeHasEmploymentDates,
   isEmployeeEmployedInMonth,
@@ -11,10 +15,10 @@ import {
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import {
   getEmployeePersonnelType,
-  PERSONNEL_TYPES,
+  getPersonnelGroups,
+  getPersonnelTypeMeta,
 } from "@/lib/employees/personnelType";
 import type {
-  AccountCategory,
   AppSettings,
   FundingSource,
   MonthlyCostRecord,
@@ -23,27 +27,7 @@ import type {
 } from "@/types";
 import { formatMonthDisplay } from "@/lib/utils/parse";
 
-export type FundingChartKey = AccountCategory | "uncategorized";
-
-export const FUNDING_CHART_COLORS: Record<FundingChartKey, string> = {
-  startup: "#0c2340",
-  projects: "#b42318",
-  endowment: "#047857",
-  institutional: "#a16207",
-  largeGrants: "#6d28d9",
-  researchPlanReviews: "#1d4ed8",
-  uncategorized: "#94a3b8",
-};
-
-export const FUNDING_CHART_LABELS: Record<FundingChartKey, string> = {
-  startup: "Start-up",
-  projects: "Projects",
-  endowment: "Endowment",
-  institutional: "Institutional support",
-  largeGrants: "Large grants",
-  researchPlanReviews: "Research plan reviews",
-  uncategorized: "Uncategorized",
-};
+export type FundingChartKey = string;
 
 function employeeFundBurden(
   employeeId: string,
@@ -61,10 +45,7 @@ function employeeFundBurden(
     .reduce((s, c) => s + c.amount, 0);
 }
 
-function categoryForFund(
-  fs: FundingSource,
-  settings: AppSettings
-): FundingChartKey {
+function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
   return getFundingSourceCategory(settings, fs) ?? "uncategorized";
 }
 
@@ -162,6 +143,12 @@ export function buildPersonnelCostTrend(
   return { monthly, yearly, planningMonth };
 }
 
+function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
+  if (key === "uncategorized") return { name: "Uncategorized", color: "#94a3b8" };
+  const meta = getAccountCategoryMeta(key, settings);
+  return { name: meta.label, color: meta.chartColor };
+}
+
 function buildFundingMixForEmployees(
   employees: { id: string }[],
   month: string,
@@ -170,24 +157,29 @@ function buildFundingMixForEmployees(
   settings: AppSettings
 ): FundingMixSlice[] {
   const totals = new Map<FundingChartKey, number>();
+  const known = new Set(getFundingSourceTypes(settings).map((t) => t.id));
 
   for (const emp of employees) {
     for (const fs of fundingSources) {
       const burden = employeeFundBurden(emp.id, fs.id, month, snapshot.monthlyCosts);
       if (burden <= 0) continue;
-      const key = categoryForFund(fs, settings);
+      let key = categoryForFund(fs, settings);
+      if (key !== "uncategorized" && !known.has(key)) key = "uncategorized";
       totals.set(key, (totals.get(key) ?? 0) + burden);
     }
   }
 
   return [...totals.entries()]
     .filter(([, value]) => value > 0)
-    .map(([key, value]) => ({
-      key,
-      name: FUNDING_CHART_LABELS[key],
-      value,
-      color: FUNDING_CHART_COLORS[key],
-    }))
+    .map(([key, value]) => {
+      const meta = sliceMeta(key, settings);
+      return {
+        key,
+        name: meta.name,
+        value,
+        color: meta.color,
+      };
+    })
     .sort((a, b) => b.value - a.value);
 }
 
@@ -210,23 +202,24 @@ export function buildFundingTypeMix(
     fundingSources,
     settings
   );
-  const groups: { personnelType: PersonnelType | "unassigned"; label: string; ids: string[] }[] =
-    [
-      ...PERSONNEL_TYPES.map((t) => ({
-        personnelType: t.value as PersonnelType,
-        label: t.label,
-        ids: employees
-          .filter((e) => getEmployeePersonnelType(settings, e.id) === t.value)
-          .map((e) => e.id),
-      })),
-      {
-        personnelType: "unassigned" as const,
-        label: "Unassigned personnel type",
-        ids: employees
-          .filter((e) => !getEmployeePersonnelType(settings, e.id))
-          .map((e) => e.id),
-      },
-    ];
+
+  const personnelGroups = getPersonnelGroups(settings);
+  const groups: { personnelType: PersonnelType | "unassigned"; label: string; ids: string[] }[] = [
+    ...personnelGroups.map((t) => ({
+      personnelType: t.id as PersonnelType,
+      label: getPersonnelTypeMeta(t.id, settings).label,
+      ids: employees
+        .filter((e) => getEmployeePersonnelType(settings, e.id) === t.id)
+        .map((e) => e.id),
+    })),
+    {
+      personnelType: "unassigned" as const,
+      label: "Unassigned",
+      ids: employees
+        .filter((e) => !getEmployeePersonnelType(settings, e.id))
+        .map((e) => e.id),
+    },
+  ];
 
   const byPersonnelType = groups
     .map((g) => {

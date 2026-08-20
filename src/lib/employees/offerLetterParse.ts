@@ -47,6 +47,35 @@ const END_LABELS = [
   /employment\s*ends?\s*(?:on)?\s*[:\-]?\s*/i,
 ];
 
+const SALARY_LABELS = [
+  /(?:annual|yearly)\s*(?:base\s*)?(?:salary|compensation|pay)\s*[:\-]?\s*/i,
+  /(?:base\s*)?(?:salary|compensation)\s*(?:of|:)?\s*/i,
+  /starting\s*(?:annual\s*)?(?:salary|compensation)\s*[:\-]?\s*/i,
+  /rate\s*of\s*pay\s*[:\-]?\s*/i,
+];
+
+function parseMoneyNear(text: string, fromIndex: number): number | undefined {
+  const slice = text.slice(fromIndex, fromIndex + 80);
+  const m = slice.match(/\$?\s*([\d,]{2,9}(?:\.\d{1,2})?)/);
+  if (!m) return undefined;
+  const n = parseFloat(m[1]!.replace(/,/g, ""));
+  if (!Number.isFinite(n) || n < 1000 || n > 2_000_000) return undefined;
+  return n;
+}
+
+function findSalaryInText(text: string): number | undefined {
+  const normalized = text.replace(/\s+/g, " ");
+  for (const label of SALARY_LABELS) {
+    const re = new RegExp(label.source, label.flags + "g");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(normalized)) !== null) {
+      const amount = parseMoneyNear(normalized, m.index + m[0].length);
+      if (amount != null) return amount;
+    }
+  }
+  return undefined;
+}
+
 function toIsoDate(d: Date): string {
   return format(d, "yyyy-MM-dd");
 }
@@ -85,10 +114,12 @@ function findDateNearLabels(text: string, labels: RegExp[]): string | undefined 
 export function extractDatesFromOfferLetterText(text: string): {
   startDate?: string;
   endDate?: string;
+  startingSalary?: number;
 } {
   const startDate = findDateNearLabels(text, START_LABELS);
   const endDate = findDateNearLabels(text, END_LABELS);
-  return { startDate, endDate };
+  const startingSalary = findSalaryInText(text);
+  return { startDate, endDate, startingSalary };
 }
 
 export async function extractTextFromOfferLetterFile(file: File): Promise<string> {
@@ -130,6 +161,7 @@ export async function parseOfferLetterFile(file: File): Promise<{
   text: string;
   startDate?: string;
   endDate?: string;
+  startingSalary?: number;
 }> {
   const text = await extractTextFromOfferLetterFile(file);
   const dates = extractDatesFromOfferLetterText(text);

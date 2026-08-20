@@ -5,6 +5,8 @@ import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
+import { sortEmployeesForPlanning } from "@/lib/employees/personnelType";
+import { EmployeeGroupSortControl } from "@/components/employees/EmployeeGroupSortControl";
 import { simulateProjections } from "@/lib/projections/simulate";
 import { formatMonthLabel } from "@/lib/projections/horizon";
 import { unmatchedPlannedSources, projectionSourceLabel } from "@/lib/projections/sources";
@@ -42,7 +44,10 @@ export default function ProjectionsPage() {
   );
 
   const employees = useMemo(
-    () => (snapshot ? filterEmployeesForPlanning(snapshot.employees, settings) : []),
+    () =>
+      snapshot
+        ? sortEmployeesForPlanning(filterEmployeesForPlanning(snapshot.employees, settings), settings)
+        : [],
     [snapshot, settings]
   );
 
@@ -179,28 +184,34 @@ export default function ProjectionsPage() {
                       View
                     </span>
                     <div className="inline-flex rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80">
-                      <button
-                        type="button"
-                        className={cn(
-                          "rounded-md px-2.5 py-1 text-xs font-medium",
-                          tab === "person" ? "bg-[#0c2340] text-white shadow-sm" : "text-slate-600 hover:bg-white"
-                        )}
-                        onClick={() => setTab("person")}
-                      >
-                        By person
-                      </button>
-                      <button
-                        type="button"
-                        className={cn(
-                          "rounded-md px-2.5 py-1 text-xs font-medium",
-                          tab === "account" ? "bg-[#0c2340] text-white shadow-sm" : "text-slate-600 hover:bg-white"
-                        )}
-                        onClick={() => setTab("account")}
-                      >
-                        By account
-                      </button>
+                      {(
+                        [
+                          { id: "person" as const, label: "By person" },
+                          { id: "account" as const, label: "By account" },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setTab(opt.id)}
+                          className={cn(
+                            "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                            tab === opt.id
+                              ? "bg-[#0c2340] text-white shadow-sm"
+                              : "text-slate-600 hover:bg-white hover:text-slate-900"
+                          )}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
+                  {tab === "person" && (
+                    <EmployeeGroupSortControl
+                      value={settings.employeeGroupSort ?? "lastName"}
+                      onChange={(employeeGroupSort) => updateSettings({ employeeGroupSort })}
+                    />
+                  )}
                   <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                       Display

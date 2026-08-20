@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, Circle } from "lucide-react";
+import { Circle } from "lucide-react";
 import type { PayrollReportSnapshot, PortfolioReportImport } from "@/types";
 import {
   countParseWarnings,
@@ -10,10 +10,12 @@ import {
 export function ImportHealthCard({
   snapshot,
   portfolioImports,
+  payrollImportCount = 0,
   pendingWarningCount = 0,
 }: {
   snapshot: PayrollReportSnapshot | null;
   portfolioImports: PortfolioReportImport[];
+  payrollImportCount?: number;
   pendingWarningCount?: number;
 }) {
   const warnings = snapshot
@@ -28,15 +30,14 @@ export function ImportHealthCard({
       <h3 className="text-sm font-semibold text-[#0c2340]">Import Health</h3>
       <ul className="mt-3 space-y-2.5 text-sm">
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">Payroll report</span>
-          {snapshot ? (
-            <span className="inline-flex items-center gap-1 font-medium text-emerald-700">
-              <CheckCircle2 className="h-4 w-4" />
-              Loaded
-            </span>
-          ) : (
-            <span className="text-slate-400">Not loaded</span>
-          )}
+          <span className="text-slate-600">Payroll reports</span>
+          <span className="font-medium text-[#0c2340]">
+            {payrollImportCount === 0 && !snapshot
+              ? "None"
+              : `${Math.max(payrollImportCount, snapshot ? 1 : 0)} file${
+                  Math.max(payrollImportCount, snapshot ? 1 : 0) === 1 ? "" : "s"
+                }`}
+          </span>
         </li>
         <li className="flex items-center justify-between gap-2">
           <span className="text-slate-600">MyPortfolio files</span>

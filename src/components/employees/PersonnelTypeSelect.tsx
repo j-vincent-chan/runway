@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { PersonnelType } from "@/types";
+import { useApp } from "@/context/AppContext";
 import {
+  getPersonnelGroups,
   getPersonnelTypeDisplayLabel,
   getPersonnelTypeMeta,
-  PERSONNEL_TYPES,
 } from "@/lib/employees/personnelType";
 import { cn } from "@/lib/utils/cn";
 
@@ -17,7 +18,8 @@ function PersonnelTypePill({
   type: PersonnelType;
   className?: string;
 }) {
-  const meta = getPersonnelTypeMeta(type);
+  const { settings } = useApp();
+  const meta = getPersonnelTypeMeta(type, settings);
   return (
     <span
       className={cn(
@@ -28,17 +30,19 @@ function PersonnelTypePill({
       title={meta.label}
     >
       <span className={cn("h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
-      {getPersonnelTypeDisplayLabel(type)}
+      {getPersonnelTypeDisplayLabel(type, settings)}
     </span>
   );
 }
 
 export function PersonnelTypeLegend() {
+  const { settings } = useApp();
+  const groups = getPersonnelGroups(settings);
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-      <span className="font-medium text-slate-700">Personnel type</span>
-      {PERSONNEL_TYPES.map((t) => (
-        <span key={t.value} className="inline-flex items-center gap-1.5">
+      <span className="font-medium text-slate-700">Personnel groups</span>
+      {groups.map((t) => (
+        <span key={t.id} className="inline-flex items-center gap-1.5">
           <span className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/10", t.dotClass)} aria-hidden />
           {t.label}
         </span>
@@ -54,6 +58,8 @@ export function PersonnelTypeSelect({
   value?: PersonnelType;
   onChange: (type: PersonnelType | null) => void;
 }) {
+  const { settings } = useApp();
+  const groups = getPersonnelGroups(settings);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -84,7 +90,7 @@ export function PersonnelTypeSelect({
           {value ? (
             <PersonnelTypePill type={value} />
           ) : (
-            <span className="text-xs text-slate-500">Select type</span>
+            <span className="text-xs text-slate-500">Select group</span>
           )}
         </span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
@@ -94,19 +100,19 @@ export function PersonnelTypeSelect({
           className="absolute left-0 z-30 mt-1 w-[10.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           role="listbox"
         >
-          {PERSONNEL_TYPES.map((t) => (
+          {groups.map((t) => (
             <button
-              key={t.value}
+              key={t.id}
               type="button"
               role="option"
-              aria-selected={value === t.value}
+              aria-selected={value === t.id}
               className="flex w-full justify-start px-2 py-1.5 text-left hover:bg-slate-50"
               onClick={() => {
-                onChange(t.value);
+                onChange(t.id);
                 setOpen(false);
               }}
             >
-              <PersonnelTypePill type={t.value} />
+              <PersonnelTypePill type={t.id} />
             </button>
           ))}
           {value && (

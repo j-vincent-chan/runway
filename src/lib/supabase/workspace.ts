@@ -2,12 +2,15 @@ import type { StoredAppState } from "@/lib/storage/localStorage";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
   AppSettings,
+  PayrollReportImport,
   PayrollReportSnapshot,
   PortfolioReportImport,
   Scenario,
   WorkingPlan,
 } from "@/types";
 import { getSupabase } from "@/lib/supabase/client";
+import { ensureCatalogDefaults } from "@/lib/supabase/catalog";
+import { ensurePayrollImports } from "@/lib/import/foldPayrollImports";
 
 export const WORKSPACE_ID = "default";
 export const WORKSPACE_STORAGE_BUCKET = "app-workspace";
@@ -21,17 +24,20 @@ export type CloudWorkspacePayload = {
   scenarios: Scenario[];
   settings: AppSettings;
   portfolioImports: PortfolioReportImport[];
+  payrollImports?: PayrollReportImport[];
 };
 
 export function workspaceHasPlanningData(state: {
   snapshot?: PayrollReportSnapshot | null;
   workingPlan?: WorkingPlan | null;
   portfolioImports?: PortfolioReportImport[];
+  payrollImports?: PayrollReportImport[];
 }): boolean {
   return Boolean(
     state.snapshot ||
       state.workingPlan ||
-      (state.portfolioImports && state.portfolioImports.length > 0)
+      (state.portfolioImports && state.portfolioImports.length > 0) ||
+      (state.payrollImports && state.payrollImports.length > 0)
   );
 }
 
@@ -47,18 +53,21 @@ export function toCloudWorkspacePayload(
     scenarios: state.scenarios ?? [],
     settings: state.settings,
     portfolioImports: state.portfolioImports ?? [],
+    payrollImports: ensurePayrollImports(state.snapshot, state.payrollImports),
   };
 }
 
 export function cloudWorkspaceToStored(
   cloud: CloudWorkspacePayload
 ): StoredAppState {
+  const snapshot = cloud.snapshot ?? null;
   return {
-    snapshot: cloud.snapshot ?? null,
+    snapshot,
     workingPlan: cloud.workingPlan ?? null,
     scenarios: cloud.scenarios ?? [],
-    settings: { ...DEFAULT_SETTINGS, ...cloud.settings },
+    settings: ensureCatalogDefaults({ ...DEFAULT_SETTINGS, ...cloud.settings }),
     portfolioImports: cloud.portfolioImports ?? [],
+    payrollImports: ensurePayrollImports(snapshot, cloud.payrollImports),
     savedAt: cloud.updatedAt,
   };
 }

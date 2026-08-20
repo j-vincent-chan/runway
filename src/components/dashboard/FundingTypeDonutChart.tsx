@@ -244,12 +244,12 @@ export function FundingTypeDonutSection({
       <header>
         <h2 className="text-base font-semibold text-[#0c2340]">Funding type mix</h2>
         <p className="text-xs text-slate-500">
-          Share of personnel charges by account type · {monthLabel} (latest actual month)
+          Share of personnel charges by funding source · {monthLabel} (latest actual month)
         </p>
       </header>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-start">
         <FundingTypeDonutChart
-          title="All personnel"
+          title="All Personnel"
           subtitle="Total planning roster"
           slices={totalSlices}
           size="hero"

@@ -20,8 +20,8 @@ import {
   isEmployeeAlumni,
   isEmployeeHidden,
 } from "@/lib/employees/roster";
-import { isSupabaseConfigured } from "@/lib/supabase/client";
 import { uploadEmployeePhotoFile } from "@/lib/supabase/sync";
+import { useAuth } from "@/context/AuthContext";
 import { formatCurrency, formatMonthDisplay } from "@/lib/utils/parse";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { EmployeeEditDialog } from "@/components/employees/EmployeeEditDialog";
@@ -57,6 +57,7 @@ export default function EmployeesPage() {
 function EmployeesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { cloudSyncEnabled } = useAuth();
   const [pageTab, setPageTab] = useState<EmployeesPageTab>("roster");
 
   useEffect(() => {
@@ -93,6 +94,8 @@ function EmployeesPageContent() {
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [ocrSyncBusy, setOcrSyncBusy] = useState(false);
   const [ocrSyncMessage, setOcrSyncMessage] = useState<string | null>(null);
+  const [labPhotoUrl, setLabPhotoUrl] = useState("https://ocr.ucsf.edu/people");
+  const [showLabPhotoPrompt, setShowLabPhotoPrompt] = useState(false);
 
   const editingEmployee = useMemo(() => {
     if (!editingEmployeeId || !snapshot) return null;
@@ -195,32 +198,64 @@ function EmployeesPageContent() {
                 type="button"
                 disabled={ocrSyncBusy}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-                title="Pull headshots from ocr.ucsf.edu and save to Supabase"
-                onClick={() => {
-                  void (async () => {
-                    setOcrSyncBusy(true);
-                    setOcrSyncMessage(null);
-                    try {
-                      const result = await importOcrPeoplePhotos();
-                      const extra =
-                        result.unmatchedOcrNames.length > 0
-                          ? ` Not in payroll: ${result.unmatchedOcrNames.join(", ")}.`
-                          : "";
-                      setOcrSyncMessage(
-                        `Imported ${result.matched} OCR photo${result.matched === 1 ? "" : "s"}.${extra}`
-                      );
-                    } catch (err) {
-                      setOcrSyncMessage(
-                        err instanceof Error ? err.message : "OCR photo import failed."
-                      );
-                    } finally {
-                      setOcrSyncBusy(false);
-                    }
-                  })();
-                }}
+                title="Pull headshots from your lab People page"
+                onClick={() => setShowLabPhotoPrompt(true)}
               >
-                {ocrSyncBusy ? "Importing…" : "Import photos from OCR site"}
+                {ocrSyncBusy ? "Importing…" : "Import photos from your lab website"}
               </button>
+              {showLabPhotoPrompt && (
+                <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <label className="text-xs font-medium text-slate-700">
+                    Page URL
+                    <input
+                      type="url"
+                      className="ml-2 w-[min(100%,22rem)] rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                      value={labPhotoUrl}
+                      onChange={(e) => setLabPhotoUrl(e.target.value)}
+                      placeholder="https://yoursite.edu/people"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={ocrSyncBusy || !labPhotoUrl.trim()}
+                    className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+                    onClick={() => {
+                      void (async () => {
+                        setOcrSyncBusy(true);
+                        setOcrSyncMessage(null);
+                        try {
+                          const result = await importOcrPeoplePhotos(labPhotoUrl.trim());
+                          const extra =
+                            result.unmatchedOcrNames.length > 0
+                              ? ` Not matched: ${result.unmatchedOcrNames.slice(0, 8).join(", ")}${
+                                  result.unmatchedOcrNames.length > 8 ? "…" : ""
+                                }.`
+                              : "";
+                          setOcrSyncMessage(
+                            `Imported ${result.matched} photo${result.matched === 1 ? "" : "s"}.${extra}`
+                          );
+                          setShowLabPhotoPrompt(false);
+                        } catch (err) {
+                          setOcrSyncMessage(
+                            err instanceof Error ? err.message : "Photo import failed."
+                          );
+                        } finally {
+                          setOcrSyncBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    Import
+                  </button>
+                  <button
+                    type="button"
+                    className="rounded-lg border px-3 py-1.5 text-sm text-slate-600 hover:bg-white"
+                    onClick={() => setShowLabPhotoPrompt(false)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
               {ocrSyncMessage && (
                 <span className="text-xs text-slate-600">{ocrSyncMessage}</span>
               )}
@@ -233,7 +268,7 @@ function EmployeesPageContent() {
                 <thead className="bg-[#0c2340] text-xs text-white">
                   <tr>
                     <th className="px-3 py-2">Employee</th>
-                    <th className="min-w-[10.5rem] px-3 py-2">Personnel type</th>
+                    <th className="min-w-[10.5rem] px-3 py-2">Personnel group</th>
                     <th className="min-w-[9rem] px-3 py-2">Start date</th>
                     {view === "alumni" && <th className="min-w-[7rem] px-3 py-2">End date</th>}
                     <th className="px-3 py-2">Your scope %</th>
@@ -315,10 +350,10 @@ function EmployeesPageContent() {
           onClose={() => setEditingEmployeeId(null)}
           onSave={(url) => setEmployeePhotoUrl(editingEmployee.id, url)}
           onUploadFile={
-            isSupabaseConfigured()
+            cloudSyncEnabled
               ? async (file) => {
-                  const url = await uploadEmployeePhotoFile(editingEmployee, file);
-                  setEmployeePhotoUrl(editingEmployee.id, url);
+                  const uploaded = await uploadEmployeePhotoFile(editingEmployee, file);
+                  setEmployeePhotoUrl(editingEmployee.id, uploaded.storageRef);
                 }
               : undefined
           }
@@ -474,7 +509,7 @@ function EmployeeTableRow({
         <EmployeeYearlyCompCell employee={emp} snapshot={snapshot} />
       </td>
       <td className="px-3 py-2">
-        <EmployeeCompTrendCell employee={emp} snapshot={snapshot} />
+        <EmployeeCompTrendCell employee={emp} snapshot={snapshot} settings={settings} />
       </td>
       <td className="px-2 py-2">
         <EmployeeRowActions actions={actions} />

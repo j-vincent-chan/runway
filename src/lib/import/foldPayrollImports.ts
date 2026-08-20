@@ -19,12 +19,12 @@ export function payrollImportFromSnapshot(
 ): PayrollReportImport {
   return {
     id: generateId(),
-    sourceFileName: snapshot.sourceFileName,
-    uploadedAt: snapshot.uploadedAt,
-    monthRange: snapshot.monthRange,
-    employeeCount: snapshot.employees.length,
-    fundingSourceCount: snapshot.fundingSources.length,
-    parseStatus: snapshot.parseStatus,
+    sourceFileName: snapshot.sourceFileName ?? "payroll.xlsx",
+    uploadedAt: snapshot.uploadedAt ?? new Date().toISOString(),
+    monthRange: snapshot.monthRange ?? { start: "", end: "" },
+    employeeCount: snapshot.employees?.length ?? 0,
+    fundingSourceCount: snapshot.fundingSources?.length ?? 0,
+    parseStatus: snapshot.parseStatus ?? "success",
     snapshot,
   };
 }
