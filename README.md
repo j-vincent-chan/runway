@@ -5,7 +5,6 @@
 ## Quick start
 
 ```bash
-cd payroll-funding-planner
 npm install
 npm run dev
 ```
@@ -13,7 +12,7 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 1. Go to **Upload**.
-2. Drop `Payroll Funding Report-15421713.xlsx` (or your UCSF export) from the parent `Financial Reports` folder.
+2. Drop your Payroll Funding Report `.xlsx` (keep real exports local — they are gitignored).
 3. Open **Timeline** to explore funding by person and month.
 
 ## Persist data (Supabase)

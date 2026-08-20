@@ -4,7 +4,7 @@ Keep real payroll / MyPortfolio exports **out of git** and **out of public cloud
 
 ## One-time setup (required after this change)
 
-1. In the Supabase dashboard → **SQL**, re-run `payroll-funding-planner/supabase/schema.sql`.
+1. In the Supabase dashboard → **SQL**, re-run `supabase/schema.sql`.
    - Makes `employee-photos`, `employee-offer-letters`, and `app-workspace` **private**
    - Restricts table + Storage RLS to **`authenticated`** only
 2. Enable **Authentication → Providers → Email** (email/password).
@@ -30,7 +30,7 @@ Raw Excel files are not uploaded as the source of truth.
 If publishable/anon keys or tokens appeared in chat, screenshots, or a shared repo:
 
 1. Supabase → **Project Settings → API** → rotate the publishable / anon key (and service role if exposed).
-2. Update `payroll-funding-planner/.env.local` (never commit this file).
+2. Update `.env.local` (never commit this file).
 3. Redeploy Vercel/hosting with the new env vars.
 4. Revoke any leaked Vercel OIDC / personal tokens from the provider dashboard.
 

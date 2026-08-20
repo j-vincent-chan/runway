@@ -49,3 +49,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Sibling / legacy projects in this folder (not part of the Runway app)
+/lab-finance-copilot/

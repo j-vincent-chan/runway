@@ -1,4 +1,4 @@
--- Runway / payroll-funding-planner cloud persistence
+-- Runway cloud persistence
 -- Run this in the Supabase SQL Editor (Project → SQL → New query).
 
 -- Chartstring friendly names (aliases)
