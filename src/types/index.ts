@@ -12,22 +12,41 @@ export type CoverageStatus =
 export type CliffSeverity = "watch" | "atRisk" | "urgent";
 export type PayFrequency = "biweekly" | "monthly" | "semimonthly" | "weekly";
 
-/** Employees roster role / function */
-export type PersonnelType =
-  | "researchDevelopment"
-  | "projectManagementClinical"
-  | "dataManagement"
-  | "communityManagement";
+/**
+ * Personnel group id (built-in or user-defined).
+ * Legacy built-ins: researchDevelopment | projectManagementClinical | dataManagement | communityManagement
+ */
+export type PersonnelType = string;
 
-/** Accounts page funding source classification */
-export type AccountCategory =
-  | "startup"
-  | "projects"
-  | "endowment"
-  | "institutional"
-  | "largeGrants"
-  | "researchPlanReviews";
+/**
+ * Funding source type id (built-in or user-defined).
+ * Legacy built-ins: startup | projects | endowment | institutional | largeGrants | researchPlanReviews
+ */
+export type AccountCategory = string;
 
+/** User-editable personnel group definition (Settings + Supabase). */
+export interface PersonnelGroupDef {
+  id: string;
+  label: string;
+  shortLabel?: string;
+  pillClass: string;
+  dotClass: string;
+  chartColor: string;
+  sortOrder: number;
+}
+
+/** User-editable funding source type definition (Settings + Supabase). */
+export interface FundingSourceTypeDef {
+  id: string;
+  label: string;
+  pillClass: string;
+  dotClass: string;
+  chartColor: string;
+  sortOrder: number;
+}
+
+/** How employees are ordered on Timeline / Projections / Runway */
+export type EmployeeGroupSort = "lastName" | "personnelGroup";
 export interface ParseWarning {
   id: string;
   severity: WarningSeverity;
@@ -176,6 +195,18 @@ export interface PortfolioReportImport {
   rows: PortfolioBalanceRow[];
 }
 
+/** One uploaded Payroll Funding Report (merged like MyPortfolio files). */
+export interface PayrollReportImport {
+  id: string;
+  sourceFileName: string;
+  uploadedAt: string;
+  monthRange: { start: string; end: string };
+  employeeCount: number;
+  fundingSourceCount: number;
+  parseStatus: ParseStatus;
+  /** Full parse contribution so removals can re-fold remaining files */
+  snapshot: PayrollReportSnapshot;
+}
 export interface EmployeeOfferLetterMeta {
   fileName: string;
   mimeType: string;
