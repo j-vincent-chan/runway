@@ -1,8 +1,9 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CircleHelp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 
@@ -15,6 +16,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [signupNote, setSignupNote] = useState<string | null>(null);
+  const [localModeInfoOpen, setLocalModeInfoOpen] = useState(false);
+  const localModeInfoId = useId();
 
   useEffect(() => {
     if (!ready || !configured || !user) return;
@@ -128,9 +131,32 @@ export default function LoginPage() {
         >
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>
-        <Link href="/dashboard" className="block text-center text-sm text-slate-500 hover:underline">
-          Use local-mode only
-        </Link>
+        <div className="flex flex-col items-center gap-2">
+          <div className="flex items-center justify-center gap-1.5">
+            <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
+              Use local-mode only
+            </Link>
+            <button
+              type="button"
+              className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+              aria-label="About local-mode only"
+              aria-expanded={localModeInfoOpen}
+              aria-controls={localModeInfoId}
+              onClick={() => setLocalModeInfoOpen((open) => !open)}
+            >
+              <CircleHelp className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </div>
+          {localModeInfoOpen && (
+            <p
+              id={localModeInfoId}
+              className="max-w-xs rounded-lg bg-slate-50 px-3 py-2 text-center text-xs leading-relaxed text-slate-600"
+            >
+              Saved on this browser only (projections, aliases, titles, photo links).
+              Nothing goes to the cloud. Clearing this site’s data or cookies deletes it.
+            </p>
+          )}
+        </div>
       </form>
     </main>
   );
