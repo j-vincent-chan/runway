@@ -66,24 +66,30 @@ export type EmployeeSortGroup = {
   employees: { id: string; name: string }[];
 };
 
-/** Order employees by last name or by personnel group (with unassigned last). */
+/** Order employees by last name (personnel group filtering is separate). */
 export function sortEmployeesForPlanning<T extends { id: string; name: string }>(
   employees: T[],
   settings: AppSettings
 ): T[] {
-  const mode = settings.employeeGroupSort ?? "lastName";
-  if (mode !== "personnelGroup") {
-    return [...employees].sort(compareEmployeesByLastName);
-  }
-  const groups = getPersonnelGroups(settings);
-  const order = new Map(groups.map((g, i) => [g.id, i]));
-  return [...employees].sort((a, b) => {
-    const ga = getEmployeePersonnelType(settings, a.id);
-    const gb = getEmployeePersonnelType(settings, b.id);
-    const ia = ga != null && order.has(ga) ? order.get(ga)! : 9999;
-    const ib = gb != null && order.has(gb) ? order.get(gb)! : 9999;
-    if (ia !== ib) return ia - ib;
-    return compareEmployeesByLastName(a, b);
+  void settings;
+  return [...employees].sort(compareEmployeesByLastName);
+}
+
+/**
+ * When `personnelGroupFilter` is empty/undefined, returns all employees.
+ * Otherwise keeps employees whose group is in the selection (`unassigned` for none).
+ */
+export function filterEmployeesByPersonnelGroups<T extends { id: string }>(
+  employees: T[],
+  settings: AppSettings
+): T[] {
+  const filter = settings.personnelGroupFilter;
+  if (!filter || filter.length === 0) return employees;
+  const selected = new Set(filter);
+  return employees.filter((emp) => {
+    const type = getEmployeePersonnelType(settings, emp.id);
+    if (type == null || type === "") return selected.has("unassigned");
+    return selected.has(type);
   });
 }
 
@@ -92,7 +98,8 @@ export function groupEmployeesByPersonnelGroup<T extends { id: string; name: str
   settings: AppSettings
 ): EmployeeSortGroup[] {
   const sorted = sortEmployeesForPlanning(employees, settings);
-  if ((settings.employeeGroupSort ?? "lastName") !== "personnelGroup") {
+  const filter = settings.personnelGroupFilter;
+  if (!filter || filter.length === 0) {
     return [{ key: "all", label: "Alphabetical (last name)", employees: sorted }];
   }
   const groups = getPersonnelGroups(settings);
@@ -104,14 +111,18 @@ export function groupEmployeesByPersonnelGroup<T extends { id: string; name: str
     if (t && buckets.has(t)) buckets.get(t)!.push(emp);
     else buckets.get("unassigned")!.push(emp);
   }
+  const selected = new Set(filter);
   const result: EmployeeSortGroup[] = [];
   for (const g of groups) {
+    if (!selected.has(g.id)) continue;
     const list = buckets.get(g.id) ?? [];
     if (list.length > 0) result.push({ key: g.id, label: g.label, employees: list });
   }
-  const unassigned = buckets.get("unassigned") ?? [];
-  if (unassigned.length > 0) {
-    result.push({ key: "unassigned", label: "Unassigned", employees: unassigned });
+  if (selected.has("unassigned")) {
+    const unassigned = buckets.get("unassigned") ?? [];
+    if (unassigned.length > 0) {
+      result.push({ key: "unassigned", label: "Unassigned", employees: unassigned });
+    }
   }
   return result;
 }

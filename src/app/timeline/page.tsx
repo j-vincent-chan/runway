@@ -5,7 +5,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
 import { KpiRow } from "@/components/timeline/KpiRow";
 import { TimelineGrid } from "@/components/timeline/TimelineGrid";
-import { AnalyticsPanel } from "@/components/timeline/AnalyticsPanel";
 
 export default function TimelinePage() {
   const { hasData, dataMigrated } = useApp();
@@ -32,7 +31,6 @@ export default function TimelinePage() {
             <KpiRow />
             <div className="flex min-w-0 items-start">
               <TimelineGrid />
-              <AnalyticsPanel />
             </div>
           </div>
         )}

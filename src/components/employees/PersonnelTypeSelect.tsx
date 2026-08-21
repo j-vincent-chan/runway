@@ -23,13 +23,13 @@ function PersonnelTypePill({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full px-2 py-0.5 text-left text-[10px] font-medium leading-snug",
+        "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left text-xs font-medium leading-snug",
         meta.pillClass,
         className
       )}
       title={meta.label}
     >
-      <span className={cn("h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
+      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
       {getPersonnelTypeDisplayLabel(type, settings)}
     </span>
   );
@@ -43,7 +43,7 @@ export function PersonnelTypeLegend() {
       <span className="font-medium text-slate-700">Personnel groups</span>
       {groups.map((t) => (
         <span key={t.id} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/10", t.dotClass)} aria-hidden />
+          <span className={cn("h-3 w-3 rounded-full ring-1 ring-black/10", t.dotClass)} aria-hidden />
           {t.label}
         </span>
       ))}
@@ -73,7 +73,7 @@ export function PersonnelTypeSelect({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative w-[10.5rem] max-w-full">
+    <div ref={ref} className="relative w-[12.5rem] max-w-full">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -97,7 +97,7 @@ export function PersonnelTypeSelect({
       </button>
       {open && (
         <div
-          className="absolute left-0 z-30 mt-1 w-[10.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 z-30 mt-1 w-[12.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           role="listbox"
         >
           {groups.map((t) => (

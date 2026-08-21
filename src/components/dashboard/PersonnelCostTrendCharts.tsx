@@ -176,19 +176,9 @@ function StackedTrendPanel({
                 />
                 <Tooltip content={<CostTooltip labelPrefix={labelPrefix} />} />
                 <Bar
-                  stackId="yearCost"
                   dataKey="actual"
                   name="YTD"
                   fill="#0c2340"
-                  maxBarSize={48}
-                />
-                <Bar
-                  stackId="yearCost"
-                  dataKey="projected"
-                  name="Projected"
-                  fill="#7dd3fc"
-                  stroke="#0ea5e9"
-                  strokeWidth={1}
                   maxBarSize={48}
                   radius={[4, 4, 0, 0]}
                 />
@@ -261,8 +251,6 @@ export function PersonnelCostTrendCharts({
     headcount: y.headcount,
   }));
 
-  const hasYearProjection = yearly.some((y) => y.projected > 0);
-
   const headcountDomain = useMemo(
     () => sharedHeadcountDomain(monthlyRows, yearlyRows),
     [monthlyRows, yearlyRows]
@@ -295,18 +283,9 @@ export function PersonnelCostTrendCharts({
             headcountDomain={headcountDomain}
             headcountTicks={headcountTicks}
           />
-          {hasYearProjection && (
-            <p className="mt-1.5 flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-sm bg-[#0c2340]" />
-                YTD actual
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <span className="h-2 w-2 rounded-sm border border-sky-500 bg-sky-300" />
-                Projected to Dec (avg of months to date)
-              </span>
-            </p>
-          )}
+          <p className="mt-1.5 text-[10px] text-slate-500">
+            Through the current month (no forward projection).
+          </p>
         </div>
       </div>
     </section>

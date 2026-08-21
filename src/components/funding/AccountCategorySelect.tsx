@@ -22,12 +22,12 @@ function CategoryPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium leading-tight",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium leading-tight",
         meta.pillClass,
         className
       )}
     >
-      <span className={cn("h-2 w-2 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
+      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
       {meta.label}
     </span>
   );
@@ -41,7 +41,7 @@ export function AccountCategoryLegend() {
       <span className="font-medium text-slate-700">Funding source</span>
       {types.map((c) => (
         <span key={c.id} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-2.5 w-2.5 rounded-full ring-1 ring-black/10", c.dotClass)} aria-hidden />
+          <span className={cn("h-3 w-3 rounded-full ring-1 ring-black/10", c.dotClass)} aria-hidden />
           {c.label}
         </span>
       ))}
@@ -71,7 +71,7 @@ export function AccountCategorySelect({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative min-w-[11.5rem]">
+    <div ref={ref} className="relative min-w-[13.5rem]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Upload, Info, PanelLeft, PanelLeftOpen, LogIn, LogOut } from "lucide-react";
+import { Info, PanelLeft, PanelLeftOpen, LogIn, LogOut } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { AlertsBell } from "@/components/alerts/AlertsBell";
@@ -14,7 +14,6 @@ export function Header({
   subtitle,
   ledgerTitle = false,
   showProductLabel = true,
-  showUploadButton = true,
   showImportMeta = true,
   topAction,
 }: {
@@ -23,8 +22,6 @@ export function Header({
   /** Large page title only (no Ledger wordmark — sidebar already shows brand). */
   ledgerTitle?: boolean;
   showProductLabel?: boolean;
-  /** Hide default Upload New Report (e.g. on Data Sources page). */
-  showUploadButton?: boolean;
   /** Hide file name / import time under title. */
   showImportMeta?: boolean;
   /** Optional primary header action (e.g. View Timeline). */
@@ -127,15 +124,6 @@ export function Header({
               className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
             >
               {topAction.label}
-            </Link>
-          )}
-          {showUploadButton && (
-            <Link
-              href="/upload"
-              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <Upload className="h-4 w-4" />
-              Upload New Report
             </Link>
           )}
         </div>

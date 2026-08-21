@@ -29,11 +29,11 @@ function CatalogRow({
     <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
       <span
         className={cn(
-          "inline-flex max-w-[70%] items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium",
+          "inline-flex max-w-[70%] items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
           pillClass
         )}
       >
-        <span className={cn("h-2 w-2 shrink-0 rounded-full", dotClass)} aria-hidden />
+        <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dotClass)} aria-hidden />
         {label}
       </span>
       <div className="flex shrink-0 gap-1">

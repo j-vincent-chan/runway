@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
 import { RunwayEmployeeSection } from "@/components/runway/RunwayEmployeeSection";
 import { buildSharedAccountBurnIndex, computeEmployeeRunway } from "@/lib/runway/calculate";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
+import { filterEmployeesByPersonnelGroups } from "@/lib/employees/personnelType";
 import { RunwayIndicatorLegend } from "@/components/runway/RunwayIndicatorBadge";
 import { RunwayEmployeeSort } from "@/components/runway/RunwayEmployeeSort";
+import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { countAllHiddenFunds } from "@/lib/funding/visibility";
 import {
   loadRunwayEmployeeSort,
@@ -30,6 +32,7 @@ export default function RunwayPage() {
     settings,
     mergedPortfolioBalances,
     portfolioImports,
+    updateSettings,
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
     clearRunwayBurnOverride,
@@ -42,11 +45,9 @@ export default function RunwayPage() {
   const [revealHiddenForEmployees, setRevealHiddenForEmployees] = useState<Set<string>>(
     () => new Set()
   );
-  const [employeeSort, setEmployeeSort] = useState<RunwayEmployeeSortKey>("runway");
-
-  useEffect(() => {
-    setEmployeeSort(loadRunwayEmployeeSort());
-  }, []);
+  const [employeeSort, setEmployeeSort] = useState<RunwayEmployeeSortKey>(() =>
+    loadRunwayEmployeeSort()
+  );
 
   const handleEmployeeSortChange = (key: RunwayEmployeeSortKey) => {
     setEmployeeSort(key);
@@ -68,7 +69,10 @@ export default function RunwayPage() {
 
   const summaries = useMemo(() => {
     if (!snapshot) return [];
-    const rows = filterEmployeesForPlanning(snapshot.employees, settings)
+    const rows = filterEmployeesByPersonnelGroups(
+      filterEmployeesForPlanning(snapshot.employees, settings),
+      settings
+    )
       .map((emp) =>
         computeEmployeeRunway(
           emp,
@@ -127,9 +131,9 @@ export default function RunwayPage() {
               ) : (
                 latestPortfolioAsOf && (
                   <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                    Net balances from MyPortfolio as of{" "}
+                    MyPortfolio balances as of{" "}
                     <span className="font-medium text-slate-800">{latestPortfolioAsOf}</span>
-                    {portfolioImports.length > 1 ? " (latest report run date)" : ""}.{" "}
+                    .{" "}
                     <Link href="/upload" className="font-medium underline hover:text-slate-900">
                       Upload a newer file
                     </Link>{" "}
@@ -137,15 +141,19 @@ export default function RunwayPage() {
                   </p>
                 )
               )}
-              <RunwayIndicatorLegend />
               <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                Active payroll accounts only. Runway uses combined monthly burn on shared accounts.
-                <span className="font-medium text-slate-700"> Shield</span> = external (not yours);
+                <span className="font-medium text-slate-700">Shield</span> = external (not yours);
                 add an optional fund end date to estimate balance and runway.
                 <span className="font-medium text-slate-700"> Eye</span> = hide from timeline and totals.
               </p>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex flex-wrap items-end gap-5">
+                  <PersonnelGroupFilter
+                    value={settings.personnelGroupFilter ?? []}
+                    onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
+                  />
+                  <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+                </div>
                 {totalHiddenFunds > 0 && (
                   <button
                     type="button"
@@ -202,6 +210,7 @@ export default function RunwayPage() {
                   />
                 );
               })}
+              <RunwayIndicatorLegend />
             </div>
           )}
         </div>

@@ -319,8 +319,13 @@ export interface AppSettings {
   employeePlanningScope?: Record<string, number>;
   /** Roster personnel group assignment (employee id → group id) */
   employeePersonnelTypes?: Record<string, PersonnelType>;
-  /** Timeline / Projections / Runway employee ordering */
+  /** @deprecated Prefer personnelGroupFilter — kept for older saved settings */
   employeeGroupSort?: EmployeeGroupSort;
+  /**
+   * Multi-select personnel group ids for Timeline / Projections / Runway.
+   * Empty or unset = show all. Use `"unassigned"` for people without a group.
+   */
+  personnelGroupFilter?: string[];
   /** Timeline month window (yyyy-MM); defaults to past 12 months when unset */
   timelineViewRange?: { start: string; end: string };
   /** Keys: `${employeeId}|${normalizedChartstring}` — manual balance override */
@@ -381,6 +386,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   employeePlanningScope: {},
   employeePersonnelTypes: {},
   employeeGroupSort: "lastName",
+  personnelGroupFilter: [],
   projectionHorizon: { preset: "12" },
   plannedFundingSources: [],
   projectionRules: [],

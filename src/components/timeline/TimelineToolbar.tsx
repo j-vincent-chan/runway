@@ -1,12 +1,11 @@
 "use client";
 
-import { Eye, EyeOff, RotateCcw, Save, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { TimelineRangeControls } from "@/components/timeline/TimelineRangeControls";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
-import { EmployeeGroupSortControl } from "@/components/employees/EmployeeGroupSortControl";
+import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import type { MonthRange } from "@/lib/timeline/range";
-import type { EmployeeGroupSort } from "@/types";
 
 function ToolbarSection({
   label,
@@ -69,75 +68,32 @@ function SegmentedOption({
   );
 }
 
-function LayerToggle({
-  active,
-  onClick,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-        active
-          ? "bg-teal-700 text-white shadow-sm"
-          : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
 export function TimelineToolbar({
   display,
   onDisplayChange,
-  showActuals,
-  onShowActualsChange,
-  showFuture,
-  onShowFutureChange,
-  futureMonthCount,
   viewRange,
   availableMonths,
   onRangeChange,
   totalHiddenFunds,
   showHiddenFunds,
   onToggleHiddenFunds,
-  onResetToImported,
-  onSaveScenario,
-  analyticsPanelHidden,
-  onToggleAnalyticsPanel,
   freezeHeader,
   onFreezeHeaderChange,
-  groupSort,
-  onGroupSortChange,
+  groupFilter,
+  onGroupFilterChange,
 }: {
   display: "percent" | "dollars" | "both";
   onDisplayChange: (d: "percent" | "dollars" | "both") => void;
-  showActuals: boolean;
-  onShowActualsChange: (v: boolean) => void;
-  showFuture: boolean;
-  onShowFutureChange: (v: boolean) => void;
-  futureMonthCount: number;
   viewRange: MonthRange;
   availableMonths: string[];
   onRangeChange: (range: MonthRange) => void;
   totalHiddenFunds: number;
   showHiddenFunds: boolean;
   onToggleHiddenFunds: () => void;
-  onResetToImported: () => void;
-  onSaveScenario: () => void;
-  analyticsPanelHidden: boolean;
-  onToggleAnalyticsPanel: () => void;
   freezeHeader: boolean;
   onFreezeHeaderChange: (v: boolean) => void;
-  groupSort: EmployeeGroupSort;
-  onGroupSortChange: (v: EmployeeGroupSort) => void;
+  groupFilter: string[];
+  onGroupFilterChange: (ids: string[]) => void;
 }) {
   return (
     <div className="shrink-0 border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
@@ -157,26 +113,7 @@ export function TimelineToolbar({
             </SegmentedGroup>
           </ToolbarSection>
 
-          <EmployeeGroupSortControl value={groupSort} onChange={onGroupSortChange} />
-
-          <ToolbarSection label="Layers">
-            <div className="flex flex-wrap gap-1.5">
-              <LayerToggle
-                active={showActuals}
-                onClick={() => onShowActualsChange(!showActuals)}
-                label="Actual payroll"
-              />
-              <LayerToggle
-                active={showFuture}
-                onClick={() => onShowFutureChange(!showFuture)}
-                label={
-                  futureMonthCount > 0
-                    ? `Imported future (through this month)`
-                    : "Imported future"
-                }
-              />
-            </div>
-          </ToolbarSection>
+          <PersonnelGroupFilter value={groupFilter} onChange={onGroupFilterChange} />
 
           <ToolbarSection label="Month range">
             <TimelineRangeControls
@@ -189,35 +126,6 @@ export function TimelineToolbar({
 
         <div className="flex flex-wrap items-center gap-2">
           <FreezeHeaderToggle frozen={freezeHeader} onChange={onFreezeHeaderChange} />
-          <button
-            type="button"
-            onClick={onToggleAnalyticsPanel}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            title={analyticsPanelHidden ? "Show insights panel" : "Hide insights panel"}
-          >
-            {analyticsPanelHidden ? (
-              <PanelRightOpen className="h-3.5 w-3.5" />
-            ) : (
-              <PanelRightClose className="h-3.5 w-3.5" />
-            )}
-            {analyticsPanelHidden ? "Show insights" : "Hide insights"}
-          </button>
-          <button
-            type="button"
-            onClick={onResetToImported}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset to imported
-          </button>
-          <button
-            type="button"
-            onClick={onSaveScenario}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-teal-800"
-          >
-            <Save className="h-3.5 w-3.5" />
-            Save scenario
-          </button>
         </div>
       </div>
 

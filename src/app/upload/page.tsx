@@ -40,7 +40,6 @@ export default function DataSourcesPage() {
         ledgerTitle
         title="Data Sources"
         subtitle="Manage the reports that power Runway."
-        showUploadButton={false}
         showImportMeta={false}
         topAction={
           hasPayroll ? { label: "View Timeline", href: "/timeline" } : undefined

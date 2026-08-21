@@ -26,6 +26,7 @@ import type {
   PersonnelType,
 } from "@/types";
 import { formatMonthDisplay } from "@/lib/utils/parse";
+import { format } from "date-fns";
 
 export type FundingChartKey = string;
 
@@ -101,7 +102,9 @@ export function buildPersonnelCostTrend(
 ): { monthly: PersonnelCostTrendPoint[]; yearly: YearlyCostPoint[]; planningMonth: string } {
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const employeeIds = employees.map((e) => e.id);
-  const months = getAllMonths(snapshot);
+  const todayYm = format(new Date(), "yyyy-MM");
+  /** Never chart calendar-future months — max out at the current month. */
+  const months = getAllMonths(snapshot).filter((m) => m <= todayYm);
   const planningMonth = getCurrentMonth(snapshot);
 
   const monthly = months.map((month) => ({
@@ -114,7 +117,6 @@ export function buildPersonnelCostTrend(
     headcount: planningHeadcountInMonth(employeeIds, month, snapshot.monthlyCosts, settings),
   }));
 
-  const currentYear = parseInt(planningMonth.split("-")[0], 10);
   const byYear = new Map<number, { actual: number; months: number; headcount: number }>();
   for (const { month, total, headcount } of monthly) {
     const year = parseInt(month.split("-")[0], 10);
@@ -128,17 +130,14 @@ export function buildPersonnelCostTrend(
   }
   const yearly = [...byYear.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([year, { actual, months, headcount }]) => {
-      const isCurrentYear = year === currentYear && months > 0 && months < 12;
-      const projected = isCurrentYear ? (actual / months) * (12 - months) : 0;
-      return {
-        year,
-        actual,
-        projected,
-        total: actual + projected,
-        headcount,
-      };
-    });
+    .map(([year, { actual, headcount }]) => ({
+      year,
+      actual,
+      /** No forward projection past the current month. */
+      projected: 0,
+      total: actual,
+      headcount,
+    }));
 
   return { monthly, yearly, planningMonth };
 }

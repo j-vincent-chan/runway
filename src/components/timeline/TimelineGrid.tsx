@@ -35,9 +35,12 @@ import { getTimelineFundingSources } from "@/lib/funding/employeeSources";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
 import { filterEmployeesForPlanning, getEmployeePhotoUrlFor } from "@/lib/employees/roster";
-import { sortEmployeesForPlanning } from "@/lib/employees/personnelType";
+import {
+  filterEmployeesByPersonnelGroups,
+  sortEmployeesForPlanning,
+} from "@/lib/employees/personnelType";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
-import type { AppSettings, EmployeeGroupSort } from "@/types";
+import type { AppSettings } from "@/types";
 
 /** Minimum month column width; columns grow equally to fill available space above this. */
 const MONTH_COL_MIN_WIDTH = 52;
@@ -158,8 +161,6 @@ export function TimelineGrid() {
     fundingSources,
     settings,
     updateAllocation,
-    resetToImported,
-    saveScenario,
     updateFundingSourceAlias,
     toggleHiddenEmployeeFund,
     setEmployeePlanningScope,
@@ -168,8 +169,6 @@ export function TimelineGrid() {
   } = useApp();
   const [display, setDisplay] = useState<"percent" | "dollars" | "both">("percent");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  const [showActuals, setShowActuals] = useState(true);
-  const [showFuture, setShowFuture] = useState(true);
   /** Reveal hidden fund rows in the grid without removing them from totals. */
   const [showHiddenFunds, setShowHiddenFunds] = useState(false);
   const [revealHiddenForEmployees, setRevealHiddenForEmployees] = useState<Set<string>>(
@@ -186,19 +185,19 @@ export function TimelineGrid() {
     const visibleFuture = new Set(timelineFutureMonths);
     const raw = getAllMonths(snapshot).filter((m) => {
       const fut = snapshot.futureMonths.includes(m);
-      if (fut) return showFuture && visibleFuture.has(m);
-      return showActuals;
+      if (fut) return visibleFuture.has(m);
+      return true;
     });
     return capMonthsToPresent(raw);
-  }, [snapshot, showActuals, showFuture, timelineFutureMonths]);
+  }, [snapshot, timelineFutureMonths]);
 
   const viewRange = useMemo(() => {
     if (!snapshot) return { start: "", end: "" };
     return resolveTimelineRange(availableMonths, settings.timelineViewRange, {
-      actualMonths: capMonthsToPresent(showActuals ? snapshot.actualMonths : []),
-      futureMonths: showFuture ? timelineFutureMonths : [],
+      actualMonths: capMonthsToPresent(snapshot.actualMonths),
+      futureMonths: timelineFutureMonths,
     });
-  }, [snapshot, availableMonths, settings.timelineViewRange, showActuals, showFuture, timelineFutureMonths]);
+  }, [snapshot, availableMonths, settings.timelineViewRange, timelineFutureMonths]);
 
   const months = useMemo(
     () => filterMonthsInRange(availableMonths, viewRange),
@@ -213,7 +212,13 @@ export function TimelineGrid() {
   const planningEmployees = useMemo(
     () =>
       snapshot
-        ? sortEmployeesForPlanning(filterEmployeesForPlanning(snapshot.employees, settings), settings)
+        ? sortEmployeesForPlanning(
+            filterEmployeesByPersonnelGroups(
+              filterEmployeesForPlanning(snapshot.employees, settings),
+              settings
+            ),
+            settings
+          )
         : [],
     [snapshot, settings]
   );
@@ -235,11 +240,6 @@ export function TimelineGrid() {
       <TimelineToolbar
         display={display}
         onDisplayChange={setDisplay}
-        showActuals={showActuals}
-        onShowActualsChange={setShowActuals}
-        showFuture={showFuture}
-        onShowFutureChange={setShowFuture}
-        futureMonthCount={timelineFutureMonths.length}
         viewRange={viewRange}
         availableMonths={availableMonths}
         onRangeChange={(timelineViewRange) => updateSettings({ timelineViewRange })}
@@ -249,18 +249,10 @@ export function TimelineGrid() {
           setShowHiddenFunds((v) => !v);
           if (showHiddenFunds) setRevealHiddenForEmployees(new Set());
         }}
-        onResetToImported={resetToImported}
-        onSaveScenario={() => saveScenario(`Plan ${new Date().toLocaleDateString()}`)}
-        analyticsPanelHidden={Boolean(settings.analyticsPanelHidden)}
-        onToggleAnalyticsPanel={() =>
-          updateSettings({ analyticsPanelHidden: !settings.analyticsPanelHidden })
-        }
         freezeHeader={settings.freezeGridHeader !== false}
         onFreezeHeaderChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
-        groupSort={settings.employeeGroupSort ?? "lastName"}
-        onGroupSortChange={(employeeGroupSort: EmployeeGroupSort) =>
-          updateSettings({ employeeGroupSort })
-        }
+        groupFilter={settings.personnelGroupFilter ?? []}
+        onGroupFilterChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
       />
 
       <FreezeableGrid freeze={settings.freezeGridHeader !== false}>

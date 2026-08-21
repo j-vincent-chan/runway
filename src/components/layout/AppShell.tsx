@@ -9,7 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { loading } = useApp();
   const { ready: authReady } = useAuth();
-  const bare = pathname === "/login";
+  const bare = pathname === "/login" || pathname === "/";
 
   if (!authReady || (loading && !bare)) {
     return (

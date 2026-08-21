@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -8,13 +8,18 @@ import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { configured, user, signInWithPassword, signUpWithPassword } = useAuth();
+  const { configured, ready, user, signInWithPassword, signUpWithPassword } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [signupNote, setSignupNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!ready || !configured || !user) return;
+    router.replace("/dashboard");
+  }, [ready, configured, user, router]);
 
   if (!configured) {
     return (
@@ -37,17 +42,9 @@ export default function LoginPage() {
 
   if (user) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md rounded-xl border bg-white p-6 text-center shadow-sm">
-          <p className="text-sm text-slate-600">Signed in as {user.email}</p>
-          <Link
-            href="/dashboard"
-            className="mt-4 inline-block rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
-          >
-            Go to dashboard
-          </Link>
-        </div>
-      </main>
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f8] text-slate-500">
+        Loading…
+      </div>
     );
   }
 

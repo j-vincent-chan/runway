@@ -5,8 +5,10 @@ import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
-import { sortEmployeesForPlanning } from "@/lib/employees/personnelType";
-import { EmployeeGroupSortControl } from "@/components/employees/EmployeeGroupSortControl";
+import {
+  filterEmployeesByPersonnelGroups,
+  sortEmployeesForPlanning,
+} from "@/lib/employees/personnelType";
 import { simulateProjections } from "@/lib/projections/simulate";
 import { formatMonthLabel } from "@/lib/projections/horizon";
 import { unmatchedPlannedSources, projectionSourceLabel } from "@/lib/projections/sources";
@@ -16,6 +18,7 @@ import { ByAccountView } from "@/components/projections/ByAccountView";
 import { RuleEditor } from "@/components/projections/RuleEditor";
 import { formatCurrency, formatPercent, generateId } from "@/lib/utils/parse";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
+import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import type {
   AppSettings,
@@ -46,7 +49,13 @@ export default function ProjectionsPage() {
   const employees = useMemo(
     () =>
       snapshot
-        ? sortEmployeesForPlanning(filterEmployeesForPlanning(snapshot.employees, settings), settings)
+        ? sortEmployeesForPlanning(
+            filterEmployeesByPersonnelGroups(
+              filterEmployeesForPlanning(snapshot.employees, settings),
+              settings
+            ),
+            settings
+          )
         : [],
     [snapshot, settings]
   );
@@ -206,12 +215,10 @@ export default function ProjectionsPage() {
                       ))}
                     </div>
                   </div>
-                  {tab === "person" && (
-                    <EmployeeGroupSortControl
-                      value={settings.employeeGroupSort ?? "lastName"}
-                      onChange={(employeeGroupSort) => updateSettings({ employeeGroupSort })}
-                    />
-                  )}
+                  <PersonnelGroupFilter
+                    value={settings.personnelGroupFilter ?? []}
+                    onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
+                  />
                   <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                       Display
