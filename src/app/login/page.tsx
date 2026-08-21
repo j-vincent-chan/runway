@@ -84,10 +84,6 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold text-[#0c2340]">
             {mode === "signin" ? "Sign in" : "Create account"}
           </h1>
-          <p className="mt-1 text-sm text-slate-600">
-            Cloud sync for payroll data requires sign-in. You can still use Runway
-            locally without an account.
-          </p>
         </div>
         <label className="block text-sm">
           Email
@@ -133,7 +129,7 @@ export default function LoginPage() {
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}
         </button>
         <Link href="/dashboard" className="block text-center text-sm text-slate-500 hover:underline">
-          Continue in local-only mode
+          Use local-mode only
         </Link>
       </form>
     </main>
