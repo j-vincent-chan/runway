@@ -73,7 +73,7 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
-      <div className="mb-8 text-white">
+      <div className="mb-8 origin-center scale-[1.2] text-white">
         <LedgerWordmark variant="sidebar" />
       </div>
       <form
