@@ -1,5 +1,6 @@
 import type {
   AppSettings,
+  NetPositionReportImport,
   PayrollReportImport,
   PayrollReportSnapshot,
   PortfolioReportImport,
@@ -27,6 +28,7 @@ export interface StoredAppState {
   settings: AppSettings;
   portfolioImports: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
+  netPositionImports?: NetPositionReportImport[];
   /** ISO timestamp of last local save — used to reconcile with Supabase */
   savedAt?: string;
 }
@@ -41,6 +43,7 @@ function emptyState(): StoredAppState {
     settings: ensureCatalogDefaults(DEFAULT_SETTINGS),
     portfolioImports: [],
     payrollImports: [],
+    netPositionImports: [],
   };
 }
 
@@ -53,6 +56,7 @@ function normalizeState(parsed: Partial<StoredAppState> | null | undefined): Sto
     settings: ensureCatalogDefaults({ ...DEFAULT_SETTINGS, ...parsed.settings }),
     portfolioImports: parsed.portfolioImports ?? [],
     payrollImports: parsed.payrollImports ?? [],
+    netPositionImports: parsed.netPositionImports ?? [],
     savedAt: parsed.savedAt,
   };
 }
@@ -71,7 +75,8 @@ export function hasPlanningData(state: StoredAppState): boolean {
     state.snapshot ||
       state.workingPlan ||
       (state.portfolioImports && state.portfolioImports.length > 0) ||
-      (state.payrollImports && state.payrollImports.length > 0)
+      (state.payrollImports && state.payrollImports.length > 0) ||
+      (state.netPositionImports && state.netPositionImports.length > 0)
   );
 }
 
@@ -286,6 +291,7 @@ function pickRichest(candidates: StoredAppState[]): StoredAppState | null {
       (state.snapshot?.employees?.length ?? 0) * 1000 +
       (state.payrollImports?.length ?? 0) * 10 +
       (state.portfolioImports?.length ?? 0) +
+      (state.netPositionImports?.length ?? 0) +
       (state.savedAt ? Date.parse(state.savedAt) / 1e13 : 0);
     if (score > bestScore) {
       bestScore = score;

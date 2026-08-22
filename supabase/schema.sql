@@ -44,6 +44,18 @@ create table if not exists public.funding_source_types (
   primary key (user_id, id)
 );
 
+create table if not exists public.account_groups (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  label text not null,
+  pill_class text not null,
+  dot_class text not null,
+  chart_color text not null,
+  sort_order int not null default 0,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 create table if not exists public.employee_roster_meta (
   user_id uuid not null references auth.users (id) on delete cascade,
   person_key text not null,
@@ -207,6 +219,7 @@ on conflict (id) do update set public = excluded.public;
 alter table public.funding_source_aliases enable row level security;
 alter table public.personnel_groups enable row level security;
 alter table public.funding_source_types enable row level security;
+alter table public.account_groups enable row level security;
 alter table public.employee_roster_meta enable row level security;
 alter table public.app_workspace enable row level security;
 
@@ -262,6 +275,24 @@ create policy "funding_source_types_update"
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 create policy "funding_source_types_delete"
   on public.funding_source_types for delete to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "account_groups_select" on public.account_groups;
+drop policy if exists "account_groups_upsert" on public.account_groups;
+drop policy if exists "account_groups_update" on public.account_groups;
+drop policy if exists "account_groups_delete" on public.account_groups;
+
+create policy "account_groups_select"
+  on public.account_groups for select to authenticated
+  using (user_id = auth.uid());
+create policy "account_groups_upsert"
+  on public.account_groups for insert to authenticated
+  with check (user_id = auth.uid());
+create policy "account_groups_update"
+  on public.account_groups for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+create policy "account_groups_delete"
+  on public.account_groups for delete to authenticated
   using (user_id = auth.uid());
 
 drop policy if exists "employee_roster_meta_select" on public.employee_roster_meta;

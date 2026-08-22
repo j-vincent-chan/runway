@@ -2,8 +2,12 @@
 
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
-import { formatCurrency, formatMonthDisplay } from "@/lib/utils/parse";
-import type { FundingMixSlice } from "@/lib/dashboard/metrics";
+import { formatCurrency } from "@/lib/utils/parse";
+import {
+  FUNDING_MIX_PERIOD_OPTIONS,
+  type FundingMixPeriod,
+  type FundingMixSlice,
+} from "@/lib/dashboard/metrics";
 import { cn } from "@/lib/utils/cn";
 
 type DonutSize = "hero" | "default" | "stacked";
@@ -113,11 +117,14 @@ export function FundingTypeDonutChart({
   subtitle,
   slices,
   size = "default",
+  valueSuffix = "total",
 }: {
   title: string;
   subtitle?: string;
   slices: FundingMixSlice[];
   size?: DonutSize;
+  /** Label after the dollar amount (e.g. "avg / mo"). */
+  valueSuffix?: string;
 }) {
   const config = SIZE_CONFIG[size];
   const total = slices.reduce((s, x) => s + x.value, 0);
@@ -185,7 +192,10 @@ export function FundingTypeDonutChart({
             <h3 className={cn("font-semibold leading-tight text-[#0c2340]", config.titleClass)}>
               {title}
             </h3>
-            <p className="mt-0.5 text-[10px] font-medium text-slate-600">{formatCurrency(total)}</p>
+            <p className="mt-0.5 text-[10px] font-medium text-slate-600">
+              {formatCurrency(total)}
+              {valueSuffix ? ` ${valueSuffix}` : ""}
+            </p>
             <DonutLegend slices={slices} total={total} variant="inline" />
           </div>
         </>
@@ -193,7 +203,10 @@ export function FundingTypeDonutChart({
         <>
           <h3 className={cn("font-semibold text-[#0c2340]", config.titleClass)}>{title}</h3>
           {subtitle && <p className="text-[10px] text-slate-500">{subtitle}</p>}
-          <p className="mt-1 text-xs font-medium text-slate-600">{formatCurrency(total)} total</p>
+          <p className="mt-1 text-xs font-medium text-slate-600">
+            {formatCurrency(total)}
+            {valueSuffix ? ` ${valueSuffix}` : ""}
+          </p>
           <div className="mt-2">
             <ChartResponsive height={config.chartHeightPx} className={config.chartClassName}>
               <PieChart>
@@ -228,36 +241,101 @@ export function FundingTypeDonutChart({
   );
 }
 
+function PeriodSelector({
+  value,
+  onChange,
+}: {
+  value: FundingMixPeriod;
+  onChange: (period: FundingMixPeriod) => void;
+}) {
+  return (
+    <div
+      className="inline-flex max-w-full flex-wrap rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80"
+      role="tablist"
+      aria-label="Funding mix period"
+    >
+      {FUNDING_MIX_PERIOD_OPTIONS.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            title={opt.label}
+            onClick={() => onChange(opt.id)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+              active
+                ? "bg-[#0c2340] text-white shadow-sm"
+                : "text-slate-600 hover:bg-white hover:text-slate-900"
+            )}
+          >
+            <span className="sm:hidden">{opt.shortLabel}</span>
+            <span className="hidden sm:inline">{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function FundingTypeDonutSection({
-  planningMonth,
+  period,
+  onPeriodChange,
+  periodCaption,
   totalSlices,
   byPersonnelType,
 }: {
-  planningMonth: string;
+  period: FundingMixPeriod;
+  onPeriodChange: (period: FundingMixPeriod) => void;
+  periodCaption: string;
   totalSlices: FundingMixSlice[];
   byPersonnelType: { label: string; slices: FundingMixSlice[]; total: number }[];
 }) {
-  const monthLabel = formatMonthDisplay(planningMonth);
+  const isAverage = period !== "current_month";
+  const valueSuffix = isAverage ? "avg / mo" : "total";
 
   return (
-    <section className="space-y-4">
-      <header>
-        <h2 className="text-base font-semibold text-[#0c2340]">Funding type mix</h2>
-        <p className="text-xs text-slate-500">
-          Share of personnel charges by funding source · {monthLabel} (latest actual month)
-        </p>
+    <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <header className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-[#0c2340]">Funding type mix</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Share of personnel charges by funding source
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-slate-600">{periodCaption}</p>
+        </div>
+        <PeriodSelector value={period} onChange={onPeriodChange} />
       </header>
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:items-start">
         <FundingTypeDonutChart
           title="All Personnel"
           subtitle="Total planning roster"
           slices={totalSlices}
           size="hero"
+          valueSuffix={valueSuffix}
         />
         <div className="flex min-w-0 flex-col gap-3">
-          {byPersonnelType.map((g) => (
-            <FundingTypeDonutChart key={g.label} title={g.label} slices={g.slices} size="stacked" />
-          ))}
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+            By personnel group
+          </p>
+          {byPersonnelType.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-6 text-center text-xs text-slate-500">
+              No group-level charges in this period.
+            </p>
+          ) : (
+            byPersonnelType.map((g) => (
+              <FundingTypeDonutChart
+                key={g.label}
+                title={g.label}
+                slices={g.slices}
+                size="stacked"
+                valueSuffix={valueSuffix}
+              />
+            ))
+          )}
         </div>
       </div>
     </section>

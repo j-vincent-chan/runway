@@ -7,7 +7,11 @@ const RULES = [
   },
   {
     icon: Layers,
-    text: "MyPortfolio files are used only for balance context.",
+    text: "MyPortfolio files are used only for balance context on Runway.",
+  },
+  {
+    icon: Layers,
+    text: "Net Position reports power Account Balances for PI-tracked accounts over time.",
   },
   {
     icon: Pencil,

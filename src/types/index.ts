@@ -45,6 +45,24 @@ export interface FundingSourceTypeDef {
   sortOrder: number;
 }
 
+/** User-editable account group for Account Balances (Settings + Supabase). */
+export interface AccountGroupDef {
+  id: string;
+  label: string;
+  pillClass: string;
+  dotClass: string;
+  chartColor: string;
+  sortOrder: number;
+}
+
+/** Sort options for the Account Balances list */
+export type AccountBalanceSortKey =
+  | "titleAsc"
+  | "balanceAsc"
+  | "balanceDesc"
+  | "withdrawalsDesc"
+  | "withdrawalsAsc";
+
 /** How employees are ordered on Timeline / Projections / Runway */
 export type EmployeeGroupSort = "lastName" | "personnelGroup";
 export interface ParseWarning {
@@ -195,6 +213,41 @@ export interface PortfolioReportImport {
   rows: PortfolioBalanceRow[];
 }
 
+/** One account row from a Net Position Report (PI-tracked accounts over time). */
+export interface NetPositionAccountRow {
+  /** fund-dept-project (codes only) */
+  accountKey: string;
+  busUnit: string;
+  fund: string;
+  fundDescription?: string;
+  dept: string;
+  deptDescription?: string;
+  project: string;
+  projectDescription?: string;
+  parentAwardId?: string;
+  parentAwardDescription?: string;
+  beginningBalance: number;
+  revenues: number;
+  expenses: number;
+  otherChanges: number;
+  netChange: number;
+  endingBalance: number;
+}
+
+export interface NetPositionReportImport {
+  id: string;
+  sourceFileName: string;
+  uploadedAt: string;
+  /** From Parameters → Report Run Date */
+  reportRunDate: string;
+  /** Period start (yyyy-MM) from Date Parameters when present */
+  periodStart?: string;
+  /** Period end (yyyy-MM) from Date Parameters — primary time axis for trends */
+  periodEnd?: string;
+  sheetName: string;
+  rows: NetPositionAccountRow[];
+}
+
 /** One uploaded Payroll Funding Report (merged like MyPortfolio files). */
 export interface PayrollReportImport {
   id: string;
@@ -303,6 +356,20 @@ export interface AppSettings {
   fundingSourceTypes?: FundingSourceTypeDef[];
   /** Catalog of personnel groups (Settings CRUD; synced to Supabase) */
   personnelGroups?: PersonnelGroupDef[];
+  /** Catalog of account groups for Account Balances (Settings CRUD; synced to Supabase) */
+  accountGroups?: AccountGroupDef[];
+  /**
+   * Account Balances / Net Position Report Accounts: fund-dept-project → account group id.
+   * Normalized lowercase keys (same space as hiddenAccountBalanceKeys).
+   */
+  accountGroupByBalanceKey?: Record<string, string>;
+  /** Account Balances list sort preference */
+  accountBalanceSort?: AccountBalanceSortKey;
+  /**
+   * Multi-select account group ids for Account Balances.
+   * Empty or unset = show all. Use `"unassigned"` for accounts without a group.
+   */
+  accountGroupFilter?: string[];
   /** Keys: `${employeeId}|${fundingSourceId}` — hide the fund row on timeline/runway only */
   hiddenEmployeeFunds?: string[];
   /** Keys: `${employeeId}|${fundingSourceId}` — not your account; skip runway for this fund */
@@ -345,6 +412,16 @@ export interface AppSettings {
   analyticsPanelHidden?: boolean;
   /** Keep year/month headers visible while scrolling Timeline and Projections grids */
   freezeGridHeader?: boolean;
+  /**
+   * Account Balances page: fund-dept-project keys to hide from the main list.
+   * Normalized lowercase (e.g. `7000-129074-7030722`).
+   */
+  hiddenAccountBalanceKeys?: string[];
+  /**
+   * Account Balances page: MyPortfolio accounts opted in for watching
+   * (fund-dept-project keys). Net Position accounts appear by default.
+   */
+  watchedPortfolioAccountKeys?: string[];
 }
 export interface WorkingPlan {
   snapshotId: string;
@@ -377,6 +454,10 @@ export const DEFAULT_SETTINGS: AppSettings = {
   fundingSourceCategories: {},
   fundingSourceTypes: [],
   personnelGroups: [],
+  accountGroups: [],
+  accountGroupByBalanceKey: {},
+  accountBalanceSort: "balanceDesc",
+  accountGroupFilter: [],
   hiddenEmployeeFunds: [],
   runwayAssumedOkFunds: [],
   runwayAssumedEndDates: {},
@@ -394,6 +475,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   sidebarHidden: false,
   analyticsPanelHidden: false,
   freezeGridHeader: true,
+  hiddenAccountBalanceKeys: [],
+  watchedPortfolioAccountKeys: [],
 };
 
 /** Soft bar fills — pair with dark text in timeline cells */

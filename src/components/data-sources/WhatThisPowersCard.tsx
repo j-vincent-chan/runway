@@ -2,30 +2,44 @@
 
 import { Check } from "lucide-react";
 
-const ITEMS: { label: string; requiresPayroll?: boolean; requiresPortfolio?: boolean }[] = [
+const ITEMS: {
+  label: string;
+  requiresPayroll?: boolean;
+  requiresPortfolio?: boolean;
+  requiresNetPosition?: boolean;
+  /** Account Balances works with Net Position and/or MyPortfolio */
+  requiresAccountBalances?: boolean;
+}[] = [
   { label: "Timeline", requiresPayroll: true },
   { label: "Employees", requiresPayroll: true },
-  { label: "Accounts", requiresPayroll: true },
+  { label: "MyPortfolio Accounts", requiresPayroll: true },
   { label: "Gaps & Alerts", requiresPayroll: true },
   { label: "Salary + benefits calculations", requiresPayroll: true },
   { label: "Runway context", requiresPortfolio: true },
+  { label: "Account Balances", requiresAccountBalances: true },
 ];
 
 export function WhatThisPowersCard({
   hasPayroll,
   hasPortfolio,
+  hasNetPosition = false,
 }: {
   hasPayroll: boolean;
   hasPortfolio: boolean;
+  hasNetPosition?: boolean;
 }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
       <h3 className="text-sm font-semibold text-[#0c2340]">What This Powers</h3>
       <ul className="mt-3 space-y-2">
         {ITEMS.map((item) => {
-          const active = item.requiresPortfolio
-            ? hasPortfolio
-            : Boolean(item.requiresPayroll && hasPayroll);
+          const active = item.requiresAccountBalances
+            ? hasNetPosition || hasPortfolio
+            : item.requiresNetPosition
+              ? hasNetPosition
+              : item.requiresPortfolio
+                ? hasPortfolio
+                : Boolean(item.requiresPayroll && hasPayroll);
           return (
             <li key={item.label} className="flex items-center gap-2 text-sm">
               <span

@@ -1,4 +1,4 @@
-import type { PortfolioReportImport, PayrollReportSnapshot } from "@/types";
+import type { PortfolioReportImport, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
 import { formatMonthDisplay } from "@/lib/utils/parse";
 
 export function formatMonthRange(snapshot: PayrollReportSnapshot): string {
@@ -19,6 +19,22 @@ export function portfolioDisplayName(fileName: string): string {
 export function getLatestPortfolioImportId(imports: PortfolioReportImport[]): string | null {
   if (imports.length === 0) return null;
   const sorted = [...imports].sort((a, b) => {
+    const byRun = b.reportRunDate.localeCompare(a.reportRunDate);
+    if (byRun !== 0) return byRun;
+    return b.uploadedAt.localeCompare(a.uploadedAt);
+  });
+  return sorted[0]?.id ?? null;
+}
+
+export function getLatestNetPositionImportId(
+  imports: NetPositionReportImport[]
+): string | null {
+  if (imports.length === 0) return null;
+  const sorted = [...imports].sort((a, b) => {
+    const aKey = a.periodEnd ?? a.reportRunDate;
+    const bKey = b.periodEnd ?? b.reportRunDate;
+    const byPeriod = bKey.localeCompare(aKey);
+    if (byPeriod !== 0) return byPeriod;
     const byRun = b.reportRunDate.localeCompare(a.reportRunDate);
     if (byRun !== 0) return byRun;
     return b.uploadedAt.localeCompare(a.uploadedAt);

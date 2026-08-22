@@ -4,6 +4,7 @@ import { useApp } from "@/context/AppContext";
 import { ActiveDatasetBanner } from "@/components/data-sources/ActiveDatasetBanner";
 import { PayrollReportCard } from "@/components/data-sources/PayrollReportCard";
 import { PortfolioFilesCard } from "@/components/data-sources/PortfolioFilesCard";
+import { NetPositionFilesCard } from "@/components/data-sources/NetPositionFilesCard";
 import { ImportHealthCard } from "@/components/data-sources/ImportHealthCard";
 import { WhatThisPowersCard } from "@/components/data-sources/WhatThisPowersCard";
 import { DataRulesCard } from "@/components/data-sources/DataRulesCard";
@@ -16,17 +17,22 @@ export default function DataSourcesPage() {
     pendingPreview,
     portfolioImports,
     payrollImports,
+    netPositionImports,
     clearAll,
   } = useApp();
 
   const hasPayroll = !!snapshot && snapshot.parseStatus !== "failed";
   const hasStoredData =
-    !!snapshot || !!pendingPreview || portfolioImports.length > 0 || payrollImports.length > 0;
+    !!snapshot ||
+    !!pendingPreview ||
+    portfolioImports.length > 0 ||
+    payrollImports.length > 0 ||
+    netPositionImports.length > 0;
 
   const handleClearAll = () => {
     if (
       !confirm(
-        "Clear all data from this browser?\n\nThis removes imported payroll and MyPortfolio files, timeline edits, scenarios, hidden funds, and planning scope. Account aliases and funding sources are kept."
+        "Clear all data from this browser?\n\nThis removes imported payroll data, timeline edits, scenarios, hidden funds, and planning scope. MyPortfolio files, Net Position reports, account aliases, and funding sources are kept."
       )
     ) {
       return;
@@ -53,18 +59,21 @@ export default function DataSourcesPage() {
             <div className="space-y-6">
               <PayrollReportCard />
               <PortfolioFilesCard />
+              <NetPositionFilesCard />
             </div>
 
             <aside className="space-y-4">
               <ImportHealthCard
                 snapshot={snapshot}
                 portfolioImports={portfolioImports}
+                netPositionImports={netPositionImports}
                 payrollImportCount={payrollImports.length}
                 pendingWarningCount={pendingPreview?.warnings.length ?? 0}
               />
               <WhatThisPowersCard
                 hasPayroll={hasPayroll}
                 hasPortfolio={portfolioImports.length > 0}
+                hasNetPosition={netPositionImports.length > 0}
               />
               <DataRulesCard />
               {hasStoredData && <DangerZone onClearAll={handleClearAll} />}

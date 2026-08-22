@@ -8,6 +8,10 @@ export interface MergedPortfolioBalance {
   sourceFileName: string;
   /** MyPortfolio "Project Nickname/Title" when present */
   projectTitle?: string;
+  fund?: string;
+  dept?: string;
+  project?: string;
+  activity?: string;
 }
 
 /**
@@ -35,6 +39,10 @@ export function mergePortfolioBalances(
         reportRunDate: imp.reportRunDate,
         sourceFileName: imp.sourceFileName,
         projectTitle: title || undefined,
+        fund: row.fund,
+        dept: row.dept,
+        project: row.project,
+        activity: row.activity,
       });
     }
   }

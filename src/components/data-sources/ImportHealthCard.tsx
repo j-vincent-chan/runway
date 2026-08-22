@@ -1,7 +1,11 @@
 "use client";
 
 import { Circle } from "lucide-react";
-import type { PayrollReportSnapshot, PortfolioReportImport } from "@/types";
+import type {
+  NetPositionReportImport,
+  PayrollReportSnapshot,
+  PortfolioReportImport,
+} from "@/types";
 import {
   countParseWarnings,
   dataFreshnessLabel,
@@ -10,11 +14,13 @@ import {
 export function ImportHealthCard({
   snapshot,
   portfolioImports,
+  netPositionImports = [],
   payrollImportCount = 0,
   pendingWarningCount = 0,
 }: {
   snapshot: PayrollReportSnapshot | null;
   portfolioImports: PortfolioReportImport[];
+  netPositionImports?: NetPositionReportImport[];
   payrollImportCount?: number;
   pendingWarningCount?: number;
 }) {
@@ -24,6 +30,15 @@ export function ImportHealthCard({
   const freshness = snapshot
     ? dataFreshnessLabel(snapshot.uploadedAt)
     : { label: "No payroll data", tone: "neutral" as const };
+
+  const lastImportAt = (() => {
+    const times: string[] = [];
+    if (snapshot) times.push(snapshot.uploadedAt);
+    for (const imp of portfolioImports) times.push(imp.uploadedAt);
+    for (const imp of netPositionImports) times.push(imp.uploadedAt);
+    if (times.length === 0) return null;
+    return times.sort((a, b) => b.localeCompare(a))[0]!;
+  })();
 
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -48,6 +63,16 @@ export function ImportHealthCard({
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">
+          <span className="text-slate-600">Net Position reports</span>
+          <span className="font-medium text-[#0c2340]">
+            {netPositionImports.length === 0
+              ? "None"
+              : `${netPositionImports.length} file${
+                  netPositionImports.length === 1 ? "" : "s"
+                }`}
+          </span>
+        </li>
+        <li className="flex items-center justify-between gap-2">
           <span className="text-slate-600">Parse warnings</span>
           <span className={warnings > 0 ? "font-medium text-amber-700" : "font-medium text-[#0c2340]"}>
             {warnings}
@@ -56,15 +81,7 @@ export function ImportHealthCard({
         <li className="flex items-center justify-between gap-2">
           <span className="text-slate-600">Last import</span>
           <span className="text-right text-xs font-medium text-slate-700">
-            {snapshot
-              ? new Date(snapshot.uploadedAt).toLocaleString()
-              : portfolioImports.length > 0
-                ? new Date(
-                    [...portfolioImports].sort((a, b) =>
-                      b.uploadedAt.localeCompare(a.uploadedAt)
-                    )[0]!.uploadedAt
-                  ).toLocaleString()
-                : "—"}
+            {lastImportAt ? new Date(lastImportAt).toLocaleString() : "—"}
           </span>
         </li>
         <li className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">

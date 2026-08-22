@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AccountCategory,
+  AccountGroupDef,
   PersonnelType,
   AppSettings,
   FundingSourceTypeDef,
@@ -14,6 +15,7 @@ import type {
   PayrollReportSnapshot,
   PersonnelGroupDef,
   PortfolioReportImport,
+  NetPositionReportImport,
   Scenario,
   WorkingPlan,
 } from "@/types";
@@ -37,6 +39,7 @@ import {
 } from "@/lib/import/foldPayrollImports";
 import { migrateSnapshotIfNeeded } from "@/lib/import/migrateSnapshot";
 import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
+import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
 import { findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
 import {
@@ -83,7 +86,10 @@ import {
   deletePersonnelGroupRemote,
   upsertFundingSourceType,
   deleteFundingSourceTypeRemote,
+  upsertAccountGroup,
+  deleteAccountGroupRemote,
 } from "@/lib/supabase/catalog";
+import { normalizeAccountBalanceKey } from "@/lib/net-position/accountBalancesView";
 import {
   claimLegacyCloudWorkspace,
   fetchCloudWorkspace,
@@ -154,15 +160,21 @@ interface AppContextValue {
   portfolioTitlesByChartstring: Map<string, string>;
   portfolioImports: PortfolioReportImport[];
   payrollImports: PayrollReportImport[];
+  netPositionImports: NetPositionReportImport[];
   mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
   parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
   importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removePortfolioImport: (id: string) => void;
+  importNetPositionFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  removeNetPositionImport: (id: string) => void;
   removePayrollImport: (id: string) => void;
   upsertPersonnelGroupDef: (group: PersonnelGroupDef) => void;
   deletePersonnelGroupDef: (id: string) => void;
   upsertFundingSourceTypeDef: (type: FundingSourceTypeDef) => void;
   deleteFundingSourceTypeDef: (id: string) => void;
+  upsertAccountGroupDef: (group: AccountGroupDef) => void;
+  deleteAccountGroupDef: (id: string) => void;
+  setAccountGroupForBalanceKey: (accountKey: string, groupId: string | null) => void;
   setRunwayBalanceOverride: (
     employeeId: string,
     chartstring: string,
@@ -195,6 +207,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [dataMigrated, setDataMigrated] = useState(false);
   const [portfolioImports, setPortfolioImports] = useState<PortfolioReportImport[]>([]);
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
+  const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
@@ -211,6 +224,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
       setPortfolioImports(s.portfolioImports ?? []);
+      setNetPositionImports(s.netPositionImports ?? []);
       let normalizedAliases = s.snapshot
         ? migrateAliasKeys(s.settings.fundingSourceAliases, s.snapshot.fundingSources)
         : { ...s.settings.fundingSourceAliases };
@@ -333,6 +347,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       if (cancelled) return;
       setPortfolioImports(workspace.portfolioImports ?? []);
+      setNetPositionImports(workspace.netPositionImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
       setSnapshot(snap);
       setWorkingPlan(plan);
@@ -351,7 +366,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return;
     const savedAt = new Date().toISOString();
-    const state = { snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, savedAt };
+    const state = {
+      snapshot,
+      workingPlan,
+      scenarios,
+      settings,
+      portfolioImports,
+      payrollImports,
+      netPositionImports,
+      savedAt,
+    };
     void saveState(state, userIdRef.current);
     if (!cloudSyncRef.current) return;
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
@@ -362,7 +386,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
     };
-  }, [snapshot, workingPlan, scenarios, settings, portfolioImports, payrollImports, loading, cloudSyncEnabled, userId]);
+  }, [
+    snapshot,
+    workingPlan,
+    scenarios,
+    settings,
+    portfolioImports,
+    payrollImports,
+    netPositionImports,
+    loading,
+    cloudSyncEnabled,
+    userId,
+  ]);
 
   const mergedPortfolioBalances = useMemo(
     () => mergePortfolioBalances(portfolioImports),
@@ -1021,6 +1056,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPortfolioImports((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const importNetPositionFiles = useCallback(async (files: File[]) => {
+    const warnings: ParseWarning[] = [];
+    const imports: NetPositionReportImport[] = [];
+
+    for (const file of files) {
+      try {
+        const result = await parseNetPositionFile(file);
+        imports.push(result.import);
+        warnings.push(...result.warnings);
+      } catch (err) {
+        warnings.push({
+          id: generateId(),
+          severity: "error",
+          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+        });
+      }
+    }
+
+    if (imports.length > 0) {
+      setNetPositionImports((prev) => [...prev, ...imports]);
+    }
+
+    return { warnings };
+  }, []);
+
+  const removeNetPositionImport = useCallback((id: string) => {
+    setNetPositionImports((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const removePayrollImport = useCallback(
     (id: string) => {
       const remaining = payrollImports.filter((p) => p.id !== id);
@@ -1087,6 +1151,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
     if (cloudSyncRef.current) void deleteFundingSourceTypeRemote(id);
   }, []);
+
+  const upsertAccountGroupDef = useCallback((group: AccountGroupDef) => {
+    setSettings((prev) => {
+      const groups = [...(prev.accountGroups ?? [])];
+      const idx = groups.findIndex((g) => g.id === group.id);
+      if (idx >= 0) groups[idx] = group;
+      else groups.push(group);
+      return { ...prev, accountGroups: groups };
+    });
+    if (cloudSyncRef.current) void upsertAccountGroup(group);
+  }, []);
+
+  const deleteAccountGroupDef = useCallback((id: string) => {
+    setSettings((prev) => {
+      const groups = (prev.accountGroups ?? []).filter((g) => g.id !== id);
+      const accountGroupByBalanceKey = { ...(prev.accountGroupByBalanceKey ?? {}) };
+      for (const [key, groupId] of Object.entries(accountGroupByBalanceKey)) {
+        if (groupId === id) delete accountGroupByBalanceKey[key];
+      }
+      const accountGroupFilter = (prev.accountGroupFilter ?? []).filter((g) => g !== id);
+      return { ...prev, accountGroups: groups, accountGroupByBalanceKey, accountGroupFilter };
+    });
+    if (cloudSyncRef.current) void deleteAccountGroupRemote(id);
+  }, []);
+
+  const setAccountGroupForBalanceKey = useCallback(
+    (accountKey: string, groupId: string | null) => {
+      const key = normalizeAccountBalanceKey(accountKey);
+      setSettings((prev) => {
+        const map = { ...(prev.accountGroupByBalanceKey ?? {}) };
+        if (groupId === null) delete map[key];
+        else map[key] = groupId;
+        return { ...prev, accountGroupByBalanceKey: map };
+      });
+    },
+    []
+  );
 
   const setRunwayBalanceOverride = useCallback(
     (employeeId: string, chartstring: string, balance: number | null) => {
@@ -1168,6 +1269,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         projectionIgnoreRosterEndDates: prev.projectionIgnoreRosterEndDates,
         personnelGroups: prev.personnelGroups,
         fundingSourceTypes: prev.fundingSourceTypes,
+        accountGroups: prev.accountGroups,
+        accountGroupByBalanceKey: prev.accountGroupByBalanceKey,
+        hiddenAccountBalanceKeys: prev.hiddenAccountBalanceKeys,
+        watchedPortfolioAccountKeys: prev.watchedPortfolioAccountKeys,
       };
       void saveState(
         {
@@ -1177,6 +1282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           settings: keptSettings,
           portfolioImports,
           payrollImports: [],
+          netPositionImports,
         },
         userIdRef.current
       );
@@ -1191,7 +1297,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
     setDataMigrated(false);
-  }, [portfolioImports]);
+  }, [portfolioImports, netPositionImports]);
 
   const value: AppContextValue = {
     snapshot,
@@ -1238,15 +1344,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     portfolioTitlesByChartstring,
     portfolioImports,
     payrollImports,
+    netPositionImports,
     mergedPortfolioBalances,
     parsePortfolioFile,
     importPortfolioFiles,
     removePortfolioImport,
+    importNetPositionFiles,
+    removeNetPositionImport,
     removePayrollImport,
     upsertPersonnelGroupDef,
     deletePersonnelGroupDef,
     upsertFundingSourceTypeDef,
     deleteFundingSourceTypeDef,
+    upsertAccountGroupDef,
+    deleteAccountGroupDef,
+    setAccountGroupForBalanceKey,
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
     clearRunwayBurnOverride,

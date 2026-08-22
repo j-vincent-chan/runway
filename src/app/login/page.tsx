@@ -152,8 +152,9 @@ export default function LoginPage() {
               id={localModeInfoId}
               className="max-w-xs rounded-lg bg-slate-50 px-3 py-2 text-center text-xs leading-relaxed text-slate-600"
             >
-              Saved on this browser only (projections, aliases, titles, photo links).
-              Nothing goes to the cloud. Clearing this site’s data or cookies deletes it.
+              While in local-mode, your data is only stored in your browser and never
+              uploaded to the cloud. Clearing your browser data will permanently delete
+              it.
             </p>
           )}
         </div>

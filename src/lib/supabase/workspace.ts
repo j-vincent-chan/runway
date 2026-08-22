@@ -2,6 +2,7 @@ import type { StoredAppState } from "@/lib/storage/localStorage";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
   AppSettings,
+  NetPositionReportImport,
   PayrollReportImport,
   PayrollReportSnapshot,
   PortfolioReportImport,
@@ -33,6 +34,7 @@ export type CloudWorkspacePayload = {
   settings: AppSettings;
   portfolioImports: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
+  netPositionImports?: NetPositionReportImport[];
 };
 
 export function workspaceHasPlanningData(state: {
@@ -40,12 +42,14 @@ export function workspaceHasPlanningData(state: {
   workingPlan?: WorkingPlan | null;
   portfolioImports?: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
+  netPositionImports?: NetPositionReportImport[];
 }): boolean {
   return Boolean(
     state.snapshot ||
       state.workingPlan ||
       (state.portfolioImports && state.portfolioImports.length > 0) ||
-      (state.payrollImports && state.payrollImports.length > 0)
+      (state.payrollImports && state.payrollImports.length > 0) ||
+      (state.netPositionImports && state.netPositionImports.length > 0)
   );
 }
 
@@ -62,6 +66,7 @@ export function toCloudWorkspacePayload(
     settings: state.settings,
     portfolioImports: state.portfolioImports ?? [],
     payrollImports: ensurePayrollImports(state.snapshot, state.payrollImports),
+    netPositionImports: state.netPositionImports ?? [],
   };
 }
 
@@ -76,6 +81,7 @@ export function cloudWorkspaceToStored(
     settings: ensureCatalogDefaults({ ...DEFAULT_SETTINGS, ...cloud.settings }),
     portfolioImports: cloud.portfolioImports ?? [],
     payrollImports: ensurePayrollImports(snapshot, cloud.payrollImports),
+    netPositionImports: cloud.netPositionImports ?? [],
     savedAt: cloud.updatedAt,
   };
 }
@@ -119,7 +125,8 @@ export function coerceCloudWorkspacePayload(
     "workingPlan" in raw ||
     "settings" in raw ||
     "portfolioImports" in raw ||
-    "payrollImports" in raw;
+    "payrollImports" in raw ||
+    "netPositionImports" in raw;
   if (!looksLikeWorkspace) return null;
 
   const stored: StoredAppState = {
@@ -132,6 +139,8 @@ export function coerceCloudWorkspacePayload(
     }),
     portfolioImports: (raw.portfolioImports as PortfolioReportImport[] | undefined) ?? [],
     payrollImports: raw.payrollImports as PayrollReportImport[] | undefined,
+    netPositionImports:
+      (raw.netPositionImports as NetPositionReportImport[] | undefined) ?? [],
     savedAt: raw.savedAt ?? raw.updatedAt,
   };
 
