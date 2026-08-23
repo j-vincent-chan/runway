@@ -14,6 +14,7 @@ import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { KeyChangesSection } from "@/components/dashboard/KeyChangesSection";
 import { VerdictStatement } from "@/components/dashboard/VerdictStatement";
+import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
@@ -128,6 +129,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   return (
     <div className="space-y-8">
       <VerdictStatement verdict={verdict} overview={overview} />
+      <AnchorStats overview={overview} />
       <KeyChangesSection insights={insights} />
       <PersonnelCostTrendCharts monthly={trend.monthly} yearly={trend.yearly} />
       <PersonnelByGroupSection
