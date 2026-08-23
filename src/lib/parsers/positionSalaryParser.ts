@@ -1,6 +1,7 @@
 import type {
   ParseWarning,
   PayFrequency,
+  PositionSalaryPerson,
   PositionSalaryPosition,
   PositionSalaryReportImport,
 } from "@/types";
