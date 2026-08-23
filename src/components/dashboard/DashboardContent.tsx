@@ -7,12 +7,10 @@ import {
   buildPersonnelCostTrend,
   type FundingMixPeriod,
 } from "@/lib/dashboard/metrics";
-import { buildDashboardInsights } from "@/lib/dashboard/insights";
 import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
-import { KeyChangesSection } from "@/components/dashboard/KeyChangesSection";
 import { VerdictStatement } from "@/components/dashboard/VerdictStatement";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
@@ -54,20 +52,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       mergedPortfolioBalances
     );
   }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
-
-  const insights = useMemo(() => {
-    if (!snapshot || !trend || !runway) return [];
-    return buildDashboardInsights({
-      snapshot,
-      fundingSources,
-      settings,
-      monthly: trend.monthly,
-      groupBreakdown: trend.groupBreakdown,
-      planningMonth: trend.planningMonth,
-      runwayMonthsByEmployee: runway.monthsByEmployee,
-      limitingAccountByEmployee: runway.limitingAccountByEmployee,
-    });
-  }, [snapshot, fundingSources, settings, trend, runway]);
 
   const accountItems = useMemo(
     () =>
@@ -138,8 +122,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
           <NeedsAttention queue={attentionQueue} scopeMonths={horizonMonths} />
         </div>
       </div>
-      <KeyChangesSection insights={insights} />
-      <PersonnelCostTrendCharts monthly={trend.monthly} yearly={trend.yearly} />
+      <PersonnelCostTrendCharts monthly={trend.monthly} />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}
         planningMonth={trend.planningMonth}
