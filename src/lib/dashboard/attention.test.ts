@@ -41,12 +41,14 @@ const settings: AppSettings = {
 function runwayContext(
   monthsByEmployee: [string, number | null][],
   accounts: RunwayContext["accounts"] = [],
-  limitingAccountByEmployee: [string, string][] = []
+  limitingAccountByEmployee: [string, { name: string; chartRoot: string }][] = [],
+  accountContributors: [string, string[]][] = []
 ): RunwayContext {
   return {
     monthsByEmployee: new Map(monthsByEmployee),
     limitingAccountByEmployee: new Map(limitingAccountByEmployee),
     accounts,
+    accountContributors: new Map(accountContributors.map(([root, ids]) => [root, new Set(ids)])),
   };
 }
 
@@ -67,7 +69,7 @@ describe("buildAttentionQueue", () => {
           ["e2", 5.1],
         ],
         [{ chartRoot: "5R01-118440", name: "5R01-118440", months: -1, balance: -8110 }],
-        [["e1", "R01 Chen"]]
+        [["e1", { name: "R01 Chen", chartRoot: "r01-chen-root" }]]
       ),
     });
 
@@ -82,6 +84,71 @@ describe("buildAttentionQueue", () => {
     expect(queue.rows[1]?.context).toBe("Research development");
     expect(queue.rows[1]?.actionLabel).toBe("Reassign");
     expect(queue.rows[2]?.detail).toBe("funded through January 2027");
+  });
+
+  it("suppresses a solo-contributor account row already named by its person's row", () => {
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "Xochitl Vargas" }]),
+      fundingSources: [],
+      settings,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext(
+        [["e1", -1]],
+        [{ chartRoot: "7000-142062-7032261", name: "ImmunoDiverse", months: -1, balance: -6809 }],
+        [["e1", { name: "ImmunoDiverse", chartRoot: "7000-142062-7032261" }]],
+        [["7000-142062-7032261", ["e1"]]]
+      ),
+    });
+
+    // Only Xochitl's row appears — the account row would restate the exact
+    // same fact (personDetail already names the account in her detail).
+    expect(queue.rows).toHaveLength(1);
+    expect(queue.rows[0]?.entity).toBe("Xochitl Vargas");
+    expect(queue.rows[0]?.detail).toBe("already short · ImmunoDiverse");
+    expect(queue.totalCount).toBe(1);
+  });
+
+  it("keeps a shared account's own row even when one contributor also has a row", () => {
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([
+        { id: "e1", name: "M. Chen" },
+        { id: "e2", name: "R. Okafor" },
+      ]),
+      fundingSources: [],
+      settings,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext(
+        [["e1", 2]],
+        [{ chartRoot: "shared-fund", name: "Shared Fund", months: 2, balance: 1000 }],
+        [["e1", { name: "Shared Fund", chartRoot: "shared-fund" }]],
+        [["shared-fund", ["e1", "e2"]]]
+      ),
+    });
+
+    // Two contributors — the account can't be attributed to just one row.
+    expect(queue.rows.map((r) => r.entity).sort()).toEqual(["M. Chen", "Shared Fund"]);
+  });
+
+  it("keeps a solo account row when its contributor has no row of their own", () => {
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "M. Chen" }]),
+      fundingSources: [],
+      settings,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext(
+        // e1's blended runway (across all their accounts) isn't severe enough
+        // for their own row, even though this one account is.
+        [["e1", 20]],
+        [{ chartRoot: "fund-a", name: "Fund A", months: 2, balance: 500 }],
+        [],
+        [["fund-a", ["e1"]]]
+      ),
+    });
+
+    expect(queue.rows.map((r) => r.entity)).toEqual(["Fund A"]);
   });
 
   it("carries a severity word on every row, never color alone", () => {

@@ -75,9 +75,11 @@ export interface AttentionQueue {
 export interface RunwayContext {
   monthsByEmployee: Map<string, number | null>;
   /** Shortest remaining fund for each person, when one is known. */
-  limitingAccountByEmployee: Map<string, string>;
+  limitingAccountByEmployee: Map<string, { name: string; chartRoot: string }>;
   /** One line per fund-dept-project, deduped across everyone charging it. */
   accounts: AccountAtRisk[];
+  /** Every employee counted against each account — used to tell a solo grant from a shared one. */
+  accountContributors: Map<string, Set<string>>;
 }
 
 function chartRoot(line: RunwayAccountLine): string {
@@ -102,8 +104,9 @@ export function buildRunwayContext(
     settings
   );
   const monthsByEmployee = new Map<string, number | null>();
-  const limitingAccountByEmployee = new Map<string, string>();
+  const limitingAccountByEmployee = new Map<string, { name: string; chartRoot: string }>();
   const accounts = new Map<string, AccountAtRisk>();
+  const accountContributors = new Map<string, Set<string>>();
 
   for (const employee of filterEmployeesForPlanning(snapshot.employees, settings)) {
     const summary = computeEmployeeRunway(
@@ -123,25 +126,39 @@ export function buildRunwayContext(
       counted.length > 0 ? summary.blendedMonthsRunway : null
     );
 
-    let limiting: { name: string; months: number } | null = null;
+    let limiting: { name: string; chartRoot: string; months: number } | null = null;
     for (const line of counted) {
       if (line.monthsRunway === null) continue;
-      if (!limiting || line.monthsRunway < limiting.months) {
-        limiting = { name: line.displayName, months: line.monthsRunway };
-      }
       const root = chartRoot(line);
-      if (accounts.has(root)) continue;
-      accounts.set(root, {
-        chartRoot: root,
-        name: line.displayName,
-        months: line.monthsRunway,
-        balance: line.balance,
+      if (!limiting || line.monthsRunway < limiting.months) {
+        limiting = { name: line.displayName, chartRoot: root, months: line.monthsRunway };
+      }
+      if (!accounts.has(root)) {
+        accounts.set(root, {
+          chartRoot: root,
+          name: line.displayName,
+          months: line.monthsRunway,
+          balance: line.balance,
+        });
+      }
+      const contributors = accountContributors.get(root) ?? new Set<string>();
+      contributors.add(employee.id);
+      accountContributors.set(root, contributors);
+    }
+    if (limiting) {
+      limitingAccountByEmployee.set(employee.id, {
+        name: limiting.name,
+        chartRoot: limiting.chartRoot,
       });
     }
-    if (limiting) limitingAccountByEmployee.set(employee.id, limiting.name);
   }
 
-  return { monthsByEmployee, limitingAccountByEmployee, accounts: [...accounts.values()] };
+  return {
+    monthsByEmployee,
+    limitingAccountByEmployee,
+    accounts: [...accounts.values()],
+    accountContributors,
+  };
 }
 
 function severityFor(months: number): AttentionSeverity | null {
@@ -249,6 +266,7 @@ export function buildAttentionQueue({
 
   const peopleAtRisk: PersonAtRisk[] = [];
   const personRows: AttentionRow[] = [];
+  const peopleWithRows = new Set<string>();
 
   for (const [employeeId, months] of runway.monthsByEmployee) {
     if (months === null) continue;
@@ -261,6 +279,7 @@ export function buildAttentionQueue({
 
     const severity = severityFor(months);
     if (!severity) continue;
+    peopleWithRows.add(employeeId);
     personRows.push({
       id: `person-${employeeId}`,
       severity,
@@ -270,7 +289,7 @@ export function buildAttentionQueue({
       detail: personDetail(
         planningMonth,
         months,
-        runway.limitingAccountByEmployee.get(employeeId)
+        runway.limitingAccountByEmployee.get(employeeId)?.name
       ),
       href: "/runway",
       actionLabel: "Reassign",
@@ -289,6 +308,17 @@ export function buildAttentionQueue({
 
     const severity = overdrawn ? "critical" : severityFor(account.months);
     if (!severity) continue;
+
+    // A grant charged by exactly one person is already named by that
+    // person's own row (personDetail includes the account name) — showing
+    // both restates the same root cause twice. Shared accounts still get
+    // their own row, since no single person's row can stand in for them.
+    const contributors = runway.accountContributors.get(account.chartRoot);
+    if (contributors?.size === 1) {
+      const [soleContributor] = contributors;
+      if (soleContributor && peopleWithRows.has(soleContributor)) continue;
+    }
+
     accountRows.push({
       id: `account-${account.chartRoot}`,
       severity,

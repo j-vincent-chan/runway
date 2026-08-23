@@ -53,6 +53,7 @@ function runwayContext(
     monthsByEmployee: new Map(employeeMonths),
     limitingAccountByEmployee: new Map(),
     accounts,
+    accountContributors: new Map(),
   };
 }
 
