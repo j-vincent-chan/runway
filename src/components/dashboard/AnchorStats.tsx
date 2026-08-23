@@ -214,13 +214,13 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
           ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
             <DerivedFigure
               value={formatCurrency(runwayDeficitAmount)}
-              explanation="Whichever account or person has the shortest runway — in this case, already negative."
+              explanation="The account or person with the shortest runway — in this case, already negative."
               className="type-stat text-critical"
             />
           ) : runwayMonths < 0 ? (
             <DerivedFigure
               value="Already short"
-              explanation="Whichever account or person has the shortest runway — in this case, already negative."
+              explanation="The account or person with the shortest runway — in this case, already negative."
               className="type-stat text-critical"
             />
           ) : (
