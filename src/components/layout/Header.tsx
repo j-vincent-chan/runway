@@ -16,6 +16,7 @@ export function Header({
   showProductLabel = true,
   showImportMeta = true,
   topAction,
+  dashboardContextBar,
 }: {
   title: string;
   subtitle?: string;
@@ -26,6 +27,8 @@ export function Header({
   showImportMeta?: boolean;
   /** Optional primary header action (e.g. View Timeline). */
   topAction?: { label: string; href: string };
+  /** Replaces the plain filename/timestamp/sync line with a richer, page-owned strip. */
+  dashboardContextBar?: React.ReactNode;
 }) {
   const { snapshot, settings, updateSettings } = useApp();
   const { configured, user, cloudSyncEnabled, signOut } = useAuth();
@@ -76,23 +79,27 @@ export function Header({
               )}
             </div>
             {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
-            {showImportMeta && snapshot && (
-              <p className="mt-2 text-xs text-slate-500">
-                Source:{" "}
-                <span className="font-medium text-teal-800">{snapshot.sourceFileName}</span>
-                {" · "}
-                Imported {new Date(snapshot.uploadedAt).toLocaleString()}
-                {configured && (
-                  <>
-                    {" · "}
-                    {cloudSyncEnabled ? (
-                      <span className="text-teal-800">Cloud sync on</span>
-                    ) : (
-                      <span className="text-slate-500">Local only</span>
-                    )}
-                  </>
-                )}
-              </p>
+            {dashboardContextBar ? (
+              dashboardContextBar
+            ) : (
+              showImportMeta && snapshot && (
+                <p className="mt-2 text-xs text-slate-500">
+                  Source:{" "}
+                  <span className="font-medium text-teal-800">{snapshot.sourceFileName}</span>
+                  {" · "}
+                  Imported {new Date(snapshot.uploadedAt).toLocaleString()}
+                  {configured && (
+                    <>
+                      {" · "}
+                      {cloudSyncEnabled ? (
+                        <span className="text-teal-800">Cloud sync on</span>
+                      ) : (
+                        <span className="text-slate-500">Local only</span>
+                      )}
+                    </>
+                  )}
+                </p>
+              )
             )}
           </div>
         </div>
