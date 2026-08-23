@@ -65,7 +65,7 @@ export function FundingStatusPanel({
   if (!isAction) {
     return (
       <section aria-label="Funding position">
-        <h2 className="type-verdict text-ink-2">
+        <h2 className="type-stat text-ink-2">
           {verdict.clauses.map((clause, i) => (
             <Clause key={i} clause={clause} runwayMonth={verdict.runwayMonth} />
           ))}
@@ -106,12 +106,12 @@ export function FundingStatusPanel({
           <Icon className="h-3.5 w-3.5" aria-hidden />
           {spotlight.severityLabel}
         </span>
-        <span className="type-verdict text-ink">{spotlight.entity}</span>
-        <span className="type-heading text-ink-2">
+        <span className="type-stat text-ink">{spotlight.entity}</span>
+        <span className="type-body text-ink-2">
           {spotlight.context && <span className="text-muted">{spotlight.context} · </span>}
           {spotlight.detail}
         </span>
-        <span className="type-body mt-1 inline-flex w-fit items-center gap-1 font-medium text-accent group-hover:underline">
+        <span className="type-row mt-1 inline-flex w-fit items-center gap-1 font-medium text-accent group-hover:underline">
           {spotlight.actionLabel}
           <ArrowRight className="h-4 w-4" aria-hidden />
         </span>
