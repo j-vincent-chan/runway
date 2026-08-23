@@ -10,10 +10,12 @@ import {
 import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
+import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
 import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
+import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
@@ -112,6 +114,16 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [trend, overview, attentionQueue, horizonMonths]);
 
+  const ribbon = useMemo(() => {
+    if (!snapshot) return null;
+    return buildRunwayRibbon({
+      snapshot,
+      workingPlan,
+      settings,
+      portfolio: mergedPortfolioBalances,
+    });
+  }, [snapshot, workingPlan, settings, mergedPortfolioBalances]);
+
   if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
   const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
@@ -132,6 +144,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       ) : (
         <AnchorStats overview={overview} />
       )}
+      <RunwayRibbon ribbon={ribbon} />
       <PersonnelCostTrendCharts monthly={trend.monthly} />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}
