@@ -12,6 +12,7 @@ import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
+import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
@@ -110,24 +111,22 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
 
   if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
-  const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
+  const hasAttentionRows = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
 
   return (
     <div className="space-y-8">
-      {isAction ? (
+      <FundingStatusPanel verdict={verdict} />
+      {hasAttentionRows ? (
         <div className="grid grid-cols-12 gap-8">
           <div className="col-span-12 lg:col-span-5">
-            <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
+            <AttentionQueueBox queue={attentionQueue} />
           </div>
           <div className="col-span-12 lg:col-span-7">
             <AnchorStats overview={overview} />
           </div>
         </div>
       ) : (
-        <>
-          <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
-          <AnchorStats overview={overview} />
-        </>
+        <AnchorStats overview={overview} />
       )}
       <PersonnelCostTrendCharts monthly={trend.monthly} />
       <PersonnelByGroupSection
