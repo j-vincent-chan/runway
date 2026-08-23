@@ -139,12 +139,21 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
       ? runwayMonths - runwayPriorMonths
       : null;
 
+  const burnBasis =
+    burnMonthsUsed === 1 ? "the one payroll month on file" : `the last ${burnMonthsUsed} payroll months`;
+
   return (
     <section aria-label="Funding inputs" className="flex flex-col divide-y divide-rule sm:flex-row sm:divide-x sm:divide-y-0">
       <Anchor
         label="Available funds"
         href="/account-balances"
-        value={formatCurrency(availableFunds)}
+        valueNode={
+          <DerivedFigure
+            value={formatCurrency(availableFunds)}
+            explanation={`Sum of the listed balance on all ${accountCount} accounts you track on Account Balances, excluding any you have hidden.`}
+            className="type-stat text-ink"
+          />
+        }
         comparison={
           fundsDelta !== null && fundsPriorLabel ? (
             <>
@@ -164,7 +173,13 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
       <Anchor
         label="Monthly burn"
         href="/timeline"
-        value={formatCurrency(monthlyBurn)}
+        valueNode={
+          <DerivedFigure
+            value={formatCurrency(monthlyBurn)}
+            explanation={`Average total personnel cost — salary and benefits — across ${burnBasis}.`}
+            className="type-stat text-ink"
+          />
+        }
         comparison={
           burnDelta !== null ? (
             <>
