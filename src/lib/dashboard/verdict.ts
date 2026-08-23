@@ -1,5 +1,4 @@
 import { monthLabelLong, shiftMonth } from "@/lib/dashboard/month";
-import { formatCurrency } from "@/lib/utils/parse";
 import type { AccountAtRisk, PersonAtRisk } from "@/lib/dashboard/attention";
 
 export type VerdictKind =
@@ -129,76 +128,61 @@ export function buildVerdict({
 
   const shortfall = shortfallClause(peopleAtRisk.length, accountsAtRisk.length);
 
+  // Never extrapolate a date past the projection horizon.
+  const beyond = runwayMonths > horizonMonths;
+  const targetMonth = beyond
+    ? shiftMonth(planningMonth, horizonMonths)
+    : shiftMonth(planningMonth, Math.floor(Math.max(runwayMonths, 0)));
+  const followOn = beyond ? fundedPastClause(targetMonth) : fundedThroughClause(targetMonth);
+  const runwayMonth = beyond ? null : targetMonth;
+
   if (overdrawnAccounts.length > 0) {
-    const worst = overdrawnAccounts[0]!;
-    const lead: VerdictSegment[] =
-      overdrawnAccounts.length === 1
-        ? [
-            data(worst.name),
-            connective(" is overdrawn by "),
-            data(formatCurrency(Math.abs(worst.balance))),
-            connective("."),
-          ]
-        : [
-            data(worst.name),
-            connective(" and "),
-            data(pluralize(overdrawnAccounts.length - 1, "other account", "other accounts")),
-            connective(" are overdrawn."),
-          ];
-
-    const beyond = runwayMonths > horizonMonths;
-    const followOn = beyond
-      ? fundedPastClause(shiftMonth(planningMonth, horizonMonths))
-      : fundedThroughClause(shiftMonth(planningMonth, Math.floor(runwayMonths)));
-
+    // The specific overdrawn account is named by the attention-queue spotlight
+    // row instead of a duplicate clause here — this state now only carries tone.
     return {
       kind: "overdrawn",
-      clauses: [{ segments: lead }, followOn],
-      runwayMonth: beyond ? null : shiftMonth(planningMonth, Math.floor(runwayMonths)),
+      clauses: [followOn],
+      runwayMonth,
       missing: null,
     };
   }
 
-  // Never extrapolate a date past the projection horizon.
-  if (runwayMonths > horizonMonths) {
-    const horizonEnd = shiftMonth(planningMonth, horizonMonths);
+  if (beyond) {
     return {
       kind: "beyond_horizon",
       clauses: shortfall
-        ? [fundedPastClause(horizonEnd), shortfall]
+        ? [followOn, shortfall]
         : [
-            fundedPastClause(horizonEnd),
+            followOn,
             {
               segments: [connective("No one runs short in that window.")],
               tone: "healthy" as const,
             },
           ],
-      runwayMonth: null,
+      runwayMonth,
       missing: null,
     };
   }
-
-  const targetMonth = shiftMonth(planningMonth, Math.floor(Math.max(runwayMonths, 0)));
 
   if (!shortfall) {
     return {
       kind: "healthy",
       clauses: [
-        fundedThroughClause(targetMonth),
+        followOn,
         {
           segments: [connective("No one runs short in that window.")],
           tone: "healthy" as const,
         },
       ],
-      runwayMonth: targetMonth,
+      runwayMonth,
       missing: null,
     };
   }
 
   return {
     kind: "at_risk",
-    clauses: [fundedThroughClause(targetMonth), shortfall],
-    runwayMonth: targetMonth,
+    clauses: [followOn, shortfall],
+    runwayMonth,
     missing: null,
   };
 }

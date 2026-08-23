@@ -51,23 +51,24 @@ describe("buildVerdict", () => {
     expect(verdict.runwayMonth).toBeNull();
   });
 
-  it("leads with an overdrawn account", () => {
+  it("enters the overdrawn state without naming the account — the attention queue's spotlight row does that", () => {
     const verdict = buildVerdict({
       ...base,
       overdrawnAccounts: [account("5R01-118440", -1, -8110)],
     });
     expect(verdict.kind).toBe("overdrawn");
-    expect(verdictText(verdict)).toBe(
-      "5R01-118440 is overdrawn by $8,110. Funded through May 2027 at your current rate."
-    );
+    expect(verdictText(verdict)).toBe("Funded through May 2027 at your current rate.");
+    expect(verdictText(verdict)).not.toContain("5R01-118440");
+    expect(verdictText(verdict)).not.toContain("$8,110");
   });
 
-  it("summarizes multiple overdrawn accounts without inventing a list", () => {
+  it("stays in the overdrawn state for multiple overdrawn accounts without inventing a list", () => {
     const verdict = buildVerdict({
       ...base,
       overdrawnAccounts: [account("A", -1, -900), account("B", -1, -200)],
     });
-    expect(verdictText(verdict)).toContain("A and 1 other account are overdrawn.");
+    expect(verdict.kind).toBe("overdrawn");
+    expect(verdictText(verdict)).toBe("Funded through May 2027 at your current rate.");
   });
 
   it("names what is missing instead of fabricating a date", () => {
