@@ -2,7 +2,8 @@ import { buildNetPositionAccountSeries } from "@/lib/net-position/buildAccountSe
 import { monthLabelShort, periodKeyToMonth, shiftMonth } from "@/lib/dashboard/month";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
-import type { NetPositionReportImport, PayrollReportSnapshot } from "@/types";
+import type { RunwayContext } from "@/lib/dashboard/attention";
+import type { Employee, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
 
 /** Months averaged for the headline burn rate. */
 export const BURN_WINDOW_MONTHS = 3;
@@ -42,13 +43,54 @@ export interface DashboardOverview {
   burnSeries: SparkPoint[];
   hasBurn: boolean;
 
-  /** availableFunds ÷ monthlyBurn. */
+  /**
+   * The soonest any person or account actually runs dry, honoring
+   * restriction: the minimum across every person's own blended runway
+   * (their own funding sources only) and every account's own runway.
+   * Never a pooled availableFunds ÷ monthlyBurn blend — accounts are
+   * restricted, so that blend overstates real flexibility.
+   */
   runwayMonths: number | null;
-  /** Same calculation run against the prior report's balances. */
-  runwayPriorMonths: number | null;
-  /** Month the money runs out at the current rate. */
+  /** Name of the person or account whose limit sets runwayMonths. */
+  runwayLimitingLabel: string | null;
+  /** Month the constraint hits, when not already past due. */
   runwayTargetMonth: string | null;
-  runwaySeries: SparkPoint[];
+}
+
+export interface ConstrainedRunway {
+  months: number | null;
+  limitingLabel: string | null;
+}
+
+/**
+ * Takes the minimum across every person's and every account's own runway,
+ * both already computed by buildRunwayContext with restriction respected —
+ * never re-derives a pooled figure. `runway.monthsByEmployee` only carries
+ * ids, so employee names are resolved from the roster.
+ */
+export function buildConstrainedRunway(
+  runway: RunwayContext,
+  employees: Employee[]
+): ConstrainedRunway {
+  const employeeById = new Map(employees.map((e) => [e.id, e]));
+  let best: { months: number; label: string } | null = null;
+
+  for (const [employeeId, months] of runway.monthsByEmployee) {
+    if (months === null) continue;
+    if (!best || months < best.months) {
+      best = { months, label: employeeById.get(employeeId)?.name ?? "Unknown" };
+    }
+  }
+
+  for (const account of runway.accounts) {
+    if (!best || account.months < best.months) {
+      best = { months: account.months, label: account.name };
+    }
+  }
+
+  return best
+    ? { months: best.months, limitingLabel: best.label }
+    : { months: null, limitingLabel: null };
 }
 
 export function resolvePeriodStatus(
@@ -110,11 +152,15 @@ export function buildDashboardOverview({
   planningMonth,
   accountItems,
   netPositionImports,
+  runway,
+  employees,
 }: {
   monthly: PersonnelCostTrendPoint[];
   planningMonth: string;
   accountItems: AccountBalanceViewItem[];
   netPositionImports: NetPositionReportImport[];
+  runway: RunwayContext;
+  employees: Employee[];
 }): DashboardOverview {
   const visible = accountItems.filter((item) => !item.isHidden);
   const availableFunds = visible.reduce((sum, item) => sum + (item.displayBalance ?? 0), 0);
@@ -150,30 +196,14 @@ export function buildDashboardOverview({
   const hasFunds = visible.length > 0 && availableFunds !== 0;
   const hasBurn = monthlyBurn > 0;
 
-  const runwayMonths = hasBurn && hasFunds ? availableFunds / monthlyBurn : null;
+  const constrained = buildConstrainedRunway(runway, employees);
+  const runwayMonths = constrained.months;
   const runwayTargetMonth =
     runwayMonths !== null && runwayMonths >= 0
       ? shiftMonth(planningMonth, Math.floor(runwayMonths))
       : null;
 
-  const priorFunds =
-    fundsDelta !== null ? availableFunds - fundsDelta : null;
-  const priorBurn = priorPoint
-    ? trailingBurn(monthly, periodKeyToMonth(priorPoint.periodKey))
-    : null;
-  const runwayPriorMonths =
-    priorFunds !== null && priorBurn && priorBurn.average > 0
-      ? priorFunds / priorBurn.average
-      : null;
-
   const fundsSeries = fundsByPeriod(netPositionImports);
-  const runwaySeries: SparkPoint[] = fundsSeries
-    .map((point) => {
-      const burn = trailingBurn(monthly, periodKeyToMonth(point.key));
-      if (burn.average <= 0) return null;
-      return { key: point.key, label: point.label, value: point.value / burn.average };
-    })
-    .filter((p): p is SparkPoint => p !== null);
 
   return {
     availableFunds,
@@ -188,8 +218,7 @@ export function buildDashboardOverview({
     burnSeries,
     hasBurn,
     runwayMonths,
-    runwayPriorMonths,
+    runwayLimitingLabel: constrained.limitingLabel,
     runwayTargetMonth,
-    runwaySeries,
   };
 }

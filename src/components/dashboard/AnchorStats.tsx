@@ -7,6 +7,7 @@ import { DerivedFigure } from "@/components/dashboard/DerivedFigure";
 import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
+import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
 const SPARK_HEIGHT = 34;
@@ -89,7 +90,7 @@ function Anchor({
   valueNode?: React.ReactNode;
   comparison: React.ReactNode;
   comparisonTone?: "neutral" | "caution" | "critical" | "healthy";
-  spark: React.ReactNode;
+  spark?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0 flex-1 px-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
@@ -130,14 +131,18 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
     burnMonthsUsed,
     burnDelta,
     runwayMonths,
-    runwayPriorMonths,
+    runwayLimitingLabel,
     runwayTargetMonth,
   } = overview;
 
-  const runwayDrop =
-    runwayMonths !== null && runwayPriorMonths !== null
-      ? runwayMonths - runwayPriorMonths
-      : null;
+  const runwayTone: "neutral" | "caution" | "critical" =
+    runwayMonths === null
+      ? "neutral"
+      : runwayMonths < CRITICAL_MONTHS
+        ? "critical"
+        : runwayMonths < CAUTION_MONTHS
+          ? "caution"
+          : "neutral";
 
   const burnBasis =
     burnMonthsUsed === 1 ? "the one payroll month on file" : `the last ${burnMonthsUsed} payroll months`;
@@ -196,33 +201,32 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
         label="Runway"
         href="/runway"
         valueNode={
-          runwayMonths !== null ? (
+          runwayMonths === null ? (
+            <span className="text-muted">—</span>
+          ) : runwayMonths < 0 ? (
+            <span className="type-stat text-critical">Already short</span>
+          ) : (
             <DerivedFigure
               projected
               value={`${runwayMonths.toFixed(1)} mo`}
-              explanation="Available funds divided by the trailing monthly burn, at today's spending rate."
+              explanation="The soonest any person or account is projected to run out, given only their own restricted funding sources — never a blend of your total balance, since accounts can't be freely reallocated."
               className="type-stat text-ink"
             />
-          ) : (
-            <span className="text-muted">—</span>
           )
         }
-        comparisonTone={runwayDrop !== null && runwayDrop < -0.5 ? "caution" : "neutral"}
+        comparisonTone={runwayTone}
         comparison={
-          runwayTargetMonth ? (
+          runwayMonths === null ? (
+            <>needs restricted funding data to project</>
+          ) : runwayMonths < 0 ? (
+            <>{runwayLimitingLabel ?? "an account"} is already short</>
+          ) : runwayTargetMonth ? (
             <>
               runs out {monthLabelLong(runwayTargetMonth)}
-              {runwayPriorMonths !== null ? (
-                <> · was {runwayPriorMonths.toFixed(1)} last report</>
-              ) : (
-                <> · no prior report to compare</>
-              )}
+              {runwayLimitingLabel && <> · limited by {runwayLimitingLabel}</>}
             </>
-          ) : (
-            <>needs balances and a burn rate to project</>
-          )
+          ) : null
         }
-        spark={<LineSpark points={overview.runwaySeries} label="Months of runway by report period" />}
       />
     </section>
   );

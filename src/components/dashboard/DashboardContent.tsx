@@ -74,14 +74,16 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   );
 
   const overview = useMemo(() => {
-    if (!trend) return null;
+    if (!trend || !runway || !snapshot) return null;
     return buildDashboardOverview({
       monthly: trend.monthly,
       planningMonth: trend.planningMonth,
       accountItems,
       netPositionImports,
+      runway,
+      employees: snapshot.employees,
     });
-  }, [trend, accountItems, netPositionImports]);
+  }, [trend, runway, snapshot, accountItems, netPositionImports]);
 
   const attentionQueue = useMemo(() => {
     if (!snapshot || !trend || !runway) return null;

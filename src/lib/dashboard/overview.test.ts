@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildConstrainedRunway,
   buildDashboardOverview,
   resolvePeriodStatus,
   trailingBurn,
@@ -7,7 +8,8 @@ import {
 import { shiftMonth } from "@/lib/dashboard/month";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
-import type { PayrollReportSnapshot } from "@/types";
+import type { RunwayContext } from "@/lib/dashboard/attention";
+import type { Employee, PayrollReportSnapshot } from "@/types";
 
 function months(start: string, count: number, total: number): PersonnelCostTrendPoint[] {
   return Array.from({ length: count }, (_, i) => {
@@ -38,6 +40,23 @@ function account(
     withdrawals: 0,
   };
 }
+
+function employee(id: string, name: string): Employee {
+  return { id, name, appointmentPercent: 100 };
+}
+
+function runwayContext(
+  employeeMonths: [string, number | null][] = [],
+  accounts: RunwayContext["accounts"] = []
+): RunwayContext {
+  return {
+    monthsByEmployee: new Map(employeeMonths),
+    limitingAccountByEmployee: new Map(),
+    accounts,
+  };
+}
+
+const emptyRunway = runwayContext();
 
 function snapshot(actualMonths: string[], futureMonths: string[] = []): PayrollReportSnapshot {
   return {
@@ -87,22 +106,90 @@ describe("trailingBurn", () => {
   });
 });
 
+describe("buildConstrainedRunway", () => {
+  it("takes the minimum across people, not a pooled blend", () => {
+    const runway = runwayContext([
+      ["e1", 10],
+      ["e2", 4],
+    ]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "A. Chen"), employee("e2", "B. Okafor")]);
+    expect(result.months).toBe(4);
+    expect(result.limitingLabel).toBe("B. Okafor");
+  });
+
+  it("also considers per-account runway, not just per-person blends", () => {
+    const runway = runwayContext(
+      [["e1", 10]],
+      [{ chartRoot: "5R01-1", name: "5R01-118440", months: 2, balance: 8_000 }]
+    );
+    const result = buildConstrainedRunway(runway, [employee("e1", "A. Chen")]);
+    expect(result.months).toBe(2);
+    expect(result.limitingLabel).toBe("5R01-118440");
+  });
+
+  it("skips people with no counted funding source", () => {
+    const runway = runwayContext([
+      ["e1", null],
+      ["e2", 6],
+    ]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "A"), employee("e2", "B")]);
+    expect(result.months).toBe(6);
+  });
+
+  it("returns null when nothing is computable", () => {
+    expect(buildConstrainedRunway(emptyRunway, [])).toEqual({ months: null, limitingLabel: null });
+  });
+});
+
 describe("buildDashboardOverview", () => {
   const monthly = months("2025-09", 12, 100_000);
 
-  it("derives runway from available funds and trailing burn", () => {
+  it("takes the constrained minimum, not availableFunds ÷ monthlyBurn", () => {
+    // Pooled funds/burn here would say 10 months — the constrained figure must
+    // ignore that and report the real, restricted-fund bottleneck instead.
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000), account("b", 400_000)],
       netPositionImports: [],
+      runway: runwayContext([["e1", 3]]),
+      employees: [employee("e1", "M. Chen")],
     });
 
     expect(overview.availableFunds).toBe(1_000_000);
-    expect(overview.accountCount).toBe(2);
     expect(overview.monthlyBurn).toBe(100_000);
-    expect(overview.runwayMonths).toBe(10);
-    expect(overview.runwayTargetMonth).toBe("2027-06");
+    expect(overview.runwayMonths).toBe(3);
+    expect(overview.runwayLimitingLabel).toBe("M. Chen");
+    expect(overview.runwayTargetMonth).toBe("2026-11");
+  });
+
+  it("leaves runwayTargetMonth null when already past due", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [account("a", 600_000)],
+      netPositionImports: [],
+      runway: runwayContext([], [{ chartRoot: "a", name: "Fund A", months: -2, balance: -900 }]),
+      employees: [],
+    });
+    expect(overview.runwayMonths).toBe(-2);
+    expect(overview.runwayLimitingLabel).toBe("Fund A");
+    expect(overview.runwayTargetMonth).toBeNull();
+  });
+
+  it("reports no runway when nothing is computable, independent of available funds", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [account("a", 600_000), account("b", 400_000)],
+      netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
+    });
+    expect(overview.availableFunds).toBe(1_000_000);
+    expect(overview.runwayMonths).toBeNull();
+    expect(overview.runwayLimitingLabel).toBeNull();
+    expect(overview.runwayTargetMonth).toBeNull();
   });
 
   it("excludes hidden accounts from the total", () => {
@@ -111,6 +198,8 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000), account("b", 400_000, null, true)],
       netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
     });
     expect(overview.availableFunds).toBe(600_000);
     expect(overview.accountCount).toBe(1);
@@ -122,6 +211,8 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000, -50_000), account("b", 400_000)],
       netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
     });
     expect(overview.fundsDelta).toBe(-50_000);
   });
@@ -132,6 +223,8 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000)],
       netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
     });
     expect(overview.fundsDelta).toBeNull();
   });
@@ -143,30 +236,22 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-06",
       accountItems: [account("a", 100_000)],
       netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
     });
     expect(overview.burnDelta).toBe(20_000);
   });
 
-  it("reports no runway when there are no balances to project against", () => {
-    const overview = buildDashboardOverview({
-      monthly,
-      planningMonth: "2026-08",
-      accountItems: [],
-      netPositionImports: [],
-    });
-    expect(overview.hasFunds).toBe(false);
-    expect(overview.runwayMonths).toBeNull();
-    expect(overview.runwayTargetMonth).toBeNull();
-  });
-
-  it("reports no runway when there is no burn rate", () => {
+  it("reports no burn when there is none, independent of runway", () => {
     const overview = buildDashboardOverview({
       monthly: months("2026-08", 1, 0),
       planningMonth: "2026-08",
       accountItems: [account("a", 100_000)],
       netPositionImports: [],
+      runway: runwayContext([["e1", 5]]),
+      employees: [employee("e1", "A")],
     });
     expect(overview.hasBurn).toBe(false);
-    expect(overview.runwayMonths).toBeNull();
+    expect(overview.runwayMonths).toBe(5);
   });
 });
