@@ -111,12 +111,13 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
 
   if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
-  const hasAttentionRows = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
+  const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
+  const hasMoreRows = isAction && attentionQueue.rows.length > 1;
 
   return (
     <div className="space-y-8">
-      <FundingStatusPanel verdict={verdict} />
-      {hasAttentionRows ? (
+      <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
+      {hasMoreRows ? (
         <div className="grid grid-cols-12 gap-8">
           <div className="col-span-12 lg:col-span-5">
             <AttentionQueueBox queue={attentionQueue} />
