@@ -11,9 +11,8 @@ import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attenti
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
-import { VerdictStatement } from "@/components/dashboard/VerdictStatement";
+import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
-import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
@@ -111,17 +110,25 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
 
   if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
+  const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
+
   return (
     <div className="space-y-8">
-      <VerdictStatement verdict={verdict} overview={overview} />
-      <div className="grid grid-cols-12 gap-8">
-        <div className="col-span-12 lg:col-span-7">
+      {isAction ? (
+        <div className="grid grid-cols-12 gap-8">
+          <div className="col-span-12 lg:col-span-5">
+            <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
+          </div>
+          <div className="col-span-12 lg:col-span-7">
+            <AnchorStats overview={overview} />
+          </div>
+        </div>
+      ) : (
+        <>
+          <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
           <AnchorStats overview={overview} />
-        </div>
-        <div className="col-span-12 lg:col-span-5">
-          <NeedsAttention queue={attentionQueue} scopeMonths={horizonMonths} />
-        </div>
-      </div>
+        </>
+      )}
       <PersonnelCostTrendCharts monthly={trend.monthly} />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}
