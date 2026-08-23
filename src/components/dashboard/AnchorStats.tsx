@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Area, AreaChart, Bar, BarChart, Cell, Line } from "recharts";
+import { Area, AreaChart, Bar, BarChart, Cell, Line, ReferenceLine } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import { DerivedFigure } from "@/components/dashboard/DerivedFigure";
 import { monthLabelLong } from "@/lib/dashboard/month";
@@ -45,6 +45,44 @@ function LineSpark({ points, label }: { points: SparkPoint[]; label: string }) {
           isAnimationActive={false}
         />
       </AreaChart>
+      </ChartResponsive>
+    </div>
+  );
+}
+
+/**
+ * Balance history of the account driving the shortest-runway figure — a
+ * zero line so a crossing into deficit is visible, and the line/endpoint
+ * turn critical when the current balance is already negative.
+ */
+function BalanceSpark({ points, label }: { points: SparkPoint[]; label: string }) {
+  if (points.length < 2) return <SparkPlaceholder />;
+  const data = withEndpoint(points);
+  const negative = points[points.length - 1]!.value < 0;
+  const color = negative ? "var(--critical)" : "var(--accent)";
+  return (
+    <div role="img" aria-label={label}>
+      <ChartResponsive height={SPARK_HEIGHT} className="mt-2">
+        <AreaChart data={data} margin={{ top: 3, right: 3, bottom: 0, left: 0 }}>
+          <ReferenceLine y={0} stroke="var(--rule-strong)" strokeDasharray="2 2" />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={color}
+            fillOpacity={0.1}
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="endpoint"
+            stroke="none"
+            dot={{ r: 2.75, fill: color, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
       </ChartResponsive>
     </div>
   );
@@ -252,6 +290,7 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
             </>
           ) : null
         }
+        spark={<BalanceSpark points={overview.runwaySeries} label="Balance of the account with the shortest runway" />}
       />
     </section>
   );

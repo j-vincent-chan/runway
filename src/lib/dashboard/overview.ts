@@ -1,6 +1,7 @@
 import { buildNetPositionAccountSeries } from "@/lib/net-position/buildAccountSeries";
 import { monthLabelShort, periodKeyToMonth, shiftMonth } from "@/lib/dashboard/month";
 import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import { normalizeAccountBalanceKey } from "@/lib/net-position/accountBalancesView";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
 import type { RunwayContext } from "@/lib/dashboard/attention";
@@ -61,6 +62,8 @@ export interface DashboardOverview {
   runwayLimitingPhotoUrl: string | null;
   /** Month the constraint hits, when not already past due. */
   runwayTargetMonth: string | null;
+  /** Balance history of the limiting account, when it has Net Position history. */
+  runwaySeries: SparkPoint[];
 }
 
 export interface ConstrainedRunway {
@@ -69,6 +72,8 @@ export interface ConstrainedRunway {
   deficitAmount: number | null;
   limitingPersonName: string | null;
   limitingPhotoUrl: string | null;
+  /** fund-dept-project of the account the figure traces back to, when known. */
+  limitingChartRoot: string | null;
 }
 
 /**
@@ -93,6 +98,7 @@ export function buildConstrainedRunway(
     label: string;
     deficitAmount: number | null;
     employeeId: string | null;
+    chartRoot: string | null;
   } | null = null;
 
   for (const [employeeId, months] of runway.monthsByEmployee) {
@@ -115,6 +121,7 @@ export function buildConstrainedRunway(
             : employeeById.get(employeeId)?.name ?? "Unknown",
         deficitAmount: overdrawn && limitingAccount ? Math.abs(limitingAccount.balance) : null,
         employeeId,
+        chartRoot: limiting?.chartRoot ?? null,
       };
     }
   }
@@ -128,6 +135,7 @@ export function buildConstrainedRunway(
         label: account.name,
         deficitAmount: account.balance < 0 ? Math.abs(account.balance) : null,
         employeeId: soleContributor ?? null,
+        chartRoot: account.chartRoot,
       };
     }
   }
@@ -141,6 +149,7 @@ export function buildConstrainedRunway(
         deficitAmount: best.deficitAmount,
         limitingPersonName: employee?.name ?? null,
         limitingPhotoUrl: (employee && resolveEmployeeProfile(settings, employee)?.photoUrl) || null,
+        limitingChartRoot: best.chartRoot,
       }
     : {
         months: null,
@@ -148,6 +157,7 @@ export function buildConstrainedRunway(
         deficitAmount: null,
         limitingPersonName: null,
         limitingPhotoUrl: null,
+        limitingChartRoot: null,
       };
 }
 
@@ -203,6 +213,28 @@ function fundsByPeriod(imports: NetPositionReportImport[]): SparkPoint[] {
   }
 
   return points.slice(-FUNDS_SERIES_PERIODS);
+}
+
+/**
+ * Balance history for the one account the shortest-runway figure traces
+ * back to (directly, or via a person's limiting account) — the only
+ * granularity with real period-over-period history. No comparable history
+ * exists per person, so this is what "how it got here" can honestly show.
+ */
+function limitingAccountSeries(
+  netPositionImports: NetPositionReportImport[],
+  chartRoot: string | null
+): SparkPoint[] {
+  if (!chartRoot) return [];
+  const key = normalizeAccountBalanceKey(chartRoot);
+  const series = buildNetPositionAccountSeries(netPositionImports);
+  const match = series.find((s) => normalizeAccountBalanceKey(s.accountKey) === key);
+  if (!match) return [];
+  return match.points.slice(-FUNDS_SERIES_PERIODS).map((p) => ({
+    key: p.periodKey,
+    label: monthLabelShort(periodKeyToMonth(p.periodKey)),
+    value: p.endingBalance,
+  }));
 }
 
 export function buildDashboardOverview({
@@ -264,6 +296,7 @@ export function buildDashboardOverview({
       : null;
 
   const fundsSeries = fundsByPeriod(netPositionImports);
+  const runwaySeries = limitingAccountSeries(netPositionImports, constrained.limitingChartRoot);
 
   return {
     availableFunds,
@@ -283,5 +316,6 @@ export function buildDashboardOverview({
     runwayLimitingPersonName: constrained.limitingPersonName,
     runwayLimitingPhotoUrl: constrained.limitingPhotoUrl,
     runwayTargetMonth,
+    runwaySeries,
   };
 }

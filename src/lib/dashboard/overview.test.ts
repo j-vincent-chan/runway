@@ -9,7 +9,13 @@ import { shiftMonth } from "@/lib/dashboard/month";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
 import type { RunwayContext } from "@/lib/dashboard/attention";
-import { DEFAULT_SETTINGS, type AppSettings, type Employee, type PayrollReportSnapshot } from "@/types";
+import {
+  DEFAULT_SETTINGS,
+  type AppSettings,
+  type Employee,
+  type NetPositionReportImport,
+  type PayrollReportSnapshot,
+} from "@/types";
 
 function months(start: string, count: number, total: number): PersonnelCostTrendPoint[] {
   return Array.from({ length: count }, (_, i) => {
@@ -38,6 +44,37 @@ function account(
     displayBalance,
     changeFromPrior,
     withdrawals: 0,
+  };
+}
+
+function netPositionImport(
+  id: string,
+  periodEnd: string,
+  accountKey: string,
+  endingBalance: number
+): NetPositionReportImport {
+  return {
+    id,
+    sourceFileName: "net-position.xlsx",
+    uploadedAt: "2026-08-01T00:00:00.000Z",
+    reportRunDate: periodEnd,
+    periodEnd,
+    sheetName: "Sheet1",
+    rows: [
+      {
+        accountKey,
+        busUnit: "UCSF",
+        fund: "7000",
+        dept: "129074",
+        project: accountKey,
+        beginningBalance: 0,
+        revenues: 0,
+        expenses: 0,
+        otherChanges: 0,
+        netChange: 0,
+        endingBalance,
+      },
+    ],
   };
 }
 
@@ -218,6 +255,7 @@ describe("buildConstrainedRunway", () => {
       deficitAmount: null,
       limitingPersonName: null,
       limitingPhotoUrl: null,
+      limitingChartRoot: null,
     });
   });
 });
@@ -361,5 +399,37 @@ describe("buildDashboardOverview", () => {
     });
     expect(overview.runwayLimitingPersonName).toBe("M. Chen");
     expect(overview.runwayLimitingPhotoUrl).toBe("sb://employee-photos/e1.jpg");
+  });
+
+  it("builds the limiting account's balance history for the sparkline", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [
+        netPositionImport("np1", "2026-06", "7000-129074-fund-a", 5_000),
+        netPositionImport("np2", "2026-07", "7000-129074-fund-a", -900),
+      ],
+      runway: runwayContext(
+        [],
+        [{ chartRoot: "7000-129074-fund-a", name: "Fund A", months: -2, balance: -900 }]
+      ),
+      employees: [],
+      settings,
+    });
+    expect(overview.runwaySeries.map((p) => p.value)).toEqual([5_000, -900]);
+  });
+
+  it("leaves the sparkline empty when the limiting account has no Net Position history", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [],
+      runway: runwayContext([["e1", 2]]),
+      employees: [employee("e1", "M. Chen")],
+      settings,
+    });
+    expect(overview.runwaySeries).toEqual([]);
   });
 });
