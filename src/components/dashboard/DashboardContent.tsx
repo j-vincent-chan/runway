@@ -134,9 +134,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         totalSlices={funding.total}
         byPersonnelType={funding.byPersonnelType}
       />
-      <p className="text-[10px] text-slate-400">
-        Planning estimates only. Confirm allowability with your finance/post-award analyst.
-      </p>
     </div>
   );
 }
