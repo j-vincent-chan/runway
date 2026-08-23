@@ -15,6 +15,7 @@ import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView"
 import { KeyChangesSection } from "@/components/dashboard/KeyChangesSection";
 import { VerdictStatement } from "@/components/dashboard/VerdictStatement";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
+import { NeedsAttention } from "@/components/dashboard/NeedsAttention";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
@@ -124,12 +125,19 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [trend, overview, attentionQueue, horizonMonths]);
 
-  if (!snapshot || !trend || !funding || !overview || !verdict) return null;
+  if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
   return (
     <div className="space-y-8">
       <VerdictStatement verdict={verdict} overview={overview} />
-      <AnchorStats overview={overview} />
+      <div className="grid grid-cols-12 gap-8">
+        <div className="col-span-12 lg:col-span-7">
+          <AnchorStats overview={overview} />
+        </div>
+        <div className="col-span-12 lg:col-span-5">
+          <NeedsAttention queue={attentionQueue} scopeMonths={horizonMonths} />
+        </div>
+      </div>
       <KeyChangesSection insights={insights} />
       <PersonnelCostTrendCharts monthly={trend.monthly} yearly={trend.yearly} />
       <PersonnelByGroupSection
