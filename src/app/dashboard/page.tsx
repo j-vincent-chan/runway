@@ -40,7 +40,7 @@ export default function DashboardPage() {
       />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto w-full max-w-7xl">
-          {!hasData ? <EmptyState /> : <DashboardContent />}
+          {!hasData ? <EmptyState /> : <DashboardContent horizonMonths={horizonMonths} />}
         </div>
       </main>
     </>

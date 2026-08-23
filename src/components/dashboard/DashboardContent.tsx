@@ -8,14 +8,25 @@ import {
   type FundingMixPeriod,
 } from "@/lib/dashboard/metrics";
 import { buildDashboardInsights } from "@/lib/dashboard/insights";
-import { buildRunwayContext } from "@/lib/dashboard/attention";
+import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
+import { buildDashboardOverview } from "@/lib/dashboard/overview";
+import { buildVerdict } from "@/lib/dashboard/verdict";
+import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { KeyChangesSection } from "@/components/dashboard/KeyChangesSection";
+import { VerdictStatement } from "@/components/dashboard/VerdictStatement";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
 
-export function DashboardContent() {
-  const { snapshot, fundingSources, settings, workingPlan, mergedPortfolioBalances } = useApp();
+export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
+  const {
+    snapshot,
+    fundingSources,
+    settings,
+    workingPlan,
+    mergedPortfolioBalances,
+    netPositionImports,
+  } = useApp();
   const [fundingPeriod, setFundingPeriod] = useState<FundingMixPeriod>("current_month");
 
   const trend = useMemo(
@@ -56,10 +67,67 @@ export function DashboardContent() {
     });
   }, [snapshot, fundingSources, settings, trend, runway]);
 
-  if (!snapshot || !trend || !funding) return null;
+  const accountItems = useMemo(
+    () =>
+      buildAccountBalanceView({
+        netPositionImports,
+        portfolioBalances: mergedPortfolioBalances,
+        hiddenKeys: settings.hiddenAccountBalanceKeys ?? [],
+        watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
+        aliases: settings.fundingSourceAliases,
+        accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
+      }),
+    [
+      netPositionImports,
+      mergedPortfolioBalances,
+      settings.hiddenAccountBalanceKeys,
+      settings.watchedPortfolioAccountKeys,
+      settings.fundingSourceAliases,
+      settings.accountGroupByBalanceKey,
+    ]
+  );
+
+  const overview = useMemo(() => {
+    if (!trend) return null;
+    return buildDashboardOverview({
+      monthly: trend.monthly,
+      planningMonth: trend.planningMonth,
+      accountItems,
+      netPositionImports,
+    });
+  }, [trend, accountItems, netPositionImports]);
+
+  const attentionQueue = useMemo(() => {
+    if (!snapshot || !trend || !runway) return null;
+    return buildAttentionQueue({
+      snapshot,
+      fundingSources,
+      settings,
+      planningMonth: trend.planningMonth,
+      horizonMonths,
+      runway,
+    });
+  }, [snapshot, fundingSources, settings, trend, runway, horizonMonths]);
+
+  const verdict = useMemo(() => {
+    if (!trend || !overview || !attentionQueue) return null;
+    return buildVerdict({
+      planningMonth: trend.planningMonth,
+      horizonMonths,
+      runwayMonths: overview.runwayMonths,
+      hasFunds: overview.hasFunds,
+      hasBurn: overview.hasBurn,
+      peopleAtRisk: attentionQueue.peopleAtRisk,
+      accountsAtRisk: attentionQueue.accountsAtRisk,
+      overdrawnAccounts: attentionQueue.overdrawnAccounts,
+    });
+  }, [trend, overview, attentionQueue, horizonMonths]);
+
+  if (!snapshot || !trend || !funding || !overview || !verdict) return null;
 
   return (
     <div className="space-y-8">
+      <VerdictStatement verdict={verdict} overview={overview} />
       <KeyChangesSection insights={insights} />
       <PersonnelCostTrendCharts monthly={trend.monthly} yearly={trend.yearly} />
       <PersonnelByGroupSection
