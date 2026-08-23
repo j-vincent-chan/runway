@@ -206,7 +206,7 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
       />
 
       <Anchor
-        label="Runway"
+        label="Shortest runway"
         href="/runway"
         valueNode={
           runwayMonths === null ? (
@@ -214,16 +214,20 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
           ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
             <DerivedFigure
               value={formatCurrency(runwayDeficitAmount)}
-              explanation={`The current balance on ${runwayLimitingLabel ?? "the limiting account"}'s account, which has gone negative.`}
+              explanation="Whichever account or person has the shortest runway — in this case, already negative."
               className="type-stat text-critical"
             />
           ) : runwayMonths < 0 ? (
-            <span className="type-stat text-critical">Already short</span>
+            <DerivedFigure
+              value="Already short"
+              explanation="Whichever account or person has the shortest runway — in this case, already negative."
+              className="type-stat text-critical"
+            />
           ) : (
             <DerivedFigure
               projected
               value={`${runwayMonths.toFixed(1)} mo`}
-              explanation="The soonest any person or account is projected to run out, given only their own restricted funding sources — never a blend of your total balance, since accounts can't be freely reallocated."
+              explanation="The soonest any account or person is projected to run out, given only their own restricted funding — never a blend of your total balance, since accounts can't be freely reallocated."
               className="type-stat text-ink"
             />
           )
