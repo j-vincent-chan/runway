@@ -7,7 +7,6 @@
 :root {
   --navy: #0c2340;
   --teal: #00778b;
-  --background: #f4f6f8;
   /* ~10% UI scale (browser zoom 100% → 110%), cascades via rem-based Tailwind */
   font-size: 110%;
 
@@ -97,8 +96,8 @@
 }
 
 body {
-  background: var(--background);
-  color: #1e293b;
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 

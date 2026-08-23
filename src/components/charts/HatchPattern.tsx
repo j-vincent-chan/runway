@@ -6,6 +6,9 @@
 export const PROJECTED_PATTERN_ID = "hatch-projected";
 export const UNATTRIBUTED_PATTERN_ID = "hatch-unattributed";
 
+/** Stroke of a projected line/area outline — pairs with the hatch fill above. */
+export const PROJECTED_STROKE_DASHARRAY = "1 3";
+
 export function projectedFill(id: string = PROJECTED_PATTERN_ID): string {
   return `url(#${id})`;
 }
