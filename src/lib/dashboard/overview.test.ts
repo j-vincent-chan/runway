@@ -9,7 +9,7 @@ import { shiftMonth } from "@/lib/dashboard/month";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
 import type { RunwayContext } from "@/lib/dashboard/attention";
-import type { Employee, PayrollReportSnapshot } from "@/types";
+import { DEFAULT_SETTINGS, type AppSettings, type Employee, type PayrollReportSnapshot } from "@/types";
 
 function months(start: string, count: number, total: number): PersonnelCostTrendPoint[] {
   return Array.from({ length: count }, (_, i) => {
@@ -60,6 +60,7 @@ function runwayContext(
 }
 
 const emptyRunway = runwayContext();
+const settings: AppSettings = DEFAULT_SETTINGS;
 
 function snapshot(actualMonths: string[], futureMonths: string[] = []): PayrollReportSnapshot {
   return {
@@ -115,7 +116,11 @@ describe("buildConstrainedRunway", () => {
       ["e1", 10],
       ["e2", 4],
     ]);
-    const result = buildConstrainedRunway(runway, [employee("e1", "A. Chen"), employee("e2", "B. Okafor")]);
+    const result = buildConstrainedRunway(
+      runway,
+      [employee("e1", "A. Chen"), employee("e2", "B. Okafor")],
+      settings
+    );
     expect(result.months).toBe(4);
     expect(result.limitingLabel).toBe("B. Okafor");
   });
@@ -125,7 +130,7 @@ describe("buildConstrainedRunway", () => {
       [["e1", 10]],
       [{ chartRoot: "5R01-1", name: "5R01-118440", months: 2, balance: 8_000 }]
     );
-    const result = buildConstrainedRunway(runway, [employee("e1", "A. Chen")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "A. Chen")], settings);
     expect(result.months).toBe(2);
     expect(result.limitingLabel).toBe("5R01-118440");
   });
@@ -135,7 +140,7 @@ describe("buildConstrainedRunway", () => {
       ["e1", null],
       ["e2", 6],
     ]);
-    const result = buildConstrainedRunway(runway, [employee("e1", "A"), employee("e2", "B")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "A"), employee("e2", "B")], settings);
     expect(result.months).toBe(6);
   });
 
@@ -145,7 +150,7 @@ describe("buildConstrainedRunway", () => {
       [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: -4_200 }],
       [["e1", { name: "Fund A", chartRoot: "fund-a" }]]
     );
-    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")], settings);
     expect(result.deficitAmount).toBe(4_200);
   });
 
@@ -156,10 +161,12 @@ describe("buildConstrainedRunway", () => {
       [["e1", { name: "Fund A", chartRoot: "fund-a" }]],
       [["fund-a", ["e1"]]]
     );
-    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")], settings);
     // Same fact the attention queue's spotlight names: the account, not M. Chen.
     expect(result.limitingLabel).toBe("Fund A");
     expect(result.deficitAmount).toBe(4_200);
+    // The person stays tracked for a photo even though the label names the account.
+    expect(result.limitingPersonName).toBe("M. Chen");
   });
 
   it("still names the person when the account is shared", () => {
@@ -169,7 +176,7 @@ describe("buildConstrainedRunway", () => {
       [["e1", { name: "Fund A", chartRoot: "fund-a" }]],
       [["fund-a", ["e1", "e2"]]]
     );
-    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")], settings);
     expect(result.limitingLabel).toBe("M. Chen");
   });
 
@@ -179,15 +186,38 @@ describe("buildConstrainedRunway", () => {
       [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: 1_000 }],
       [["e1", { name: "Fund A", chartRoot: "fund-a" }]]
     );
-    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")], settings);
     expect(result.deficitAmount).toBeNull();
   });
 
+  it("resolves the limiting person's photo from their profile", () => {
+    const runway = runwayContext([["e1", 2]]);
+    const withPhoto: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      employeeProfiles: { e1: { photoUrl: "sb://employee-photos/e1.jpg" } },
+    };
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")], withPhoto);
+    expect(result.limitingPersonName).toBe("M. Chen");
+    expect(result.limitingPhotoUrl).toBe("sb://employee-photos/e1.jpg");
+  });
+
+  it("leaves the photo null when the account has no single known contributor", () => {
+    const runway = runwayContext(
+      [],
+      [{ chartRoot: "fund-a", name: "Fund A", months: 2, balance: 1_000 }]
+    );
+    const result = buildConstrainedRunway(runway, [], settings);
+    expect(result.limitingPersonName).toBeNull();
+    expect(result.limitingPhotoUrl).toBeNull();
+  });
+
   it("returns null when nothing is computable", () => {
-    expect(buildConstrainedRunway(emptyRunway, [])).toEqual({
+    expect(buildConstrainedRunway(emptyRunway, [], settings)).toEqual({
       months: null,
       limitingLabel: null,
       deficitAmount: null,
+      limitingPersonName: null,
+      limitingPhotoUrl: null,
     });
   });
 });
@@ -205,6 +235,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: runwayContext([["e1", 3]]),
       employees: [employee("e1", "M. Chen")],
+      settings,
     });
 
     expect(overview.availableFunds).toBe(1_000_000);
@@ -222,6 +253,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: runwayContext([], [{ chartRoot: "a", name: "Fund A", months: -2, balance: -900 }]),
       employees: [],
+      settings,
     });
     expect(overview.runwayMonths).toBe(-2);
     expect(overview.runwayLimitingLabel).toBe("Fund A");
@@ -237,6 +269,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
+      settings,
     });
     expect(overview.availableFunds).toBe(1_000_000);
     expect(overview.runwayMonths).toBeNull();
@@ -252,6 +285,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
+      settings,
     });
     expect(overview.availableFunds).toBe(600_000);
     expect(overview.accountCount).toBe(1);
@@ -265,6 +299,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
+      settings,
     });
     expect(overview.fundsDelta).toBe(-50_000);
   });
@@ -277,6 +312,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
+      settings,
     });
     expect(overview.fundsDelta).toBeNull();
   });
@@ -290,6 +326,7 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
+      settings,
     });
     expect(overview.burnDelta).toBe(20_000);
   });
@@ -302,8 +339,27 @@ describe("buildDashboardOverview", () => {
       netPositionImports: [],
       runway: runwayContext([["e1", 5]]),
       employees: [employee("e1", "A")],
+      settings,
     });
     expect(overview.hasBurn).toBe(false);
     expect(overview.runwayMonths).toBe(5);
+  });
+
+  it("surfaces the limiting person's photo through to the overview", () => {
+    const withPhoto: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      employeeProfiles: { e1: { photoUrl: "sb://employee-photos/e1.jpg" } },
+    };
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [],
+      runway: runwayContext([["e1", 2]]),
+      employees: [employee("e1", "M. Chen")],
+      settings: withPhoto,
+    });
+    expect(overview.runwayLimitingPersonName).toBe("M. Chen");
+    expect(overview.runwayLimitingPhotoUrl).toBe("sb://employee-photos/e1.jpg");
   });
 });

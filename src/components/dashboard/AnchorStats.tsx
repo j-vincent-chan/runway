@@ -8,6 +8,7 @@ import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
+import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
 const SPARK_HEIGHT = 34;
@@ -82,6 +83,7 @@ function Anchor({
   valueNode,
   comparison,
   comparisonTone = "neutral",
+  comparisonAvatar,
   spark,
 }: {
   label: string;
@@ -90,6 +92,8 @@ function Anchor({
   valueNode?: React.ReactNode;
   comparison: React.ReactNode;
   comparisonTone?: "neutral" | "caution" | "critical" | "healthy";
+  /** Small avatar of the person the comparison line names, when known. */
+  comparisonAvatar?: React.ReactNode;
   spark?: React.ReactNode;
 }) {
   return (
@@ -103,14 +107,15 @@ function Anchor({
       <p className="type-stat mt-0.5 text-ink">{valueNode ?? value}</p>
       <p
         className={cn(
-          "type-row mt-1",
+          "mt-1 flex items-center gap-1.5 type-row",
           comparisonTone === "neutral" && "text-muted",
           comparisonTone === "caution" && "text-caution",
           comparisonTone === "critical" && "text-critical",
           comparisonTone === "healthy" && "text-healthy"
         )}
       >
-        {comparison}
+        {comparisonAvatar}
+        <span className="min-w-0">{comparison}</span>
       </p>
       {spark}
     </div>
@@ -133,6 +138,8 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
     runwayMonths,
     runwayLimitingLabel,
     runwayDeficitAmount,
+    runwayLimitingPersonName,
+    runwayLimitingPhotoUrl,
     runwayTargetMonth,
   } = overview;
 
@@ -222,6 +229,11 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
           )
         }
         comparisonTone={runwayTone}
+        comparisonAvatar={
+          runwayLimitingPersonName ? (
+            <EmployeeAvatar name={runwayLimitingPersonName} photoUrl={runwayLimitingPhotoUrl ?? undefined} size="xs" />
+          ) : undefined
+        }
         comparison={
           runwayMonths === null ? (
             <>needs restricted funding data to project</>

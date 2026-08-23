@@ -132,6 +132,46 @@ describe("buildAttentionQueue", () => {
     expect(queue.rows[0]?.detail).toBe("funded through October 2026 · Fund A");
   });
 
+  it("carries the person's photo on their own row", () => {
+    const withPhoto: AppSettings = {
+      ...settings,
+      employeeProfiles: { e1: { photoUrl: "sb://employee-photos/e1.jpg" } },
+    };
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "M. Chen" }]),
+      fundingSources: [],
+      settings: withPhoto,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext([["e1", 2]]),
+    });
+    expect(queue.rows[0]?.personName).toBe("M. Chen");
+    expect(queue.rows[0]?.photoUrl).toBe("sb://employee-photos/e1.jpg");
+  });
+
+  it("carries the affected person's photo on a solo-overdrawn account row", () => {
+    const withPhoto: AppSettings = {
+      ...settings,
+      employeeProfiles: { e1: { photoUrl: "sb://employee-photos/e1.jpg" } },
+    };
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "Xochitl Vargas" }]),
+      fundingSources: [],
+      settings: withPhoto,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext(
+        [["e1", -1]],
+        [{ chartRoot: "immunodiverse", name: "ImmunoDiverse", months: -1, balance: -6_809 }],
+        [["e1", { name: "ImmunoDiverse", chartRoot: "immunodiverse" }]],
+        [["immunodiverse", ["e1"]]]
+      ),
+    });
+    expect(queue.rows[0]?.entity).toBe("ImmunoDiverse");
+    expect(queue.rows[0]?.personName).toBe("Xochitl Vargas");
+    expect(queue.rows[0]?.photoUrl).toBe("sb://employee-photos/e1.jpg");
+  });
+
   it("falls back to 'already short' when no negative account balance is resolvable", () => {
     const queue = buildAttentionQueue({
       snapshot: snapshot([{ id: "e1", name: "M. Chen" }]),

@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { monthLabelLong } from "@/lib/dashboard/month";
 import { CHIP_CLASS, SEVERITY_ICON, SPOTLIGHT_BG_CLASS } from "@/components/dashboard/attentionSeverity";
+import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import type { AttentionQueue } from "@/lib/dashboard/attention";
 import type { Verdict, VerdictClause } from "@/lib/dashboard/verdict";
 
@@ -93,27 +94,37 @@ export function FundingStatusPanel({
       <Link
         href={spotlight.href}
         className={cn(
-          "group flex flex-col gap-2 rounded-md border border-rule px-6 py-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+          "group flex items-start gap-4 rounded-md border border-rule px-6 py-5 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
           SPOTLIGHT_BG_CLASS[spotlight.severity]
         )}
       >
-        <span
-          className={cn(
-            "type-caption inline-flex w-fit items-center gap-1.5 rounded-sm px-2 py-1",
-            CHIP_CLASS[spotlight.severity]
-          )}
-        >
-          <Icon className="h-3.5 w-3.5" aria-hidden />
-          {spotlight.severityLabel}
-        </span>
-        <span className="type-stat text-ink">{spotlight.entity}</span>
-        <span className="type-body text-ink-2">
-          {spotlight.context && <span className="text-muted">{spotlight.context} · </span>}
-          {spotlight.detail}
-        </span>
-        <span className="type-row mt-1 inline-flex w-fit items-center gap-1 font-medium text-accent group-hover:underline">
-          {spotlight.actionLabel}
-          <ArrowRight className="h-4 w-4" aria-hidden />
+        {spotlight.personName && (
+          <EmployeeAvatar
+            name={spotlight.personName}
+            photoUrl={spotlight.photoUrl}
+            size="lg"
+            className="mt-0.5"
+          />
+        )}
+        <span className="flex min-w-0 flex-1 flex-col gap-2">
+          <span
+            className={cn(
+              "type-caption inline-flex w-fit items-center gap-1.5 rounded-sm px-2 py-1",
+              CHIP_CLASS[spotlight.severity]
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+            {spotlight.severityLabel}
+          </span>
+          <span className="type-stat text-ink">{spotlight.entity}</span>
+          <span className="type-body text-ink-2">
+            {spotlight.context && <span className="text-muted">{spotlight.context} · </span>}
+            {spotlight.detail}
+          </span>
+          <span className="type-row mt-1 inline-flex w-fit items-center gap-1 font-medium text-accent group-hover:underline">
+            {spotlight.actionLabel}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </span>
         </span>
       </Link>
     </section>

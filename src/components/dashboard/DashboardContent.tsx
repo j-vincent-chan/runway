@@ -82,8 +82,9 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       netPositionImports,
       runway,
       employees: snapshot.employees,
+      settings,
     });
-  }, [trend, runway, snapshot, accountItems, netPositionImports]);
+  }, [trend, runway, snapshot, accountItems, netPositionImports, settings]);
 
   const attentionQueue = useMemo(() => {
     if (!snapshot || !trend || !runway) return null;

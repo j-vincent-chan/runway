@@ -1,9 +1,10 @@
 import { buildNetPositionAccountSeries } from "@/lib/net-position/buildAccountSeries";
 import { monthLabelShort, periodKeyToMonth, shiftMonth } from "@/lib/dashboard/month";
+import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
 import type { RunwayContext } from "@/lib/dashboard/attention";
-import type { Employee, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
+import type { AppSettings, Employee, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
 
 /** Months averaged for the headline burn rate. */
 export const BURN_WINDOW_MONTHS = 3;
@@ -55,6 +56,9 @@ export interface DashboardOverview {
   runwayLimitingLabel: string | null;
   /** Dollar amount the limiting account is overdrawn by, when it's known and negative. */
   runwayDeficitAmount: number | null;
+  /** The person associated with the constraint, when exactly one is known. */
+  runwayLimitingPersonName: string | null;
+  runwayLimitingPhotoUrl: string | null;
   /** Month the constraint hits, when not already past due. */
   runwayTargetMonth: string | null;
 }
@@ -63,6 +67,8 @@ export interface ConstrainedRunway {
   months: number | null;
   limitingLabel: string | null;
   deficitAmount: number | null;
+  limitingPersonName: string | null;
+  limitingPhotoUrl: string | null;
 }
 
 /**
@@ -72,15 +78,22 @@ export interface ConstrainedRunway {
  * ids, so employee names are resolved from the roster. When the limiting
  * factor traces back to an account with a negative balance, that balance
  * is surfaced as the deficit — the same figure the account's own row would
- * show, not a re-derivation.
+ * show, not a re-derivation. The associated person (for a photo) is tracked
+ * separately from the label, since the label may name the account instead.
  */
 export function buildConstrainedRunway(
   runway: RunwayContext,
-  employees: Employee[]
+  employees: Employee[],
+  settings: AppSettings
 ): ConstrainedRunway {
   const employeeById = new Map(employees.map((e) => [e.id, e]));
   const accountsByRoot = new Map(runway.accounts.map((a) => [a.chartRoot, a]));
-  let best: { months: number; label: string; deficitAmount: number | null } | null = null;
+  let best: {
+    months: number;
+    label: string;
+    deficitAmount: number | null;
+    employeeId: string | null;
+  } | null = null;
 
   for (const [employeeId, months] of runway.monthsByEmployee) {
     if (months === null) continue;
@@ -90,7 +103,8 @@ export function buildConstrainedRunway(
       const overdrawn = !!limitingAccount && limitingAccount.balance < 0;
       // An overdrawn account solely charged by this person is the account's
       // problem, not theirs individually — name it the same way the
-      // attention queue's spotlight does.
+      // attention queue's spotlight does. The person themselves stays
+      // tracked (for a photo) even though the label now names the account.
       const contributors = limiting ? runway.accountContributors.get(limiting.chartRoot) : undefined;
       const soleContributor = contributors?.size === 1;
       best = {
@@ -100,23 +114,41 @@ export function buildConstrainedRunway(
             ? limitingAccount.name
             : employeeById.get(employeeId)?.name ?? "Unknown",
         deficitAmount: overdrawn && limitingAccount ? Math.abs(limitingAccount.balance) : null,
+        employeeId,
       };
     }
   }
 
   for (const account of runway.accounts) {
     if (!best || account.months < best.months) {
+      const contributors = runway.accountContributors.get(account.chartRoot);
+      const soleContributor = contributors?.size === 1 ? [...contributors][0] : null;
       best = {
         months: account.months,
         label: account.name,
         deficitAmount: account.balance < 0 ? Math.abs(account.balance) : null,
+        employeeId: soleContributor ?? null,
       };
     }
   }
 
+  const employee = best?.employeeId ? employeeById.get(best.employeeId) : undefined;
+
   return best
-    ? { months: best.months, limitingLabel: best.label, deficitAmount: best.deficitAmount }
-    : { months: null, limitingLabel: null, deficitAmount: null };
+    ? {
+        months: best.months,
+        limitingLabel: best.label,
+        deficitAmount: best.deficitAmount,
+        limitingPersonName: employee?.name ?? null,
+        limitingPhotoUrl: (employee && resolveEmployeeProfile(settings, employee)?.photoUrl) || null,
+      }
+    : {
+        months: null,
+        limitingLabel: null,
+        deficitAmount: null,
+        limitingPersonName: null,
+        limitingPhotoUrl: null,
+      };
 }
 
 export function resolvePeriodStatus(
@@ -180,6 +212,7 @@ export function buildDashboardOverview({
   netPositionImports,
   runway,
   employees,
+  settings,
 }: {
   monthly: PersonnelCostTrendPoint[];
   planningMonth: string;
@@ -187,6 +220,7 @@ export function buildDashboardOverview({
   netPositionImports: NetPositionReportImport[];
   runway: RunwayContext;
   employees: Employee[];
+  settings: AppSettings;
 }): DashboardOverview {
   const visible = accountItems.filter((item) => !item.isHidden);
   const availableFunds = visible.reduce((sum, item) => sum + (item.displayBalance ?? 0), 0);
@@ -222,7 +256,7 @@ export function buildDashboardOverview({
   const hasFunds = visible.length > 0 && availableFunds !== 0;
   const hasBurn = monthlyBurn > 0;
 
-  const constrained = buildConstrainedRunway(runway, employees);
+  const constrained = buildConstrainedRunway(runway, employees, settings);
   const runwayMonths = constrained.months;
   const runwayTargetMonth =
     runwayMonths !== null && runwayMonths >= 0
@@ -246,6 +280,8 @@ export function buildDashboardOverview({
     runwayMonths,
     runwayLimitingLabel: constrained.limitingLabel,
     runwayDeficitAmount: constrained.deficitAmount,
+    runwayLimitingPersonName: constrained.limitingPersonName,
+    runwayLimitingPhotoUrl: constrained.limitingPhotoUrl,
     runwayTargetMonth,
   };
 }

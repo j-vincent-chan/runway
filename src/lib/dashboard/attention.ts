@@ -11,6 +11,7 @@ import {
   type RunwayAccountLine,
 } from "@/lib/runway/calculate";
 import { buildFundingMixForEmployees } from "@/lib/dashboard/metrics";
+import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { monthLabelLong, shiftMonth } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
@@ -46,6 +47,9 @@ export interface AttentionRow {
   actionLabel: string;
   /** Months until this becomes a problem; drives the sort. */
   months: number;
+  /** The person most associated with this row, when exactly one is known. */
+  personName?: string;
+  photoUrl?: string;
 }
 
 export interface PersonAtRisk {
@@ -334,6 +338,8 @@ export function buildAttentionQueue({
       href: "/runway",
       actionLabel: "Reassign",
       months,
+      personName: employee.name,
+      photoUrl: resolveEmployeeProfile(settings, employee)?.photoUrl,
     });
   }
 
@@ -354,7 +360,8 @@ export function buildAttentionQueue({
       continue;
     }
 
-    const soleContributorName = soleContributor ? byId.get(soleContributor)?.name : undefined;
+    const soleContributorEmployee = soleContributor ? byId.get(soleContributor) : undefined;
+    const soleContributorName = soleContributorEmployee?.name;
 
     accountRows.push({
       id: `account-${account.chartRoot}`,
@@ -370,6 +377,10 @@ export function buildAttentionQueue({
       href: "/runway",
       actionLabel: "Review",
       months: overdrawn ? -1 : account.months,
+      personName: soleContributorName,
+      photoUrl: soleContributorEmployee
+        ? resolveEmployeeProfile(settings, soleContributorEmployee)?.photoUrl
+        : undefined,
     });
   }
 
