@@ -53,6 +53,8 @@ export interface DashboardOverview {
   runwayMonths: number | null;
   /** Name of the person or account whose limit sets runwayMonths. */
   runwayLimitingLabel: string | null;
+  /** Dollar amount the limiting account is overdrawn by, when it's known and negative. */
+  runwayDeficitAmount: number | null;
   /** Month the constraint hits, when not already past due. */
   runwayTargetMonth: string | null;
 }
@@ -60,37 +62,55 @@ export interface DashboardOverview {
 export interface ConstrainedRunway {
   months: number | null;
   limitingLabel: string | null;
+  deficitAmount: number | null;
 }
 
 /**
  * Takes the minimum across every person's and every account's own runway,
  * both already computed by buildRunwayContext with restriction respected —
  * never re-derives a pooled figure. `runway.monthsByEmployee` only carries
- * ids, so employee names are resolved from the roster.
+ * ids, so employee names are resolved from the roster. When the limiting
+ * factor traces back to an account with a negative balance, that balance
+ * is surfaced as the deficit — the same figure the account's own row would
+ * show, not a re-derivation.
  */
 export function buildConstrainedRunway(
   runway: RunwayContext,
   employees: Employee[]
 ): ConstrainedRunway {
   const employeeById = new Map(employees.map((e) => [e.id, e]));
-  let best: { months: number; label: string } | null = null;
+  const accountsByRoot = new Map(runway.accounts.map((a) => [a.chartRoot, a]));
+  let best: { months: number; label: string; deficitAmount: number | null } | null = null;
 
   for (const [employeeId, months] of runway.monthsByEmployee) {
     if (months === null) continue;
     if (!best || months < best.months) {
-      best = { months, label: employeeById.get(employeeId)?.name ?? "Unknown" };
+      const limiting = runway.limitingAccountByEmployee.get(employeeId);
+      const limitingAccount = limiting ? accountsByRoot.get(limiting.chartRoot) : undefined;
+      best = {
+        months,
+        label: employeeById.get(employeeId)?.name ?? "Unknown",
+        deficitAmount:
+          limitingAccount && limitingAccount.balance < 0
+            ? Math.abs(limitingAccount.balance)
+            : null,
+      };
     }
   }
 
   for (const account of runway.accounts) {
     if (!best || account.months < best.months) {
-      best = { months: account.months, label: account.name };
+      best = {
+        months: account.months,
+        label: account.name,
+        deficitAmount: account.balance < 0 ? Math.abs(account.balance) : null,
+      };
     }
   }
 
   return best
-    ? { months: best.months, limitingLabel: best.label }
-    : { months: null, limitingLabel: null };
+    ? { months: best.months, limitingLabel: best.label, deficitAmount: best.deficitAmount }
+    : { months: null, limitingLabel: null, deficitAmount: null };
 }
 
 export function resolvePeriodStatus(
@@ -219,6 +239,7 @@ export function buildDashboardOverview({
     hasBurn,
     runwayMonths,
     runwayLimitingLabel: constrained.limitingLabel,
+    runwayDeficitAmount: constrained.deficitAmount,
     runwayTargetMonth,
   };
 }

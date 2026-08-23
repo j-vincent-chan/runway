@@ -191,11 +191,21 @@ export function fundedThroughLabel(planningMonth: string, months: number): strin
   return `funded through ${fundedThroughMonthLabel(planningMonth, months)}`;
 }
 
+/**
+ * When the limiting account's own balance is negative, name the actual
+ * deficit rather than the vaguer "already short" — the same figure the
+ * account's own row would have shown, had it not been folded in here.
+ */
 export function personDetail(
   planningMonth: string,
   months: number,
-  limitingAccount: string | undefined
+  limitingAccount: string | undefined,
+  limitingAccountBalance?: number
 ): string {
+  if (months < 0 && limitingAccountBalance !== undefined && limitingAccountBalance < 0) {
+    const deficit = `overdrawn ${formatCurrency(Math.abs(limitingAccountBalance))}`;
+    return limitingAccount ? `${deficit} · ${limitingAccount}` : deficit;
+  }
   const through = fundedThroughLabel(planningMonth, months);
   return limitingAccount ? `${through} · ${limitingAccount}` : through;
 }
@@ -263,6 +273,7 @@ export function buildAttentionQueue({
 }): AttentionQueue {
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const byId = new Map(employees.map((e) => [e.id, e]));
+  const accountsByRoot = new Map(runway.accounts.map((a) => [a.chartRoot, a]));
 
   const peopleAtRisk: PersonAtRisk[] = [];
   const personRows: AttentionRow[] = [];
@@ -280,6 +291,7 @@ export function buildAttentionQueue({
     const severity = severityFor(months);
     if (!severity) continue;
     peopleWithRows.add(employeeId);
+    const limiting = runway.limitingAccountByEmployee.get(employeeId);
     personRows.push({
       id: `person-${employeeId}`,
       severity,
@@ -289,7 +301,8 @@ export function buildAttentionQueue({
       detail: personDetail(
         planningMonth,
         months,
-        runway.limitingAccountByEmployee.get(employeeId)?.name
+        limiting?.name,
+        limiting ? accountsByRoot.get(limiting.chartRoot)?.balance : undefined
       ),
       href: "/runway",
       actionLabel: "Reassign",

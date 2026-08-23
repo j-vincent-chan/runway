@@ -132,6 +132,7 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
     burnDelta,
     runwayMonths,
     runwayLimitingLabel,
+    runwayDeficitAmount,
     runwayTargetMonth,
   } = overview;
 
@@ -203,6 +204,12 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
         valueNode={
           runwayMonths === null ? (
             <span className="text-muted">—</span>
+          ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
+            <DerivedFigure
+              value={formatCurrency(runwayDeficitAmount)}
+              explanation={`The current balance on ${runwayLimitingLabel ?? "the limiting account"}'s account, which has gone negative.`}
+              className="type-stat text-critical"
+            />
           ) : runwayMonths < 0 ? (
             <span className="type-stat text-critical">Already short</span>
           ) : (
@@ -218,6 +225,8 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
         comparison={
           runwayMonths === null ? (
             <>needs restricted funding data to project</>
+          ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
+            <>{runwayLimitingLabel ?? "an account"} is overdrawn</>
           ) : runwayMonths < 0 ? (
             <>{runwayLimitingLabel ?? "an account"} is already short</>
           ) : runwayTargetMonth ? (

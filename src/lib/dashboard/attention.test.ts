@@ -105,8 +105,22 @@ describe("buildAttentionQueue", () => {
     // same fact (personDetail already names the account in her detail).
     expect(queue.rows).toHaveLength(1);
     expect(queue.rows[0]?.entity).toBe("Xochitl Vargas");
-    expect(queue.rows[0]?.detail).toBe("already short · ImmunoDiverse");
+    expect(queue.rows[0]?.detail).toBe("overdrawn $6,809 · ImmunoDiverse");
     expect(queue.totalCount).toBe(1);
+  });
+
+  it("falls back to 'already short' when no negative account balance is resolvable", () => {
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "M. Chen" }]),
+      fundingSources: [],
+      settings,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      // Blended runway is negative, but no single limiting account is known
+      // to be in deficit — don't claim a specific overdrawn amount.
+      runway: runwayContext([["e1", -1]]),
+    });
+    expect(queue.rows[0]?.detail).toBe("already short");
   });
 
   it("keeps a shared account's own row even when one contributor also has a row", () => {

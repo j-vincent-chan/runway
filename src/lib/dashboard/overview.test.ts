@@ -47,11 +47,12 @@ function employee(id: string, name: string): Employee {
 
 function runwayContext(
   employeeMonths: [string, number | null][] = [],
-  accounts: RunwayContext["accounts"] = []
+  accounts: RunwayContext["accounts"] = [],
+  limitingAccountByEmployee: [string, { name: string; chartRoot: string }][] = []
 ): RunwayContext {
   return {
     monthsByEmployee: new Map(employeeMonths),
-    limitingAccountByEmployee: new Map(),
+    limitingAccountByEmployee: new Map(limitingAccountByEmployee),
     accounts,
     accountContributors: new Map(),
   };
@@ -137,8 +138,32 @@ describe("buildConstrainedRunway", () => {
     expect(result.months).toBe(6);
   });
 
+  it("surfaces the deficit amount from a person's limiting account, not a re-derivation", () => {
+    const runway = runwayContext(
+      [["e1", -2]],
+      [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: -4_200 }],
+      [["e1", { name: "Fund A", chartRoot: "fund-a" }]]
+    );
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    expect(result.deficitAmount).toBe(4_200);
+  });
+
+  it("leaves the deficit null when the limiting account isn't actually negative", () => {
+    const runway = runwayContext(
+      [["e1", -2]],
+      [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: 1_000 }],
+      [["e1", { name: "Fund A", chartRoot: "fund-a" }]]
+    );
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    expect(result.deficitAmount).toBeNull();
+  });
+
   it("returns null when nothing is computable", () => {
-    expect(buildConstrainedRunway(emptyRunway, [])).toEqual({ months: null, limitingLabel: null });
+    expect(buildConstrainedRunway(emptyRunway, [])).toEqual({
+      months: null,
+      limitingLabel: null,
+      deficitAmount: null,
+    });
   });
 });
 
@@ -175,6 +200,7 @@ describe("buildDashboardOverview", () => {
     });
     expect(overview.runwayMonths).toBe(-2);
     expect(overview.runwayLimitingLabel).toBe("Fund A");
+    expect(overview.runwayDeficitAmount).toBe(900);
     expect(overview.runwayTargetMonth).toBeNull();
   });
 
