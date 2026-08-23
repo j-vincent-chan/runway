@@ -48,13 +48,14 @@ function employee(id: string, name: string): Employee {
 function runwayContext(
   employeeMonths: [string, number | null][] = [],
   accounts: RunwayContext["accounts"] = [],
-  limitingAccountByEmployee: [string, { name: string; chartRoot: string }][] = []
+  limitingAccountByEmployee: [string, { name: string; chartRoot: string }][] = [],
+  accountContributors: [string, string[]][] = []
 ): RunwayContext {
   return {
     monthsByEmployee: new Map(employeeMonths),
     limitingAccountByEmployee: new Map(limitingAccountByEmployee),
     accounts,
-    accountContributors: new Map(),
+    accountContributors: new Map(accountContributors.map(([root, ids]) => [root, new Set(ids)])),
   };
 }
 
@@ -146,6 +147,30 @@ describe("buildConstrainedRunway", () => {
     );
     const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
     expect(result.deficitAmount).toBe(4_200);
+  });
+
+  it("names the account, not the person, when it's solely theirs and overdrawn", () => {
+    const runway = runwayContext(
+      [["e1", -2]],
+      [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: -4_200 }],
+      [["e1", { name: "Fund A", chartRoot: "fund-a" }]],
+      [["fund-a", ["e1"]]]
+    );
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    // Same fact the attention queue's spotlight names: the account, not M. Chen.
+    expect(result.limitingLabel).toBe("Fund A");
+    expect(result.deficitAmount).toBe(4_200);
+  });
+
+  it("still names the person when the account is shared", () => {
+    const runway = runwayContext(
+      [["e1", -2]],
+      [{ chartRoot: "fund-a", name: "Fund A", months: -2, balance: -4_200 }],
+      [["e1", { name: "Fund A", chartRoot: "fund-a" }]],
+      [["fund-a", ["e1", "e2"]]]
+    );
+    const result = buildConstrainedRunway(runway, [employee("e1", "M. Chen")]);
+    expect(result.limitingLabel).toBe("M. Chen");
   });
 
   it("leaves the deficit null when the limiting account isn't actually negative", () => {

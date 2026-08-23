@@ -275,6 +275,23 @@ export function buildAttentionQueue({
   const byId = new Map(employees.map((e) => [e.id, e]));
   const accountsByRoot = new Map(runway.accounts.map((a) => [a.chartRoot, a]));
 
+  // Accounts first: whether a person's row is redundant with their account's
+  // depends on whether that account is actually overdrawn, so that has to be
+  // known before deciding which of the two rows to keep.
+  const accountsAtRisk: AccountAtRisk[] = [];
+  const overdrawnAccounts: AccountAtRisk[] = [];
+  const qualifyingAccounts = new Map<string, { severity: AttentionSeverity; overdrawn: boolean }>();
+
+  for (const account of runway.accounts) {
+    const overdrawn = account.balance < 0;
+    if (overdrawn) overdrawnAccounts.push(account);
+    if (account.months < horizonMonths) accountsAtRisk.push(account);
+
+    const severity = overdrawn ? "critical" : severityFor(account.months);
+    if (!severity) continue;
+    qualifyingAccounts.set(account.chartRoot, { severity, overdrawn });
+  }
+
   const peopleAtRisk: PersonAtRisk[] = [];
   const personRows: AttentionRow[] = [];
   const peopleWithRows = new Set<string>();
@@ -290,8 +307,18 @@ export function buildAttentionQueue({
 
     const severity = severityFor(months);
     if (!severity) continue;
-    peopleWithRows.add(employeeId);
+
     const limiting = runway.limitingAccountByEmployee.get(employeeId);
+    const contributors = limiting ? runway.accountContributors.get(limiting.chartRoot) : undefined;
+    const soleContributor = contributors?.size === 1;
+    const accountState = limiting ? qualifyingAccounts.get(limiting.chartRoot) : undefined;
+
+    // The account itself is out of money — that's a fund problem, not a
+    // personnel one. Its own row already says so; don't also frame it as
+    // this person individually being overdrawn.
+    if (soleContributor && accountState?.overdrawn) continue;
+
+    peopleWithRows.add(employeeId);
     personRows.push({
       id: `person-${employeeId}`,
       severity,
@@ -310,27 +337,24 @@ export function buildAttentionQueue({
     });
   }
 
-  const accountsAtRisk: AccountAtRisk[] = [];
-  const overdrawnAccounts: AccountAtRisk[] = [];
   const accountRows: AttentionRow[] = [];
 
   for (const account of runway.accounts) {
-    const overdrawn = account.balance < 0;
-    if (overdrawn) overdrawnAccounts.push(account);
-    if (account.months < horizonMonths) accountsAtRisk.push(account);
+    const qualifies = qualifyingAccounts.get(account.chartRoot);
+    if (!qualifies) continue;
+    const { severity, overdrawn } = qualifies;
 
-    const severity = overdrawn ? "critical" : severityFor(account.months);
-    if (!severity) continue;
-
-    // A grant charged by exactly one person is already named by that
-    // person's own row (personDetail includes the account name) — showing
-    // both restates the same root cause twice. Shared accounts still get
-    // their own row, since no single person's row can stand in for them.
     const contributors = runway.accountContributors.get(account.chartRoot);
-    if (contributors?.size === 1) {
-      const [soleContributor] = contributors;
-      if (soleContributor && peopleWithRows.has(soleContributor)) continue;
+    const soleContributor = contributors?.size === 1 ? [...contributors][0] : undefined;
+
+    if (!overdrawn && soleContributor && peopleWithRows.has(soleContributor)) {
+      // Account still has money; the limiting factor is this person's own
+      // burn against it, and their row (funded through {date} · account)
+      // already says that — don't restate it as a second, account-shaped row.
+      continue;
     }
+
+    const soleContributorName = soleContributor ? byId.get(soleContributor)?.name : undefined;
 
     accountRows.push({
       id: `account-${account.chartRoot}`,
@@ -339,7 +363,9 @@ export function buildAttentionQueue({
       entity: account.name,
       context: account.chartRoot,
       detail: overdrawn
-        ? `overdrawn ${formatCurrency(Math.abs(account.balance))}`
+        ? `overdrawn ${formatCurrency(Math.abs(account.balance))}${
+            soleContributorName ? ` · ${soleContributorName}` : ""
+          }`
         : fundedThroughLabel(planningMonth, account.months),
       href: "/runway",
       actionLabel: "Review",

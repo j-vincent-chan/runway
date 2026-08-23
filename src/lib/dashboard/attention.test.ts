@@ -86,7 +86,7 @@ describe("buildAttentionQueue", () => {
     expect(queue.rows[2]?.detail).toBe("funded through January 2027");
   });
 
-  it("suppresses a solo-contributor account row already named by its person's row", () => {
+  it("prioritizes the account, not the person, when the account is actually overdrawn", () => {
     const queue = buildAttentionQueue({
       snapshot: snapshot([{ id: "e1", name: "Xochitl Vargas" }]),
       fundingSources: [],
@@ -101,12 +101,35 @@ describe("buildAttentionQueue", () => {
       ),
     });
 
-    // Only Xochitl's row appears — the account row would restate the exact
-    // same fact (personDetail already names the account in her detail).
+    // The fund is out of money — that's the account's row to carry, naming
+    // who it affects, not a claim that Xochitl herself is overdrawn.
     expect(queue.rows).toHaveLength(1);
-    expect(queue.rows[0]?.entity).toBe("Xochitl Vargas");
-    expect(queue.rows[0]?.detail).toBe("overdrawn $6,809 · ImmunoDiverse");
+    expect(queue.rows[0]?.entity).toBe("ImmunoDiverse");
+    expect(queue.rows[0]?.detail).toBe("overdrawn $6,809 · Xochitl Vargas");
     expect(queue.totalCount).toBe(1);
+  });
+
+  it("prioritizes the person, not the account, when the account still has money", () => {
+    const queue = buildAttentionQueue({
+      snapshot: snapshot([{ id: "e1", name: "M. Chen" }]),
+      fundingSources: [],
+      settings,
+      planningMonth: MONTH,
+      horizonMonths: 12,
+      runway: runwayContext(
+        [["e1", 2]],
+        [{ chartRoot: "fund-a", name: "Fund A", months: 2, balance: 15_000 }],
+        [["e1", { name: "Fund A", chartRoot: "fund-a" }]],
+        [["fund-a", ["e1"]]]
+      ),
+    });
+
+    // The account isn't overdrawn — the limiting factor is M. Chen's own
+    // burn against it, so their row (which already names the account) is
+    // the one that stands; the account doesn't need a second, redundant row.
+    expect(queue.rows).toHaveLength(1);
+    expect(queue.rows[0]?.entity).toBe("M. Chen");
+    expect(queue.rows[0]?.detail).toBe("funded through October 2026 · Fund A");
   });
 
   it("falls back to 'already short' when no negative account balance is resolvable", () => {

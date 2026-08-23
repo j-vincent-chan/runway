@@ -87,13 +87,19 @@ export function buildConstrainedRunway(
     if (!best || months < best.months) {
       const limiting = runway.limitingAccountByEmployee.get(employeeId);
       const limitingAccount = limiting ? accountsByRoot.get(limiting.chartRoot) : undefined;
+      const overdrawn = !!limitingAccount && limitingAccount.balance < 0;
+      // An overdrawn account solely charged by this person is the account's
+      // problem, not theirs individually — name it the same way the
+      // attention queue's spotlight does.
+      const contributors = limiting ? runway.accountContributors.get(limiting.chartRoot) : undefined;
+      const soleContributor = contributors?.size === 1;
       best = {
         months,
-        label: employeeById.get(employeeId)?.name ?? "Unknown",
-        deficitAmount:
-          limitingAccount && limitingAccount.balance < 0
-            ? Math.abs(limitingAccount.balance)
-            : null,
+        label:
+          overdrawn && soleContributor && limitingAccount
+            ? limitingAccount.name
+            : employeeById.get(employeeId)?.name ?? "Unknown",
+        deficitAmount: overdrawn && limitingAccount ? Math.abs(limitingAccount.balance) : null,
       };
     }
   }
