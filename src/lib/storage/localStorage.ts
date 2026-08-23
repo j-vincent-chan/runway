@@ -6,6 +6,7 @@ import type {
   PortfolioReportImport,
   Scenario,
   WorkingPlan,
+  PositionSalaryReportImport,
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/types";
 import { ensureCatalogDefaults } from "@/lib/supabase/catalog";
@@ -29,6 +30,7 @@ export interface StoredAppState {
   portfolioImports: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];
+  positionSalaryImports?: PositionSalaryReportImport[];
   /** ISO timestamp of last local save — used to reconcile with Supabase */
   savedAt?: string;
 }
@@ -44,6 +46,7 @@ function emptyState(): StoredAppState {
     portfolioImports: [],
     payrollImports: [],
     netPositionImports: [],
+    positionSalaryImports: [],
   };
 }
 
@@ -57,6 +60,7 @@ function normalizeState(parsed: Partial<StoredAppState> | null | undefined): Sto
     portfolioImports: parsed.portfolioImports ?? [],
     payrollImports: parsed.payrollImports ?? [],
     netPositionImports: parsed.netPositionImports ?? [],
+    positionSalaryImports: parsed.positionSalaryImports ?? [],
     savedAt: parsed.savedAt,
   };
 }
@@ -76,7 +80,8 @@ export function hasPlanningData(state: StoredAppState): boolean {
       state.workingPlan ||
       (state.portfolioImports && state.portfolioImports.length > 0) ||
       (state.payrollImports && state.payrollImports.length > 0) ||
-      (state.netPositionImports && state.netPositionImports.length > 0)
+      (state.netPositionImports && state.netPositionImports.length > 0) ||
+      (state.positionSalaryImports && state.positionSalaryImports.length > 0)
   );
 }
 
@@ -292,6 +297,7 @@ function pickRichest(candidates: StoredAppState[]): StoredAppState | null {
       (state.payrollImports?.length ?? 0) * 10 +
       (state.portfolioImports?.length ?? 0) +
       (state.netPositionImports?.length ?? 0) +
+      (state.positionSalaryImports?.length ?? 0) +
       (state.savedAt ? Date.parse(state.savedAt) / 1e13 : 0);
     if (score > bestScore) {
       bestScore = score;

@@ -248,6 +248,51 @@ export interface NetPositionReportImport {
   rows: NetPositionAccountRow[];
 }
 
+/** One row from Employee and Position Salary Report (a job/appointment). */
+export interface PositionSalaryPosition {
+  position: string;
+  jobCode?: string;
+  jobFte: number;
+  employeeStatus?: string;
+  employeeClass?: string;
+  salaryAdminPlan?: string;
+  compFreq?: string;
+  jobEffectiveDate?: string;
+  distributionBeginDate?: string;
+  baseSalaryX: number;
+  negotiatedSalaryY: number;
+  otherCompensationZ: number;
+  totalSalary: number;
+}
+
+/** One person on an Employee and Position Salary Report (totals across positions). */
+export interface PositionSalaryPerson {
+  name: string;
+  ucsfEmplId: string;
+  ucpathEmplId?: string;
+  reportsTo?: string;
+  jobFte: number;
+  compFreq?: string;
+  role?: string;
+  baseSalaryX: number;
+  negotiatedSalaryY: number;
+  otherCompensationZ: number;
+  totalSalary: number;
+  positions: PositionSalaryPosition[];
+}
+
+/** Official FY salary rates from Employee and Position Salary Report. */
+export interface PositionSalaryReportImport {
+  id: string;
+  sourceFileName: string;
+  uploadedAt: string;
+  reportRunDate?: string;
+  /** e.g. "2026-27" */
+  fiscalYear?: string;
+  sheetName: string;
+  people: PositionSalaryPerson[];
+}
+
 /** One uploaded Payroll Funding Report (merged like MyPortfolio files). */
 export interface PayrollReportImport {
   id: string;

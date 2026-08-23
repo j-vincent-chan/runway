@@ -8,7 +8,7 @@ import {
   type FundingMixPeriod,
 } from "@/lib/dashboard/metrics";
 import { buildDashboardInsights } from "@/lib/dashboard/insights";
-import { buildEmployeeBlendedRunwayMap } from "@/lib/runway/employeeRunwayIndex";
+import { buildRunwayContext } from "@/lib/dashboard/attention";
 import { KeyChangesSection } from "@/components/dashboard/KeyChangesSection";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
@@ -31,9 +31,9 @@ export function DashboardContent() {
     [snapshot, fundingSources, settings, fundingPeriod]
   );
 
-  const runwayMonthsByEmployee = useMemo(() => {
-    if (!snapshot) return new Map<string, number | null>();
-    return buildEmployeeBlendedRunwayMap(
+  const runway = useMemo(() => {
+    if (!snapshot) return null;
+    return buildRunwayContext(
       snapshot,
       workingPlan,
       fundingSources,
@@ -43,7 +43,7 @@ export function DashboardContent() {
   }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
 
   const insights = useMemo(() => {
-    if (!snapshot || !trend) return [];
+    if (!snapshot || !trend || !runway) return [];
     return buildDashboardInsights({
       snapshot,
       fundingSources,
@@ -51,9 +51,10 @@ export function DashboardContent() {
       monthly: trend.monthly,
       groupBreakdown: trend.groupBreakdown,
       planningMonth: trend.planningMonth,
-      runwayMonthsByEmployee,
+      runwayMonthsByEmployee: runway.monthsByEmployee,
+      limitingAccountByEmployee: runway.limitingAccountByEmployee,
     });
-  }, [snapshot, fundingSources, settings, trend, runwayMonthsByEmployee]);
+  }, [snapshot, fundingSources, settings, trend, runway]);
 
   if (!snapshot || !trend || !funding) return null;
 

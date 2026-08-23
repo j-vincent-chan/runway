@@ -26,7 +26,9 @@ export function EmployeeYearlyCompCell({
     payFrequency
   );
 
-  if (yearlyTotal <= 0 && yearlySalary <= 0) {
+  const hasFyRate = (employee.annualSalary ?? 0) > 0;
+
+  if (yearlyTotal <= 0 && yearlySalary <= 0 && !hasFyRate) {
     return <span className="text-slate-400">—</span>;
   }
 
@@ -47,6 +49,14 @@ export function EmployeeYearlyCompCell({
       )}
       {hourlyRate != null && hourlyRate > 0 && (
         <span className="text-[10px] text-slate-400">{formatHourlyRate(hourlyRate)}</span>
+      )}
+      {employee.annualSalary != null && employee.annualSalary > 0 && (
+        <span
+          className="text-[10px] text-slate-400"
+          title="Official rate from Employee and Position Salary Report"
+        >
+          FY rate {formatCurrency(employee.annualSalary)}
+        </span>
       )}
     </div>
   );

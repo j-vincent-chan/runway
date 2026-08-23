@@ -1,4 +1,3 @@
-import { addMonths, format, parse } from "date-fns";
 import { calculateMonthlyCost } from "@/lib/calculations";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import {
@@ -9,6 +8,12 @@ import {
   type PersonnelCostTrendPoint,
   type PersonnelGroupBreakdown,
 } from "@/lib/dashboard/metrics";
+import {
+  CAUTION_MONTHS,
+  fundedThroughMonthLabel,
+  personDetail,
+} from "@/lib/dashboard/attention";
+import { monthsInFiscalYearToDate, shiftMonth } from "@/lib/dashboard/month";
 import type {
   AppSettings,
   FundingSource,
@@ -16,8 +21,11 @@ import type {
   PayrollReportSnapshot,
 } from "@/types";
 
-export const RUNWAY_ATTENTION_MONTHS = 6;
+export { shiftMonth };
+
+export const RUNWAY_ATTENTION_MONTHS = CAUTION_MONTHS;
 export const MAX_DASHBOARD_INSIGHTS = 5;
+const NAMED_AT_RISK_CAP = 3;
 
 export type DashboardInsightKind =
   | "cost_yoy"
@@ -38,17 +46,8 @@ export interface DashboardInsight {
   hrefLabel?: string;
 }
 
-export function shiftMonth(ym: string, delta: number): string {
-  const d = parse(`${ym}-01`, "yyyy-MM-dd", new Date());
-  return format(addMonths(d, delta), "yyyy-MM");
-}
-
 function monthsAtOrBefore(months: string[], end: string): string[] {
   return months.filter((m) => m <= end);
-}
-
-function lastNMonths(months: string[], end: string, n: number): string[] {
-  return monthsAtOrBefore(months, end).slice(-n);
 }
 
 function sumCosts(
@@ -104,34 +103,20 @@ function costYoyInsight(
   settings: AppSettings
 ): DashboardInsight | null {
   const months = monthly.map((m) => m.month);
-  const currentMonths = lastNMonths(months, planningMonth, 12);
-  if (currentMonths.length === 0) return null;
+  const pairs = monthsInFiscalYearToDate(planningMonth, settings.fiscalYearStartMonth)
+    .filter((m) => months.includes(m))
+    .map((m) => ({ current: m, prior: shiftMonth(m, -12) }))
+    .filter((p) => months.includes(p.prior));
+  if (pairs.length === 0) return null;
 
-  const priorEnd = shiftMonth(currentMonths[0]!, -1);
-  const priorMonths = lastNMonths(months, priorEnd, currentMonths.length);
-  const comparable =
-    priorMonths.length >= Math.max(3, Math.floor(currentMonths.length * 0.5));
-
-  let currentCost: number;
-  let priorCost: number;
-  let currentWindow = currentMonths;
-  let priorWindow = priorMonths;
-
-  if (comparable) {
-    currentCost = monthly
-      .filter((m) => currentMonths.includes(m.month))
-      .reduce((s, m) => s + m.total, 0);
-    priorCost = monthly
-      .filter((m) => priorMonths.includes(m.month))
-      .reduce((s, m) => s + m.total, 0);
-  } else {
-    const priorMonth = monthsAtOrBefore(months, shiftMonth(planningMonth, -12)).at(-1);
-    if (!priorMonth || priorMonth === planningMonth) return null;
-    currentWindow = [planningMonth];
-    priorWindow = [priorMonth];
-    currentCost = monthly.find((m) => m.month === planningMonth)?.total ?? 0;
-    priorCost = monthly.find((m) => m.month === priorMonth)?.total ?? 0;
-  }
+  const currentWindow = pairs.map((p) => p.current);
+  const priorWindow = pairs.map((p) => p.prior);
+  const currentCost = monthly
+    .filter((m) => currentWindow.includes(m.month))
+    .reduce((s, m) => s + m.total, 0);
+  const priorCost = monthly
+    .filter((m) => priorWindow.includes(m.month))
+    .reduce((s, m) => s + m.total, 0);
 
   const change = pctChange(currentCost, priorCost);
   if (change === null || Math.round(Math.abs(change)) < 1) return null;
@@ -251,22 +236,71 @@ function fundingMixInsight(
   };
 }
 
+function joinNames(names: string[]): string {
+  if (names.length === 1) return names[0]!;
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  if (names.length === 3) return `${names[0]}, ${names[1]}, and ${names[2]}`;
+  return `${names[0]}, ${names[1]}, and ${names.length - 2} others`;
+}
+
 function runwayInsight(
-  employees: { id: string }[],
-  runwayMonthsByEmployee: Map<string, number | null> | undefined
+  employees: { id: string; name: string }[],
+  planningMonth: string,
+  runwayMonthsByEmployee: Map<string, number | null> | undefined,
+  limitingAccountByEmployee?: Map<string, string>
 ): DashboardInsight | null {
   if (!runwayMonthsByEmployee || runwayMonthsByEmployee.size === 0) return null;
-  const needing = employees.filter((e) => {
-    const months = runwayMonthsByEmployee.get(e.id);
-    return months !== undefined && months !== null && months < RUNWAY_ATTENTION_MONTHS;
-  }).length;
-  if (needing <= 0) return null;
-  const noun = needing === 1 ? "person requires" : "personnel require";
+
+  const atRisk = employees
+    .map((e) => {
+      const months = runwayMonthsByEmployee.get(e.id);
+      if (months === undefined || months === null || months >= RUNWAY_ATTENTION_MONTHS) {
+        return null;
+      }
+      return {
+        name: e.name,
+        months,
+        limitingAccount: limitingAccountByEmployee?.get(e.id),
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null)
+    .sort((a, b) => a.months - b.months || a.name.localeCompare(b.name));
+
+  if (atRisk.length === 0) return null;
+
+  const namedCount = atRisk.length <= NAMED_AT_RISK_CAP ? atRisk.length : 2;
+  const named = atRisk.slice(0, namedCount);
+  const unnamed = atRisk.length - named.length;
+
+  const first = atRisk[0]!;
+  const headline =
+    atRisk.length === 1
+      ? first.months < 0
+        ? `${first.name} is already short of funding`
+        : `${first.name} needs funding by ${fundedThroughMonthLabel(planningMonth, first.months)}`
+      : unnamed > 0
+        ? `${named[0]!.name}, ${named[1]!.name}, and ${unnamed} others need funding`
+        : `${joinNames(named.map((p) => p.name))} need funding`;
+
+  const lines = named.map((p) => {
+    const through = fundedThroughMonthLabel(planningMonth, p.months);
+    return p.limitingAccount ? `${p.name} — ${through} (${p.limitingAccount})` : `${p.name} — ${through}`;
+  });
+  if (unnamed > 0) {
+    lines.push(`${unnamed} ${unnamed === 1 ? "other" : "others"} on Runway`);
+  }
+
+  const detail =
+    atRisk.length === 1
+      ? personDetail(planningMonth, first.months, first.limitingAccount)
+      : lines.join(" · ");
+
   return {
     id: "runway_attention",
     kind: "runway_attention",
     tone: "attention",
-    headline: `${needing} ${noun} funding attention in the next six months`,
+    headline,
+    detail,
     href: "/runway",
     hrefLabel: "View Runway",
   };
@@ -297,6 +331,7 @@ export function buildDashboardInsights({
   groupBreakdown,
   planningMonth,
   runwayMonthsByEmployee,
+  limitingAccountByEmployee,
 }: {
   snapshot: PayrollReportSnapshot;
   fundingSources: FundingSource[];
@@ -305,6 +340,7 @@ export function buildDashboardInsights({
   groupBreakdown: PersonnelGroupBreakdown[];
   planningMonth: string;
   runwayMonthsByEmployee?: Map<string, number | null>;
+  limitingAccountByEmployee?: Map<string, string>;
 }): DashboardInsight[] {
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const availableMonths = monthly.map((m) => m.month);
@@ -326,7 +362,12 @@ export function buildDashboardInsights({
     planningMonth,
     availableMonths
   );
-  const runway = runwayInsight(employees, runwayMonthsByEmployee);
+  const runway = runwayInsight(
+    employees,
+    planningMonth,
+    runwayMonthsByEmployee,
+    limitingAccountByEmployee
+  );
   const largest = largestCostGroupInsight(groupBreakdown);
 
   for (const item of [cost, headcount, mix, runway]) {

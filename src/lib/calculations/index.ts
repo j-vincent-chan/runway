@@ -23,6 +23,7 @@ import {
 export type { CoverageOptions } from "@/lib/funding/visibility";
 import { addMonths, parse, differenceInDays, format } from "date-fns";
 import { consolidateAllocations } from "@/lib/import/consolidateAllocations";
+import { fiscalYearEndingYear } from "@/lib/dashboard/month";
 
 export function getAllocations(
   snapshot: PayrollReportSnapshot,
@@ -283,9 +284,7 @@ export function calculateFYPersonnelCost(
   let total = 0;
   const months = getAllMonths(snapshot);
   for (const month of months) {
-    const [y, m] = month.split("-").map(Number);
-    const fy = m >= fyStart ? y + 1 : y;
-    if (fy !== fiscalYear) continue;
+    if (fiscalYearEndingYear(month, fyStart) !== fiscalYear) continue;
     for (const emp of snapshot.employees) {
       total += calculateMonthlyCost(emp.id, month, snapshot.monthlyCosts).total;
     }

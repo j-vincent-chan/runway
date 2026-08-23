@@ -1,10 +1,13 @@
 "use client";
 
+import { useId } from "react";
 import { Cell, Pie, PieChart, Tooltip } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
+import { UnattributedPattern } from "@/components/charts/HatchPattern";
 import { formatCurrency } from "@/lib/utils/parse";
 import {
   FUNDING_MIX_PERIOD_OPTIONS,
+  UNATTRIBUTED_MIX_KEY,
   type FundingMixPeriod,
   type FundingMixSlice,
 } from "@/lib/dashboard/metrics";
@@ -52,6 +55,28 @@ const SIZE_CONFIG: Record<
   },
 };
 
+function sliceFill(slice: FundingMixSlice, unattributedPatternId: string): string {
+  return slice.key === UNATTRIBUTED_MIX_KEY ? `url(#${unattributedPatternId})` : slice.color;
+}
+
+function SliceSwatch({ slice, className }: { slice: FundingMixSlice; className: string }) {
+  if (slice.key === UNATTRIBUTED_MIX_KEY) {
+    return (
+      <span
+        className={cn("pattern-unattributed shrink-0 rounded-sm ring-1 ring-slate-300", className)}
+        aria-hidden
+      />
+    );
+  }
+  return (
+    <span
+      className={cn("shrink-0 rounded-full", className)}
+      style={{ backgroundColor: slice.color }}
+      aria-hidden
+    />
+  );
+}
+
 function DonutLegend({
   slices,
   total,
@@ -69,10 +94,7 @@ function DonutLegend({
         {slices.slice(0, 4).map((s) => (
           <li key={s.key} className="flex items-center justify-between gap-2">
             <span className="flex min-w-0 items-center gap-1.5">
-              <span
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ backgroundColor: s.color }}
-              />
+              <SliceSwatch slice={s} className="h-1.5 w-1.5" />
               <span className="truncate text-slate-600">{s.name}</span>
             </span>
             <span className="shrink-0 font-medium tabular-nums text-slate-800">
@@ -97,10 +119,7 @@ function DonutLegend({
       {slices.map((s) => (
         <li key={s.key} className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-2">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ backgroundColor: s.color }}
-            />
+            <SliceSwatch slice={s} className="h-2.5 w-2.5" />
             <span className="truncate text-slate-700">{s.name}</span>
           </span>
           <span className="shrink-0 font-medium tabular-nums text-slate-900">
@@ -129,6 +148,7 @@ export function FundingTypeDonutChart({
   const config = SIZE_CONFIG[size];
   const total = slices.reduce((s, x) => s + x.value, 0);
   const isStacked = size === "stacked";
+  const unattributedPatternId = `hatch-unattributed-${useId().replace(/:/g, "")}`;
 
   if (total <= 0) {
     return (
@@ -164,6 +184,9 @@ export function FundingTypeDonutChart({
               width={config.chartWidthPx}
             >
               <PieChart>
+                <defs>
+                  <UnattributedPattern id={unattributedPatternId} />
+                </defs>
                 <Pie
                   data={slices}
                   dataKey="value"
@@ -175,7 +198,7 @@ export function FundingTypeDonutChart({
                   strokeWidth={1.5}
                 >
                   {slices.map((s) => (
-                    <Cell key={s.key} fill={s.color} />
+                    <Cell key={s.key} fill={sliceFill(s, unattributedPatternId)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -210,6 +233,9 @@ export function FundingTypeDonutChart({
           <div className="mt-2">
             <ChartResponsive height={config.chartHeightPx} className={config.chartClassName}>
               <PieChart>
+                <defs>
+                  <UnattributedPattern id={unattributedPatternId} />
+                </defs>
                 <Pie
                   data={slices}
                   dataKey="value"
@@ -221,7 +247,7 @@ export function FundingTypeDonutChart({
                   strokeWidth={2}
                 >
                   {slices.map((s) => (
-                    <Cell key={s.key} fill={s.color} />
+                    <Cell key={s.key} fill={sliceFill(s, unattributedPatternId)} />
                   ))}
                 </Pie>
                 <Tooltip
@@ -302,7 +328,8 @@ export function FundingTypeDonutSection({
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-[#0c2340]">Funding type mix</h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            Share of personnel charges by funding source
+            Same payroll total as personnel cost, split by funding type. Benefits follow each
+            person&apos;s salary mix; anything not charged to a fund is hatched.
           </p>
           <p className="mt-1 text-[11px] font-medium text-slate-600">{periodCaption}</p>
         </div>

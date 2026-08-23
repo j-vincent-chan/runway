@@ -14,6 +14,10 @@ const RULES = [
     text: "Net Position reports power Account Balances for PI-tracked accounts over time.",
   },
   {
+    icon: Layers,
+    text: "Employee and Position Salary Report supplies official FY rates on the roster. Payroll remains the source of truth for monthly charges.",
+  },
+  {
     icon: Pencil,
     text: "Planning edits and scenarios are stored separately from imported data.",
   },

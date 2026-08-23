@@ -18,6 +18,7 @@ import type {
   NetPositionReportImport,
   Scenario,
   WorkingPlan,
+  PositionSalaryReportImport,
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/types";
 import { generateId, hasPercentEffort } from "@/lib/utils/parse";
@@ -40,6 +41,8 @@ import {
 import { migrateSnapshotIfNeeded } from "@/lib/import/migrateSnapshot";
 import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
+import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
+import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
 import { mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
 import { findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
 import {
@@ -161,12 +164,15 @@ interface AppContextValue {
   portfolioImports: PortfolioReportImport[];
   payrollImports: PayrollReportImport[];
   netPositionImports: NetPositionReportImport[];
+  positionSalaryImports: PositionSalaryReportImport[];
   mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
   parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
   importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removePortfolioImport: (id: string) => void;
   importNetPositionFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removeNetPositionImport: (id: string) => void;
+  importPositionSalaryFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  removePositionSalaryImport: (id: string) => void;
   removePayrollImport: (id: string) => void;
   upsertPersonnelGroupDef: (group: PersonnelGroupDef) => void;
   deletePersonnelGroupDef: (id: string) => void;
@@ -208,6 +214,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [portfolioImports, setPortfolioImports] = useState<PortfolioReportImport[]>([]);
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
   const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
+  const [positionSalaryImports, setPositionSalaryImports] = useState<PositionSalaryReportImport[]>([]);
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
@@ -225,6 +232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
       setPortfolioImports(s.portfolioImports ?? []);
       setNetPositionImports(s.netPositionImports ?? []);
+      setPositionSalaryImports(s.positionSalaryImports ?? []);
       let normalizedAliases = s.snapshot
         ? migrateAliasKeys(s.settings.fundingSourceAliases, s.snapshot.fundingSources)
         : { ...s.settings.fundingSourceAliases };
@@ -348,6 +356,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
       setPortfolioImports(workspace.portfolioImports ?? []);
       setNetPositionImports(workspace.netPositionImports ?? []);
+      setPositionSalaryImports(workspace.positionSalaryImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
       setSnapshot(snap);
       setWorkingPlan(plan);
@@ -374,6 +383,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       portfolioImports,
       payrollImports,
       netPositionImports,
+      positionSalaryImports,
       savedAt,
     };
     void saveState(state, userIdRef.current);
@@ -394,6 +404,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     portfolioImports,
     payrollImports,
     netPositionImports,
+    positionSalaryImports,
     loading,
     cloudSyncEnabled,
     userId,
@@ -402,6 +413,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const mergedPortfolioBalances = useMemo(
     () => mergePortfolioBalances(portfolioImports),
     [portfolioImports]
+  );
+
+  const snapshotForUi = useMemo(
+    () => overlayPositionSalaryOnSnapshot(snapshot, positionSalaryImports),
+    [snapshot, positionSalaryImports]
   );
 
   const portfolioTitlesByChartstring = useMemo(() => {
@@ -1085,6 +1101,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setNetPositionImports((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
+  const importPositionSalaryFiles = useCallback(async (files: File[]) => {
+    const warnings: ParseWarning[] = [];
+    const imports: PositionSalaryReportImport[] = [];
+
+    for (const file of files) {
+      try {
+        const result = await parsePositionSalaryFile(file);
+        imports.push(result.import);
+        warnings.push(...result.warnings);
+      } catch (err) {
+        warnings.push({
+          id: generateId(),
+          severity: "error",
+          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+        });
+      }
+    }
+
+    if (imports.length > 0) {
+      setPositionSalaryImports((prev) => {
+        let next = [...prev];
+        for (const incoming of imports) {
+          if (incoming.fiscalYear) {
+            next = next.filter((p) => p.fiscalYear !== incoming.fiscalYear);
+          }
+          next.push(incoming);
+        }
+        return next;
+      });
+    }
+
+    return { warnings };
+  }, []);
+
+  const removePositionSalaryImport = useCallback((id: string) => {
+    setPositionSalaryImports((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const removePayrollImport = useCallback(
     (id: string) => {
       const remaining = payrollImports.filter((p) => p.id !== id);
@@ -1283,6 +1337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           portfolioImports,
           payrollImports: [],
           netPositionImports,
+          positionSalaryImports,
         },
         userIdRef.current
       );
@@ -1297,10 +1352,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
     setDataMigrated(false);
-  }, [portfolioImports, netPositionImports]);
+  }, [portfolioImports, netPositionImports, positionSalaryImports]);
 
   const value: AppContextValue = {
-    snapshot,
+    snapshot: snapshotForUi,
     workingPlan,
     allocations,
     settings,
@@ -1345,12 +1400,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     portfolioImports,
     payrollImports,
     netPositionImports,
+    positionSalaryImports,
     mergedPortfolioBalances,
     parsePortfolioFile,
     importPortfolioFiles,
     removePortfolioImport,
     importNetPositionFiles,
     removeNetPositionImport,
+    importPositionSalaryFiles,
+    removePositionSalaryImport,
     removePayrollImport,
     upsertPersonnelGroupDef,
     deletePersonnelGroupDef,

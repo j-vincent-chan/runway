@@ -25,7 +25,7 @@ function costRow(
     employeeId,
     month,
     amount,
-    rowType: fundingSourceId ? "other" : "totalCompBenefits",
+    rowType: fundingSourceId ? "baseSalary" : "totalCompBenefits",
     sourceType: "actual",
     fundingSourceId,
   };
@@ -190,6 +190,10 @@ describe("buildDashboardInsights", () => {
         ["e2", 14],
         ["e3", 1.5],
       ]),
+      limitingAccountByEmployee: new Map([
+        ["e1", "R01 Chen"],
+        ["e3", "Startup"],
+      ]),
     });
 
     const kinds = insights.map((i) => i.kind);
@@ -206,10 +210,34 @@ describe("buildDashboardInsights", () => {
     expect(mix.headline).toBe("Projects funding decreased 78% → 71%");
 
     const runway = insights.find((i) => i.kind === "runway_attention")!;
-    expect(runway.headline).toBe(
-      "2 personnel require funding attention in the next six months"
+    expect(runway.headline).toBe("Cam and Ada need funding");
+    expect(runway.detail).toBe(
+      "Cam — September 2026 (Startup) · Ada — November 2026 (R01 Chen)"
     );
     expect(runway.href).toBe("/runway");
+  });
+
+  it("names the person, the month they run short, and the limiting fund", () => {
+    const months = ["2026-08"];
+    const snap = snapshot({
+      employees: [{ id: "e1", name: "Ada" }],
+      months,
+      costs: [costRow("c1", "e1", "2026-08", 9000)],
+    });
+    const trend = buildPersonnelCostTrend(snap, settings);
+    const insights = buildDashboardInsights({
+      snapshot: snap,
+      fundingSources: [],
+      settings,
+      monthly: trend.monthly,
+      groupBreakdown: trend.groupBreakdown,
+      planningMonth: trend.planningMonth,
+      runwayMonthsByEmployee: new Map([["e1", 2.4]]),
+      limitingAccountByEmployee: new Map([["e1", "R01 Chen"]]),
+    });
+    const runway = insights.find((i) => i.kind === "runway_attention")!;
+    expect(runway.headline).toBe("Ada needs funding by October 2026");
+    expect(runway.detail).toBe("funded through October 2026 · R01 Chen");
   });
 
   it("uses largest cost group only when fewer than three other insights", () => {

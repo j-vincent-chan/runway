@@ -1,17 +1,206 @@
 @import "tailwindcss";
 
+/*
+ * Instrument tokens. Every value is defined here on bare :root so no color
+ * exists only inside a media or theme block. Dark redefines the same names.
+ */
 :root {
   --navy: #0c2340;
   --teal: #00778b;
   --background: #f4f6f8;
   /* ~10% UI scale (browser zoom 100% → 110%), cascades via rem-based Tailwind */
   font-size: 110%;
+
+  --ink: #0f1a2b;
+  --ink-2: #38445c;
+  /* Darkened from the spec's #6B7690, which reads at 4.2:1 on --paper. */
+  --muted: #636d85;
+  --paper: #f5f6f9;
+  --surface: #ffffff;
+  --inset: #f9fafc;
+  --rule: #dce0e9;
+  --rule-strong: #bfc6d4;
+  /* Boundaries of interactive controls, which must clear 3:1. */
+  --control: #7c879f;
+  --accent: #12626e;
+  --caution: #8f620f;
+  --critical: #95382b;
+  --healthy: #2c6b4e;
+  --accent-soft: #deebee;
+  --caution-soft: #f5eedc;
+  --critical-soft: #f6e6e3;
+  --healthy-soft: #e1ede6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e7ebf2;
+    --ink-2: #b6bfce;
+    --muted: #8794aa;
+    --paper: #0c111a;
+    --surface: #131a26;
+    --inset: #101724;
+    --rule: #242e3e;
+    --rule-strong: #374359;
+    --control: #5c6b85;
+    --accent: #5fb8c2;
+    --caution: #d5a241;
+    --critical: #e08c78;
+    --healthy: #71b995;
+    --accent-soft: #11313a;
+    --caution-soft: #312611;
+    --critical-soft: #37201b;
+    --healthy-soft: #152a21;
+  }
+}
+
+[data-theme="dark"] {
+  --ink: #e7ebf2;
+  --ink-2: #b6bfce;
+  --muted: #8794aa;
+  --paper: #0c111a;
+  --surface: #131a26;
+  --inset: #101724;
+  --rule: #242e3e;
+  --rule-strong: #374359;
+  --control: #5c6b85;
+  --accent: #5fb8c2;
+  --caution: #d5a241;
+  --critical: #e08c78;
+  --healthy: #71b995;
+  --accent-soft: #11313a;
+  --caution-soft: #312611;
+  --critical-soft: #37201b;
+  --healthy-soft: #152a21;
+}
+
+/* Utilities resolve through the runtime variables, so they follow the theme. */
+@theme inline {
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-inset: var(--inset);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-control: var(--control);
+  --color-accent: var(--accent);
+  --color-caution: var(--caution);
+  --color-critical: var(--critical);
+  --color-healthy: var(--healthy);
+  --color-accent-soft: var(--accent-soft);
+  --color-caution-soft: var(--caution-soft);
+  --color-critical-soft: var(--critical-soft);
+  --color-healthy-soft: var(--healthy-soft);
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
   background: var(--background);
   color: #1e293b;
   font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/*
+ * Seven-step scale. Sizes are rem so they inherit the app's 110% UI scale;
+ * the ratios are the specified 40 / 26 / 20 / 16 / 14 / 11.5 / 10.5.
+ */
+.type-verdict {
+  font-size: 2.5rem;
+  line-height: 2.75rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.type-stat {
+  font-size: 1.625rem;
+  line-height: 2rem;
+  font-weight: 500;
+}
+
+.type-heading {
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+
+.type-body {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+
+.type-row {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.type-mono {
+  font-family: var(--font-mono);
+  font-size: 0.71875rem;
+  line-height: 1.125rem;
+}
+
+.type-caption {
+  font-family: var(--font-mono);
+  font-size: 0.65625rem;
+  line-height: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+
+/* All numerals are tabular across the instrument surfaces. */
+.type-verdict,
+.type-stat,
+.type-mono,
+.type-caption,
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Projected data convention, used identically everywhere: same hue as actual
+ * at 45% opacity, 45° hatch, dotted stroke. Pattern as well as opacity, so it
+ * survives greyscale and color-vision deficiency.
+ */
+.pattern-projected {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    currentColor 3px,
+    currentColor 4px
+  );
+  opacity: 0.45;
+}
+
+/* Unattributed money reads as a hole, not a category. */
+.pattern-unattributed {
+  background-color: var(--inset);
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    var(--rule-strong) 3px,
+    var(--rule-strong) 4px
+  );
+}
+
+/* A figure that was derived rather than measured explains itself on hover. */
+.figure-derived {
+  border-bottom: 1px dotted var(--rule-strong);
+  cursor: help;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 .pattern-future {

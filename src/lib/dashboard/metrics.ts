@@ -25,10 +25,22 @@ import type {
   PayrollReportSnapshot,
   PersonnelType,
 } from "@/types";
-import { formatMonthDisplay } from "@/lib/utils/parse";
+import { formatMonthDisplay, hasPercentEffort } from "@/lib/utils/parse";
 import { format } from "date-fns";
+import {
+  fiscalYearEndingYear,
+  fiscalYearEndMonthYm,
+  fiscalYearLabel,
+  fiscalYearStartMonthYm,
+  shiftMonth,
+} from "@/lib/dashboard/month";
 
 export type FundingChartKey = string;
+
+/** Cost that is on the payroll total but not charged to any funding source. */
+export const UNATTRIBUTED_MIX_KEY = "unattributed";
+
+const COST_EPS = 0.005;
 
 export type FundingMixPeriod =
   | "current_month"
@@ -43,27 +55,11 @@ export const FUNDING_MIX_PERIOD_OPTIONS: {
   shortLabel: string;
 }[] = [
   { id: "current_month", label: "Current month", shortLabel: "Month" },
-  { id: "ytd", label: "Avg of YTD", shortLabel: "YTD" },
+  { id: "ytd", label: "Avg of FYTD", shortLabel: "FYTD" },
   { id: "last_6m", label: "Avg of last 6 months", shortLabel: "6 mo" },
   { id: "last_1y", label: "Avg of last 1 year", shortLabel: "1 yr" },
   { id: "last_3y", label: "Avg of last 3 years", shortLabel: "3 yr" },
 ];
-
-function employeeFundBurden(
-  employeeId: string,
-  fundingSourceId: string,
-  month: string,
-  costs: MonthlyCostRecord[]
-): number {
-  return costs
-    .filter(
-      (c) =>
-        c.employeeId === employeeId &&
-        c.fundingSourceId === fundingSourceId &&
-        c.month === month
-    )
-    .reduce((s, c) => s + c.amount, 0);
-}
 
 function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
   return getFundingSourceCategory(settings, fs) ?? "uncategorized";
@@ -77,14 +73,19 @@ export interface PersonnelCostTrendPoint {
 }
 
 export interface YearlyCostPoint {
+  /** Fiscal year ending calendar year (2027 = FY26–27 when FY starts in July). */
   year: number;
-  /** Calendar-year costs from payroll months in data (YTD when year is in progress). */
+  label: string;
+  /** Costs from payroll months in this fiscal year (FYTD when the year is in progress). */
   actual: number;
-  /** Linear extrapolation of remaining months when the calendar year is incomplete. */
+  /** Linear extrapolation of remaining months in the current fiscal year. */
   projected: number;
   /** actual + projected */
   total: number;
   headcount: number;
+  monthsWithData: number;
+  /** Prior FY with fewer than 12 payroll months — not a peer to a full year. */
+  partial: boolean;
 }
 
 export interface PersonnelGroupBreakdown {
@@ -141,7 +142,8 @@ export interface PersonnelTypeFundingMix {
 export function monthsForFundingMixPeriod(
   period: FundingMixPeriod,
   snapshot: PayrollReportSnapshot,
-  planningMonth: string
+  planningMonth: string,
+  fyStartMonth = 7
 ): string[] {
   const available = getAllMonths(snapshot).filter((m) => m <= planningMonth);
   if (available.length === 0) return [];
@@ -150,8 +152,8 @@ export function monthsForFundingMixPeriod(
     case "current_month":
       return available.includes(planningMonth) ? [planningMonth] : [available[available.length - 1]!];
     case "ytd": {
-      const year = planningMonth.slice(0, 4);
-      const ytd = available.filter((m) => m.startsWith(`${year}-`) && m <= planningMonth);
+      const fyStart = fiscalYearStartMonthYm(planningMonth, fyStartMonth);
+      const ytd = available.filter((m) => m >= fyStart && m <= planningMonth);
       return ytd.length > 0 ? ytd : [available[available.length - 1]!];
     }
     case "last_6m":
@@ -183,7 +185,8 @@ export function fundingMixPeriodCaption(
 
 export function buildPersonnelCostTrend(
   snapshot: PayrollReportSnapshot,
-  settings: AppSettings
+  settings: AppSettings,
+  todayYm = format(new Date(), "yyyy-MM")
 ): {
   monthly: PersonnelCostTrendPoint[];
   yearly: YearlyCostPoint[];
@@ -192,11 +195,11 @@ export function buildPersonnelCostTrend(
 } {
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const employeeIds = employees.map((e) => e.id);
-  const todayYm = format(new Date(), "yyyy-MM");
   /** Never chart calendar-future months — max out at the current month. */
   const months = getAllMonths(snapshot).filter((m) => m <= todayYm);
   const planningMonth = getCurrentMonth(snapshot);
-  const currentYear = parseInt(todayYm.split("-")[0]!, 10);
+  const fyStart = settings.fiscalYearStartMonth;
+  const currentFy = fiscalYearEndingYear(todayYm, fyStart);
 
   const monthly = months.map((month) => ({
     month,
@@ -210,41 +213,68 @@ export function buildPersonnelCostTrend(
 
   const byYear = new Map<
     number,
-    { actual: number; monthNums: number[]; headcount: number }
+    { actual: number; months: string[]; headcount: number }
   >();
   for (const { month, total, headcount } of monthly) {
-    const [yearStr, monthStr] = month.split("-");
-    const year = parseInt(yearStr!, 10);
-    const monthNum = parseInt(monthStr!, 10);
-    if (Number.isNaN(year) || Number.isNaN(monthNum)) continue;
-    const prev = byYear.get(year) ?? { actual: 0, monthNums: [], headcount: 0 };
-    byYear.set(year, {
+    const fy = fiscalYearEndingYear(month, fyStart);
+    if (Number.isNaN(fy)) continue;
+    const prev = byYear.get(fy) ?? { actual: 0, months: [], headcount: 0 };
+    byYear.set(fy, {
       actual: prev.actual + total,
-      monthNums: [...prev.monthNums, monthNum],
+      months: [...prev.months, month],
       headcount,
     });
   }
 
   const yearly = [...byYear.entries()]
     .sort(([a], [b]) => a - b)
-    .map(([year, { actual, monthNums, headcount }]) => {
-      const monthsWithData = monthNums.length;
-      if (year !== currentYear || monthsWithData === 0) {
-        return { year, actual, projected: 0, total: actual, headcount };
+    .map(([year, { actual, months: fyMonths, headcount }]) => {
+      const monthsWithData = fyMonths.length;
+      const partial = monthsWithData < 12;
+      const label = fiscalYearLabel(year);
+      if (year !== currentFy || monthsWithData === 0) {
+        return {
+          year,
+          label,
+          actual,
+          projected: 0,
+          total: actual,
+          headcount,
+          monthsWithData,
+          partial,
+        };
       }
-      const lastMonthNum = Math.max(...monthNums);
-      const remainingMonths = Math.max(0, 12 - lastMonthNum);
+      const lastMonth = [...fyMonths].sort()[fyMonths.length - 1]!;
+      const fyEnd = fiscalYearEndMonthYm(lastMonth, fyStart);
+      let remainingMonths = 0;
+      let cursor = shiftMonth(lastMonth, 1);
+      while (cursor <= fyEnd) {
+        remainingMonths += 1;
+        cursor = shiftMonth(cursor, 1);
+      }
       if (remainingMonths === 0) {
-        return { year, actual, projected: 0, total: actual, headcount };
+        return {
+          year,
+          label,
+          actual,
+          projected: 0,
+          total: actual,
+          headcount,
+          monthsWithData,
+          partial: false,
+        };
       }
       const avgMonthly = actual / monthsWithData;
       const projected = avgMonthly * remainingMonths;
       return {
         year,
+        label,
         actual,
         projected,
         total: actual + projected,
         headcount,
+        monthsWithData,
+        partial: true,
       };
     });
 
@@ -323,9 +353,75 @@ export function buildPersonnelGroupBreakdown(
 }
 
 function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
+  if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "#94a3b8" };
   if (key === "uncategorized") return { name: "Uncategorized", color: "#94a3b8" };
   const meta = getAccountCategoryMeta(key, settings);
   return { name: meta.label, color: meta.chartColor };
+}
+
+/**
+ * Split one person's monthly payroll total across funds. Shares always sum to
+ * that total — unlike per-account runway burn, which can stack effort-only
+ * funds on top of salary+benefits.
+ */
+function partitionEmployeeMonthCost(
+  employeeId: string,
+  month: string,
+  snapshot: PayrollReportSnapshot,
+  fundingSourceIds: Set<string>
+): { byFund: Map<string, number>; unattributed: number } {
+  const personnelCost = calculateMonthlyCost(employeeId, month, snapshot.monthlyCosts).total;
+  const byFund = new Map<string, number>();
+  if (Math.abs(personnelCost) <= COST_EPS) {
+    return { byFund, unattributed: 0 };
+  }
+
+  const salaryByFund = new Map<string, number>();
+  let totalSalary = 0;
+  for (const c of snapshot.monthlyCosts) {
+    if (
+      c.employeeId !== employeeId ||
+      c.month !== month ||
+      c.rowType !== "baseSalary" ||
+      !c.fundingSourceId
+    ) {
+      continue;
+    }
+    salaryByFund.set(c.fundingSourceId, (salaryByFund.get(c.fundingSourceId) ?? 0) + c.amount);
+    totalSalary += c.amount;
+  }
+
+  let weights = salaryByFund;
+  let weightTotal = totalSalary;
+  if (Math.abs(totalSalary) <= COST_EPS) {
+    weights = new Map<string, number>();
+    weightTotal = 0;
+    for (const a of snapshot.monthlyAllocations) {
+      if (a.employeeId !== employeeId || a.month !== month || !hasPercentEffort(a.percentEffort)) {
+        continue;
+      }
+      weights.set(a.fundingSourceId, (weights.get(a.fundingSourceId) ?? 0) + a.percentEffort);
+      weightTotal += a.percentEffort;
+    }
+  }
+
+  if (Math.abs(weightTotal) <= COST_EPS) {
+    return { byFund, unattributed: personnelCost };
+  }
+
+  let attributed = 0;
+  for (const [fundId, weight] of weights) {
+    if (!fundingSourceIds.has(fundId) || weight === 0) continue;
+    const share = personnelCost * (weight / weightTotal);
+    byFund.set(fundId, share);
+    attributed += share;
+  }
+
+  const unattributed = personnelCost - attributed;
+  return {
+    byFund,
+    unattributed: Math.abs(unattributed) > COST_EPS ? unattributed : 0,
+  };
 }
 
 export function buildFundingMixForEmployees(
@@ -339,22 +435,35 @@ export function buildFundingMixForEmployees(
 
   const totals = new Map<FundingChartKey, number>();
   const known = new Set(getFundingSourceTypes(settings).map((t) => t.id));
+  const fundingSourceIds = new Set(fundingSources.map((fs) => fs.id));
+  const fundById = new Map(fundingSources.map((fs) => [fs.id, fs]));
 
   for (const month of months) {
     for (const emp of employees) {
-      for (const fs of fundingSources) {
-        const burden = employeeFundBurden(emp.id, fs.id, month, snapshot.monthlyCosts);
-        if (burden <= 0) continue;
+      const { byFund, unattributed } = partitionEmployeeMonthCost(
+        emp.id,
+        month,
+        snapshot,
+        fundingSourceIds
+      );
+
+      for (const [fundId, amount] of byFund) {
+        const fs = fundById.get(fundId);
+        if (!fs) continue;
         let key = categoryForFund(fs, settings);
         if (key !== "uncategorized" && !known.has(key)) key = "uncategorized";
-        totals.set(key, (totals.get(key) ?? 0) + burden);
+        totals.set(key, (totals.get(key) ?? 0) + amount);
+      }
+
+      if (unattributed > COST_EPS) {
+        totals.set(UNATTRIBUTED_MIX_KEY, (totals.get(UNATTRIBUTED_MIX_KEY) ?? 0) + unattributed);
       }
     }
   }
 
   const divisor = months.length;
   return [...totals.entries()]
-    .filter(([, value]) => value > 0)
+    .filter(([, value]) => value > COST_EPS)
     .map(([key, value]) => {
       const meta = sliceMeta(key, settings);
       return {
@@ -364,7 +473,11 @@ export function buildFundingMixForEmployees(
         color: meta.color,
       };
     })
-    .sort((a, b) => b.value - a.value);
+    .sort((a, b) => {
+      if (a.key === UNATTRIBUTED_MIX_KEY) return 1;
+      if (b.key === UNATTRIBUTED_MIX_KEY) return -1;
+      return b.value - a.value;
+    });
 }
 
 export function buildFundingTypeMix(
@@ -382,7 +495,12 @@ export function buildFundingTypeMix(
 } {
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const planningMonth = getCurrentMonth(snapshot);
-  const months = monthsForFundingMixPeriod(period, snapshot, planningMonth);
+  const months = monthsForFundingMixPeriod(
+    period,
+    snapshot,
+    planningMonth,
+    settings.fiscalYearStartMonth
+  );
   const periodCaption = fundingMixPeriodCaption(period, months, planningMonth);
 
   const total = buildFundingMixForEmployees(

@@ -5,6 +5,7 @@ import type {
   NetPositionReportImport,
   PayrollReportSnapshot,
   PortfolioReportImport,
+  PositionSalaryReportImport,
 } from "@/types";
 import {
   countParseWarnings,
@@ -15,12 +16,14 @@ export function ImportHealthCard({
   snapshot,
   portfolioImports,
   netPositionImports = [],
+  positionSalaryImports = [],
   payrollImportCount = 0,
   pendingWarningCount = 0,
 }: {
   snapshot: PayrollReportSnapshot | null;
   portfolioImports: PortfolioReportImport[];
   netPositionImports?: NetPositionReportImport[];
+  positionSalaryImports?: PositionSalaryReportImport[];
   payrollImportCount?: number;
   pendingWarningCount?: number;
 }) {
@@ -36,6 +39,7 @@ export function ImportHealthCard({
     if (snapshot) times.push(snapshot.uploadedAt);
     for (const imp of portfolioImports) times.push(imp.uploadedAt);
     for (const imp of netPositionImports) times.push(imp.uploadedAt);
+    for (const imp of positionSalaryImports) times.push(imp.uploadedAt);
     if (times.length === 0) return null;
     return times.sort((a, b) => b.localeCompare(a))[0]!;
   })();
@@ -69,6 +73,16 @@ export function ImportHealthCard({
               ? "None"
               : `${netPositionImports.length} file${
                   netPositionImports.length === 1 ? "" : "s"
+                }`}
+          </span>
+        </li>
+        <li className="flex items-center justify-between gap-2">
+          <span className="text-slate-600">FY salary reports</span>
+          <span className="font-medium text-[#0c2340]">
+            {positionSalaryImports.length === 0
+              ? "None"
+              : `${positionSalaryImports.length} file${
+                  positionSalaryImports.length === 1 ? "" : "s"
                 }`}
           </span>
         </li>

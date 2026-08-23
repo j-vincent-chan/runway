@@ -7,6 +7,7 @@ const ITEMS: {
   requiresPayroll?: boolean;
   requiresPortfolio?: boolean;
   requiresNetPosition?: boolean;
+  requiresPositionSalary?: boolean;
   /** Account Balances works with Net Position and/or MyPortfolio */
   requiresAccountBalances?: boolean;
 }[] = [
@@ -15,6 +16,7 @@ const ITEMS: {
   { label: "MyPortfolio Accounts", requiresPayroll: true },
   { label: "Gaps & Alerts", requiresPayroll: true },
   { label: "Salary + benefits calculations", requiresPayroll: true },
+  { label: "FY salary rates on roster", requiresPositionSalary: true },
   { label: "Runway context", requiresPortfolio: true },
   { label: "Account Balances", requiresAccountBalances: true },
 ];
@@ -23,10 +25,12 @@ export function WhatThisPowersCard({
   hasPayroll,
   hasPortfolio,
   hasNetPosition = false,
+  hasPositionSalary = false,
 }: {
   hasPayroll: boolean;
   hasPortfolio: boolean;
   hasNetPosition?: boolean;
+  hasPositionSalary?: boolean;
 }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -37,9 +41,11 @@ export function WhatThisPowersCard({
             ? hasNetPosition || hasPortfolio
             : item.requiresNetPosition
               ? hasNetPosition
-              : item.requiresPortfolio
-                ? hasPortfolio
-                : Boolean(item.requiresPayroll && hasPayroll);
+              : item.requiresPositionSalary
+                ? hasPositionSalary
+                : item.requiresPortfolio
+                  ? hasPortfolio
+                  : Boolean(item.requiresPayroll && hasPayroll);
           return (
             <li key={item.label} className="flex items-center gap-2 text-sm">
               <span

@@ -5,6 +5,7 @@ import { ActiveDatasetBanner } from "@/components/data-sources/ActiveDatasetBann
 import { PayrollReportCard } from "@/components/data-sources/PayrollReportCard";
 import { PortfolioFilesCard } from "@/components/data-sources/PortfolioFilesCard";
 import { NetPositionFilesCard } from "@/components/data-sources/NetPositionFilesCard";
+import { PositionSalaryFilesCard } from "@/components/data-sources/PositionSalaryFilesCard";
 import { ImportHealthCard } from "@/components/data-sources/ImportHealthCard";
 import { WhatThisPowersCard } from "@/components/data-sources/WhatThisPowersCard";
 import { DataRulesCard } from "@/components/data-sources/DataRulesCard";
@@ -18,6 +19,7 @@ export default function DataSourcesPage() {
     portfolioImports,
     payrollImports,
     netPositionImports,
+    positionSalaryImports,
     clearAll,
   } = useApp();
 
@@ -27,12 +29,13 @@ export default function DataSourcesPage() {
     !!pendingPreview ||
     portfolioImports.length > 0 ||
     payrollImports.length > 0 ||
-    netPositionImports.length > 0;
+    netPositionImports.length > 0 ||
+    positionSalaryImports.length > 0;
 
   const handleClearAll = () => {
     if (
       !confirm(
-        "Clear all data from this browser?\n\nThis removes imported payroll data, timeline edits, scenarios, hidden funds, and planning scope. MyPortfolio files, Net Position reports, account aliases, and funding sources are kept."
+        "Clear all data from this browser?\n\nThis removes imported payroll data, timeline edits, scenarios, hidden funds, and planning scope. MyPortfolio files, Net Position reports, Employee and Position Salary reports, account aliases, and funding sources are kept."
       )
     ) {
       return;
@@ -60,6 +63,7 @@ export default function DataSourcesPage() {
               <PayrollReportCard />
               <PortfolioFilesCard />
               <NetPositionFilesCard />
+              <PositionSalaryFilesCard />
             </div>
 
             <aside className="space-y-4">
@@ -67,6 +71,7 @@ export default function DataSourcesPage() {
                 snapshot={snapshot}
                 portfolioImports={portfolioImports}
                 netPositionImports={netPositionImports}
+                positionSalaryImports={positionSalaryImports}
                 payrollImportCount={payrollImports.length}
                 pendingWarningCount={pendingPreview?.warnings.length ?? 0}
               />
@@ -74,6 +79,7 @@ export default function DataSourcesPage() {
                 hasPayroll={hasPayroll}
                 hasPortfolio={portfolioImports.length > 0}
                 hasNetPosition={netPositionImports.length > 0}
+                hasPositionSalary={positionSalaryImports.length > 0}
               />
               <DataRulesCard />
               {hasStoredData && <DangerZone onClearAll={handleClearAll} />}

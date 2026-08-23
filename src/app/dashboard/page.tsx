@@ -13,7 +13,7 @@ export default function DashboardPage() {
       <Header
         ledgerTitle
         title="Dashboard"
-        subtitle="Key changes, personnel trends, and funding mix for your lab"
+        subtitle="Who needs funding, personnel trends, and funding mix"
       />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto w-full max-w-7xl">

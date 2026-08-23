@@ -20,12 +20,10 @@ const KIND_ICON: Record<DashboardInsightKind, typeof TrendingUp> = {
   largest_cost_group: Wallet,
 };
 
-function toneClasses(tone: DashboardInsight["tone"], kind: DashboardInsightKind): string {
-  if (kind === "runway_attention") {
-    return "border-amber-200 bg-amber-50/70";
-  }
+function toneClasses(tone: DashboardInsight["tone"]): string {
   if (tone === "up") return "border-teal-100 bg-white";
   if (tone === "down") return "border-slate-200 bg-white";
+  if (tone === "attention") return "border-amber-200 bg-amber-50";
   return "border-slate-200 bg-white";
 }
 
@@ -39,9 +37,9 @@ function IconFor({ insight }: { insight: DashboardInsight }) {
 }
 
 function iconWrapClass(insight: DashboardInsight): string {
-  if (insight.kind === "runway_attention") return "bg-amber-100 text-amber-800";
   if (insight.tone === "up") return "bg-teal-50 text-teal-800";
   if (insight.tone === "down") return "bg-slate-100 text-slate-700";
+  if (insight.tone === "attention") return "bg-amber-100 text-amber-900";
   return "bg-slate-100 text-[#0c2340]";
 }
 
@@ -50,11 +48,11 @@ export function KeyChangesSection({ insights }: { insights: DashboardInsight[] }
     <section className="rounded-2xl border border-[#0c2340]/15 bg-gradient-to-br from-[#0c2340] to-[#123456] p-5 text-white shadow-sm sm:p-6">
       <header className="mb-4">
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
-          Attention
+          This period
         </p>
         <h2 className="mt-1 text-lg font-semibold tracking-tight sm:text-xl">Key changes</h2>
         <p className="mt-1 max-w-2xl text-xs text-white/70 sm:text-sm">
-          What moved in cost, team size, and funding mix — and who needs runway attention next.
+          What moved in cost, team size, and funding mix.
         </p>
       </header>
 
@@ -78,7 +76,7 @@ export function KeyChangesSection({ insights }: { insights: DashboardInsight[] }
               key={insight.id}
               className={cn(
                 "flex min-h-[7.5rem] flex-col rounded-xl border p-4 text-[#0c2340] shadow-sm",
-                toneClasses(insight.tone, insight.kind)
+                toneClasses(insight.tone)
               )}
             >
               <div className="flex items-start gap-3">

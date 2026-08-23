@@ -27,6 +27,8 @@ type ComboRow = {
   actual?: number;
   projected?: number;
   headcount: number;
+  monthsWithData?: number;
+  partial?: boolean;
 };
 
 function ComboTooltip({
@@ -53,7 +55,7 @@ function ComboTooltip({
       {hasProjection ? (
         <div className="mt-1 space-y-0.5 text-slate-600">
           <p>
-            Actuals (YTD):{" "}
+            Actuals (FYTD):{" "}
             <span className="font-medium text-[#0c2340]">{formatCurrency(row.actual ?? 0)}</span>
           </p>
           <p>
@@ -61,13 +63,16 @@ function ComboTooltip({
             <span className="font-medium text-sky-700">{formatCurrency(row.projected ?? 0)}</span>
           </p>
           <p>
-            Est. full year:{" "}
+            Est. full fiscal year:{" "}
             <span className="font-medium text-[#0c2340]">{formatCurrency(row.total)}</span>
           </p>
         </div>
       ) : (
         <p className="mt-1 text-slate-600">
           Cost: <span className="font-medium text-[#0c2340]">{formatCurrency(row.total)}</span>
+          {row.partial && row.monthsWithData != null
+            ? ` (${row.monthsWithData} of 12 months)`
+            : null}
         </p>
       )}
       <p className="mt-0.5 text-slate-600">
@@ -163,7 +168,7 @@ function ComboPanel({
                   <Bar
                     yAxisId="cost"
                     dataKey="actual"
-                    name="Actuals"
+                    name="FYTD actuals"
                     stackId="cost"
                     fill={ACTUAL_COLOR}
                     maxBarSize={48}
@@ -221,11 +226,13 @@ export function PersonnelCostTrendCharts({
   }));
 
   const yearlyRows: ComboRow[] = yearly.map((y) => ({
-    label: String(y.year),
+    label: y.label,
     total: y.total,
     actual: y.actual,
     projected: y.projected,
     headcount: y.headcount,
+    monthsWithData: y.monthsWithData,
+    partial: y.partial,
   }));
 
   const hasProjection = yearlyRows.some((y) => (y.projected ?? 0) > 0);
@@ -252,13 +259,19 @@ export function PersonnelCostTrendCharts({
         </ul>
       </header>
       <div className="grid gap-6 lg:grid-cols-2">
-        <ComboPanel title="Monthly" data={monthlyRows} variant="monthly" />
         <div className="flex flex-col">
-          <ComboPanel title="Yearly" data={yearlyRows} variant="yearly" labelPrefix="Calendar" />
+          <ComboPanel title="Monthly" data={monthlyRows} variant="monthly" />
+          <p className="mt-1.5 text-[10px] text-slate-500">
+            Payroll reports cover a fiscal year, so the series starts at the FY start month
+            (July by default).
+          </p>
+        </div>
+        <div className="flex flex-col">
+          <ComboPanel title="Fiscal year" data={yearlyRows} variant="yearly" />
           <p className="mt-1.5 text-[10px] text-slate-500">
             {hasProjection
-              ? "Current year stacks actuals to date with projected remaining months (avg monthly cost × months left). Headcount is the latest month in each year."
-              : "Calendar-year totals from available payroll months. Headcount is the latest month in each year."}
+              ? "Current fiscal year stacks FYTD actuals with projected remaining months (avg monthly × months left in the FY). Incomplete prior years show actuals only. Headcount is the latest month in each year."
+              : "Fiscal-year totals from available payroll months. Headcount is the latest month in each year."}
           </p>
         </div>
       </div>
