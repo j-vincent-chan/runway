@@ -85,11 +85,11 @@ export function AlertsBell() {
 
           {snapshot && (
             <Link
-              href="/timeline"
+              href="/dashboard"
               className="mt-3 block text-center text-xs font-medium text-teal-800 hover:underline"
               onClick={() => setOpen(false)}
             >
-              Open timeline for full view
+              Open dashboard for full view
             </Link>
           )}
         </div>
