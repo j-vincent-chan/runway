@@ -8,7 +8,7 @@ import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
-import { buildFundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
+import { buildFundingExposureMatrix, buildFundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
 import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
@@ -16,6 +16,7 @@ import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { SinceLastReportPanel } from "@/components/dashboard/SinceLastReportPanel";
 import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
 import { FundingExposureBand } from "@/components/dashboard/FundingExposureBand";
+import { FundingExposureMatrix } from "@/components/dashboard/FundingExposureMatrix";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 
@@ -149,6 +150,17 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances, horizonMonths]);
 
+  const exposureMatrix = useMemo(() => {
+    if (!snapshot || !trend || !exposureTimeline) return null;
+    return buildFundingExposureMatrix({
+      snapshot,
+      fundingSources,
+      settings,
+      planningMonth: trend.planningMonth,
+      categories: exposureTimeline.bands,
+    });
+  }, [snapshot, trend, exposureTimeline, fundingSources, settings]);
+
   if (!snapshot || !trend || !overview || !verdict || !attentionQueue) return null;
 
   const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
@@ -182,6 +194,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         planningMonth={trend.planningMonth}
       />
       <FundingExposureBand timeline={exposureTimeline} />
+      <FundingExposureMatrix matrix={exposureMatrix} />
     </div>
   );
 }
