@@ -6,14 +6,14 @@ export function FundingExposureMatrix({ matrix }: { matrix: FundingExposureMatri
   if (!matrix || matrix.rows.length === 0) return null;
 
   return (
-    <section aria-label="Funding exposure by personnel group">
-      <h2 className="type-caption text-muted">Funding exposure, by group</h2>
+    <section aria-label="Funding exposure by team">
+      <h2 className="type-caption text-muted">Funding exposure, by team</h2>
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse">
           <thead>
             <tr className="bg-inset">
               <th scope="col" className="type-mono px-2 py-2 text-left font-normal text-muted">
-                Group
+                Team
               </th>
               {matrix.categories.map((c) => (
                 <th key={c.key} scope="col" className="type-mono px-2 py-2 text-right font-normal text-muted">

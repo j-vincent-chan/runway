@@ -17,7 +17,8 @@ import { cn } from "@/lib/utils/cn";
 const TABS = [
   { id: "privacy", label: "Privacy & sync" },
   { id: "planning", label: "Planning defaults" },
-  { id: "personnel", label: "Personnel groups" },
+  // id stays "personnel" — it's the /settings#personnel deep link.
+  { id: "personnel", label: "Teams" },
   { id: "funding", label: "Funding source types" },
   { id: "account-groups", label: "Account groups" },
   { id: "accounts", label: "MyPortfolio Accounts" },

@@ -102,9 +102,10 @@ export function PersonnelGroupsSettings() {
   return (
     <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
       <div>
-        <h3 className="font-semibold">Personnel groups</h3>
+        <h3 className="font-semibold">Teams</h3>
         <p className="mt-1 text-sm text-slate-600">
-          Used on Employees and for grouping Timeline, Projections, and Runway.
+          Assigned on Employees, and used to group Timeline, Projections, Runway, and the
+          Dashboard.
         </p>
       </div>
       <ul className="space-y-2">
@@ -121,7 +122,7 @@ export function PersonnelGroupsSettings() {
                 setDraft(g.label);
               }}
               onDelete={() => {
-                if (confirm(`Delete personnel group “${g.label}”?`)) {
+                if (confirm(`Delete team “${g.label}”?`)) {
                   void deletePersonnelGroupDef(g.id);
                 }
               }}
@@ -132,7 +133,7 @@ export function PersonnelGroupsSettings() {
       <div className="flex flex-wrap gap-2 pt-1">
         <input
           className="min-w-[12rem] flex-1 rounded border px-2 py-1.5 text-sm"
-          placeholder={editingId ? "Rename group" : "New group name"}
+          placeholder={editingId ? "Rename team" : "New team name"}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {

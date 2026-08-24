@@ -150,13 +150,13 @@ export function PersonnelByGroupSection({
   const totalCost = costRows.reduce((s, g) => s + g.cost, 0);
 
   return (
-    <section aria-label="Personnel by group">
+    <section aria-label="Personnel by team">
       <div className="flex items-baseline justify-between gap-2">
         <div>
-          <h2 className="type-heading text-ink">By personnel group</h2>
+          <h2 className="type-heading text-ink">By team</h2>
           <p className="type-row mt-1 text-muted">
             Headcount and cost for the active planning roster. Completes the picture with funding
-            mix by group below.
+            mix by team below.
           </p>
         </div>
         <p className="type-mono shrink-0 text-muted">{monthLabel}</p>

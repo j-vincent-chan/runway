@@ -38,7 +38,7 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
         <Entry title="Attention queue">
           An account or person is Critical when already overdrawn, or when funding runs out
           within {CRITICAL_MONTHS} months. Caution covers {CRITICAL_MONTHS}–{CAUTION_MONTHS}{" "}
-          months out. A personnel group is flagged for data quality when more than{" "}
+          months out. A team is flagged for data quality when more than{" "}
           {pct(UNATTRIBUTED_THRESHOLD)} of its cost isn&rsquo;t charged to any funding source.
           When a person is the sole contributor to an account, only one of the two appears: the
           account, if it&rsquo;s overdrawn, or the person, if the account itself is fine but
