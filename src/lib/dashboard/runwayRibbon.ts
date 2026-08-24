@@ -54,7 +54,7 @@ export interface RunwayRibbon {
  * enforces (same rule precedence as its internal employmentEndMonth) — never
  * shows a date the simulation doesn't honor.
  */
-function buildMarkers(
+export function buildMarkers(
   snapshot: PayrollReportSnapshot,
   settings: AppSettings,
   months: string[]

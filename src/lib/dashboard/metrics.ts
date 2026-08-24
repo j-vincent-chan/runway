@@ -66,7 +66,7 @@ export const FUNDING_MIX_PERIOD_OPTIONS: {
   { id: "last_3y", label: "Avg of last 3 years", shortLabel: "3 yr" },
 ];
 
-function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
+export function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
   return getFundingSourceCategory(settings, fs) ?? "uncategorized";
 }
 
@@ -422,7 +422,7 @@ export function buildPersonnelGroupBreakdown(
   return [...rows.values()].filter((r) => r.count > 0 || r.cost > 0);
 }
 
-function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
+export function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
   if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "#94a3b8" };
   if (key === "uncategorized") return { name: "Uncategorized", color: "#94a3b8" };
   const meta = getAccountCategoryMeta(key, settings);
