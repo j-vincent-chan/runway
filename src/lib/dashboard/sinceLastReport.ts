@@ -1,7 +1,7 @@
 import { foldPayrollImports } from "@/lib/import/foldPayrollImports";
 import { buildPersonnelCostTrend } from "@/lib/dashboard/metrics";
-import { BURN_WINDOW_MONTHS, buildConstrainedRunway, trailingBurn } from "@/lib/dashboard/overview";
-import { buildRunwayContext } from "@/lib/dashboard/attention";
+import { BURN_WINDOW_MONTHS, trailingBurn } from "@/lib/dashboard/overview";
+import { buildRunwayContext, totalFundedRoots } from "@/lib/dashboard/attention";
 import { monthLabelShort } from "@/lib/dashboard/month";
 import { getAllocations } from "@/lib/calculations";
 import { employeePersonKey } from "@/lib/employees/stableKey";
@@ -112,7 +112,7 @@ export function buildSinceLastReport(args: {
   // against the prior (smaller) snapshot too and silently overlay today's
   // manual edits onto the historical comparison.
   const priorRunwayContext = buildRunwayContext(priorSnapshot, null, fundingSources, settings, portfolio);
-  const priorRunwayMonths = buildConstrainedRunway(priorRunwayContext, priorSnapshot.employees, settings).months;
+  const priorRunwayMonths = totalFundedRoots(priorRunwayContext.fundedRoots.values()).months;
 
   const runwayDeltaMonths =
     currentRunwayMonths !== null && priorRunwayMonths !== null

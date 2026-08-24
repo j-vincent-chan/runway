@@ -8,7 +8,7 @@ import {
 import { shiftMonth } from "@/lib/dashboard/month";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
-import type { RunwayContext } from "@/lib/dashboard/attention";
+import type { FundedRoot, RunwayContext } from "@/lib/dashboard/attention";
 import {
   DEFAULT_SETTINGS,
   type AppSettings,
@@ -82,17 +82,30 @@ function employee(id: string, name: string): Employee {
   return { id, name, appointmentPercent: 100 };
 }
 
+function fundedRoot(
+  chartRoot: string,
+  balance: number,
+  sharedMonthlyBurn: number,
+  isEstimated = false
+): FundedRoot {
+  return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, isEstimated };
+}
+
 function runwayContext(
   employeeMonths: [string, number | null][] = [],
   accounts: RunwayContext["accounts"] = [],
   limitingAccountByEmployee: [string, { name: string; chartRoot: string }][] = [],
-  accountContributors: [string, string[]][] = []
+  accountContributors: [string, string[]][] = [],
+  fundedRoots: FundedRoot[] = [],
+  rootsByEmployee: [string, string[]][] = []
 ): RunwayContext {
   return {
     monthsByEmployee: new Map(employeeMonths),
     limitingAccountByEmployee: new Map(limitingAccountByEmployee),
     accounts,
     accountContributors: new Map(accountContributors.map(([root, ids]) => [root, new Set(ids)])),
+    fundedRoots: new Map(fundedRoots.map((r) => [r.chartRoot, r])),
+    rootsByEmployee: new Map(rootsByEmployee.map(([id, roots]) => [id, new Set(roots)])),
   };
 }
 
@@ -263,33 +276,62 @@ describe("buildConstrainedRunway", () => {
 describe("buildDashboardOverview", () => {
   const monthly = months("2025-09", 12, 100_000);
 
-  it("takes the constrained minimum, not availableFunds ÷ monthlyBurn", () => {
-    // Pooled funds/burn here would say 10 months — the constrained figure must
-    // ignore that and report the real, restricted-fund bottleneck instead.
+  it("totals only the accounts that currently have payroll on them", () => {
+    // Account "b" holds real money, but nobody is paid from it — it can't fund
+    // this roster, so it is not part of what's available to them.
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000), account("b", 400_000)],
       netPositionImports: [],
-      runway: runwayContext([["e1", 3]]),
+      runway: runwayContext([["e1", 6]], [], [], [], [fundedRoot("a", 600_000, 100_000)]),
+      employees: [employee("e1", "M. Chen")],
+      settings,
+    });
+
+    expect(overview.availableFunds).toBe(600_000);
+    expect(overview.accountCount).toBe(1);
+    expect(overview.monthlyBurn).toBe(100_000);
+  });
+
+  it("blends funds over burn across the payroll accounts, and names the soonest to run dry", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [],
+      runway: runwayContext(
+        [["e1", 3]],
+        [],
+        [],
+        [],
+        [fundedRoot("a", 600_000, 40_000), fundedRoot("b", 400_000, 60_000)]
+      ),
       employees: [employee("e1", "M. Chen")],
       settings,
     });
 
     expect(overview.availableFunds).toBe(1_000_000);
-    expect(overview.monthlyBurn).toBe(100_000);
-    expect(overview.runwayMonths).toBe(3);
+    expect(overview.runwayMonths).toBe(10);
+    expect(overview.runwayTargetMonth).toBe("2027-06");
+    // The single worst entity stays available as the limiting label, but no
+    // longer sets the headline figure.
     expect(overview.runwayLimitingLabel).toBe("M. Chen");
-    expect(overview.runwayTargetMonth).toBe("2026-11");
   });
 
-  it("leaves runwayTargetMonth null when already past due", () => {
+  it("leaves runwayTargetMonth null when the blended position is already negative", () => {
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
-      accountItems: [account("a", 600_000)],
+      accountItems: [],
       netPositionImports: [],
-      runway: runwayContext([], [{ chartRoot: "a", name: "Fund A", months: -2, balance: -900 }]),
+      runway: runwayContext(
+        [],
+        [{ chartRoot: "a", name: "Fund A", months: -2, balance: -900 }],
+        [],
+        [],
+        [fundedRoot("a", -900, 450)]
+      ),
       employees: [],
       settings,
     });
@@ -299,7 +341,7 @@ describe("buildDashboardOverview", () => {
     expect(overview.runwayTargetMonth).toBeNull();
   });
 
-  it("reports no runway when nothing is computable, independent of available funds", () => {
+  it("reports nothing available and no runway when no account carries payroll", () => {
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
@@ -309,36 +351,45 @@ describe("buildDashboardOverview", () => {
       employees: [],
       settings,
     });
-    expect(overview.availableFunds).toBe(1_000_000);
+    expect(overview.availableFunds).toBe(0);
+    expect(overview.hasFunds).toBe(false);
     expect(overview.runwayMonths).toBeNull();
     expect(overview.runwayLimitingLabel).toBeNull();
     expect(overview.runwayTargetMonth).toBeNull();
   });
 
-  it("excludes hidden accounts from the total", () => {
+  it("flags a total that leans on an assumed-OK fund's estimate", () => {
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
-      accountItems: [account("a", 600_000), account("b", 400_000, null, true)],
+      accountItems: [],
       netPositionImports: [],
-      runway: emptyRunway,
+      runway: runwayContext(
+        [],
+        [],
+        [],
+        [],
+        [fundedRoot("a", 600_000, 40_000), fundedRoot("b", 120_000, 20_000, true)]
+      ),
       employees: [],
       settings,
     });
-    expect(overview.availableFunds).toBe(600_000);
-    expect(overview.accountCount).toBe(1);
+    expect(overview.availableFunds).toBe(720_000);
+    expect(overview.fundsIncludeEstimated).toBe(true);
   });
 
-  it("sums the prior-report delta only from accounts that have history", () => {
+  it("sums the prior-report delta only from payroll accounts that have history", () => {
     const overview = buildDashboardOverview({
       monthly,
       planningMonth: "2026-08",
-      accountItems: [account("a", 600_000, -50_000), account("b", 400_000)],
+      accountItems: [account("a", 600_000, -50_000), account("b", 400_000, -30_000)],
       netPositionImports: [],
-      runway: emptyRunway,
+      runway: runwayContext([], [], [], [], [fundedRoot("a", 600_000, 50_000)]),
       employees: [],
       settings,
     });
+    // "b" has history too, but no payroll — it must not move a delta on a total
+    // it isn't part of.
     expect(overview.fundsDelta).toBe(-50_000);
   });
 
@@ -348,7 +399,7 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-08",
       accountItems: [account("a", 600_000)],
       netPositionImports: [],
-      runway: emptyRunway,
+      runway: runwayContext([], [], [], [], [fundedRoot("a", 600_000, 50_000)]),
       employees: [],
       settings,
     });
@@ -375,10 +426,12 @@ describe("buildDashboardOverview", () => {
       planningMonth: "2026-08",
       accountItems: [account("a", 100_000)],
       netPositionImports: [],
-      runway: runwayContext([["e1", 5]]),
+      runway: runwayContext([["e1", 5]], [], [], [], [fundedRoot("a", 100_000, 20_000)]),
       employees: [employee("e1", "A")],
       settings,
     });
+    // monthlyBurn is the payroll trailing average; runway divides by the
+    // accounts' own combined burn, so the two are independent.
     expect(overview.hasBurn).toBe(false);
     expect(overview.runwayMonths).toBe(5);
   });
@@ -418,6 +471,28 @@ describe("buildDashboardOverview", () => {
       settings,
     });
     expect(overview.runwaySeries.map((p) => p.value)).toEqual([5_000, -900]);
+  });
+
+  it("scopes the funds sparkline to the payroll accounts, matching the figure above it", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [
+        netPositionImport("np1", "2026-06", "7000-129074-fund-a", 5_000),
+        netPositionImport("np2", "2026-06", "7000-129074-fund-b", 90_000),
+      ],
+      runway: runwayContext(
+        [],
+        [],
+        [],
+        [],
+        [fundedRoot("7000-129074-fund-a", 5_000, 1_000)]
+      ),
+      employees: [],
+      settings,
+    });
+    expect(overview.fundsSeries.map((p) => p.value)).toEqual([5_000]);
   });
 
   it("leaves the sparkline empty when the limiting account has no Net Position history", () => {

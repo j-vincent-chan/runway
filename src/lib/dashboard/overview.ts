@@ -4,7 +4,7 @@ import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { normalizeAccountBalanceKey } from "@/lib/net-position/accountBalancesView";
 import type { PersonnelCostTrendPoint } from "@/lib/dashboard/metrics";
 import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesView";
-import type { RunwayContext } from "@/lib/dashboard/attention";
+import { totalFundedRoots, type RunwayContext } from "@/lib/dashboard/attention";
 import type { AppSettings, Employee, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
 
 /** Months averaged for the headline burn rate. */
@@ -28,9 +28,15 @@ export interface PeriodStatus {
 }
 
 export interface DashboardOverview {
-  /** Total across visible account balances. */
+  /**
+   * Total balance on the accounts that currently have employee payroll charged
+   * to them — not every account on Account Balances. Money in an account nobody
+   * is paid from does not answer "how long does my staff stay funded".
+   */
   availableFunds: number;
   accountCount: number;
+  /** At least one balance came from an assumed-OK fund's end-date estimate. */
+  fundsIncludeEstimated: boolean;
   /** Change since the prior Net Position period, when history exists. */
   fundsDelta: number | null;
   fundsPriorLabel: string | null;
@@ -46,14 +52,14 @@ export interface DashboardOverview {
   hasBurn: boolean;
 
   /**
-   * The soonest any person or account actually runs dry, honoring
-   * restriction: the minimum across every person's own blended runway
-   * (their own funding sources only) and every account's own runway.
-   * Never a pooled availableFunds ÷ monthlyBurn blend — accounts are
-   * restricted, so that blend overstates real flexibility.
+   * Portfolio runway: availableFunds ÷ the combined burn on those same
+   * accounts. Scoped to accounts with current payroll, so it is not a blend
+   * across money that can't reach these people. The soonest *single* person or
+   * account to run dry is a different, more urgent measure — it belongs in the
+   * attention queue, and is surfaced here only as the limiting label.
    */
   runwayMonths: number | null;
-  /** Name of the person or account whose limit sets runwayMonths. */
+  /** Name of the person or account that runs dry soonest. */
   runwayLimitingLabel: string | null;
   /** Dollar amount the limiting account is overdrawn by, when it's known and negative. */
   runwayDeficitAmount: number | null;
@@ -184,12 +190,19 @@ export function trailingBurn(
 }
 
 /**
- * Total balance per Net Position period across all accounts. Accounts that did
- * not report in a period carry their last known balance forward, so the series
- * reads as "what was on hand then" rather than "who filed that month".
+ * Total balance per Net Position period across the payroll-funded accounts —
+ * the same scope as availableFunds, so the sparkline can't tell a different
+ * story than the figure above it. Accounts that did not report in a period
+ * carry their last known balance forward, so the series reads as "what was on
+ * hand then" rather than "who filed that month".
  */
-function fundsByPeriod(imports: NetPositionReportImport[]): SparkPoint[] {
-  const series = buildNetPositionAccountSeries(imports);
+function fundsByPeriod(
+  imports: NetPositionReportImport[],
+  fundedKeys: Set<string>
+): SparkPoint[] {
+  const series = buildNetPositionAccountSeries(imports).filter((s) =>
+    fundedKeys.has(normalizeAccountBalanceKey(s.accountKey))
+  );
   if (series.length === 0) return [];
 
   const periodKeys = [
@@ -254,8 +267,15 @@ export function buildDashboardOverview({
   employees: Employee[];
   settings: AppSettings;
 }): DashboardOverview {
-  const visible = accountItems.filter((item) => !item.isHidden);
-  const availableFunds = visible.reduce((sum, item) => sum + (item.displayBalance ?? 0), 0);
+  const fundedKeys = new Set(
+    [...runway.fundedRoots.keys()].map((root) => normalizeAccountBalanceKey(root))
+  );
+  const funded = totalFundedRoots(runway.fundedRoots.values());
+  const availableFunds = funded.balance;
+
+  const visible = accountItems.filter(
+    (item) => !item.isHidden && fundedKeys.has(normalizeAccountBalanceKey(item.accountKey))
+  );
 
   const withHistory = visible.filter((item) => item.changeFromPrior !== null);
   const fundsDelta = withHistory.length
@@ -285,22 +305,23 @@ export function buildDashboardOverview({
     .slice(-BURN_SERIES_MONTHS)
     .map((m) => ({ key: m.month, label: m.label, value: m.total }));
 
-  const hasFunds = visible.length > 0 && availableFunds !== 0;
+  const hasFunds = runway.fundedRoots.size > 0 && availableFunds !== 0;
   const hasBurn = monthlyBurn > 0;
 
   const constrained = buildConstrainedRunway(runway, employees, settings);
-  const runwayMonths = constrained.months;
+  const runwayMonths = funded.months;
   const runwayTargetMonth =
     runwayMonths !== null && runwayMonths >= 0
       ? shiftMonth(planningMonth, Math.floor(runwayMonths))
       : null;
 
-  const fundsSeries = fundsByPeriod(netPositionImports);
+  const fundsSeries = fundsByPeriod(netPositionImports, fundedKeys);
   const runwaySeries = limitingAccountSeries(netPositionImports, constrained.limitingChartRoot);
 
   return {
     availableFunds,
-    accountCount: visible.length,
+    accountCount: runway.fundedRoots.size,
+    fundsIncludeEstimated: funded.hasEstimated,
     fundsDelta,
     fundsPriorLabel,
     fundsSeries,

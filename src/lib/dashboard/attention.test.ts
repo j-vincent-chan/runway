@@ -49,6 +49,8 @@ function runwayContext(
     limitingAccountByEmployee: new Map(limitingAccountByEmployee),
     accounts,
     accountContributors: new Map(accountContributors.map(([root, ids]) => [root, new Set(ids)])),
+    fundedRoots: new Map(),
+    rootsByEmployee: new Map(),
   };
 }
 

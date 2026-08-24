@@ -76,6 +76,16 @@ export interface AttentionQueue {
   overdrawnAccounts: AccountAtRisk[];
 }
 
+export interface FundedRoot {
+  chartRoot: string;
+  name: string;
+  balance: number;
+  /** Combined burn of everyone charging this account, not just one person's share. */
+  sharedMonthlyBurn: number;
+  /** Balance is derived from an assumed-OK fund's end date, not a reported figure. */
+  isEstimated: boolean;
+}
+
 export interface RunwayContext {
   monthsByEmployee: Map<string, number | null>;
   /** Shortest remaining fund for each person, when one is known. */
@@ -84,6 +94,15 @@ export interface RunwayContext {
   accounts: AccountAtRisk[];
   /** Every employee counted against each account — used to tell a solo grant from a shared one. */
   accountContributors: Map<string, Set<string>>;
+  /**
+   * Every account with current-month payroll on it, deduped by fund-dept-project.
+   * Unlike `accounts`, this includes assumed-OK funds (someone else's account) at
+   * the estimated balance their end date implies, so "what is actually available
+   * to pay these people" counts restricted money the same way Runway shows it.
+   */
+  fundedRoots: Map<string, FundedRoot>;
+  /** Accounts each person draws on, for rolling funded roots up to a team. */
+  rootsByEmployee: Map<string, Set<string>>;
 }
 
 function chartRoot(line: RunwayAccountLine): string {
@@ -111,6 +130,8 @@ export function buildRunwayContext(
   const limitingAccountByEmployee = new Map<string, { name: string; chartRoot: string }>();
   const accounts = new Map<string, AccountAtRisk>();
   const accountContributors = new Map<string, Set<string>>();
+  const fundedRoots = new Map<string, FundedRoot>();
+  const rootsByEmployee = new Map<string, Set<string>>();
 
   for (const employee of filterEmployeesForPlanning(snapshot.employees, settings)) {
     const summary = computeEmployeeRunway(
@@ -129,6 +150,23 @@ export function buildRunwayContext(
       employee.id,
       counted.length > 0 ? summary.blendedMonthsRunway : null
     );
+
+    const employeeRoots = rootsByEmployee.get(employee.id) ?? new Set<string>();
+    for (const line of summary.accounts) {
+      if (line.isHidden) continue;
+      const root = chartRoot(line);
+      employeeRoots.add(root);
+      if (!fundedRoots.has(root)) {
+        fundedRoots.set(root, {
+          chartRoot: root,
+          name: line.displayName,
+          balance: line.balance,
+          sharedMonthlyBurn: line.sharedMonthlyBurn,
+          isEstimated: line.balanceSource === "estimated",
+        });
+      }
+    }
+    rootsByEmployee.set(employee.id, employeeRoots);
 
     let limiting: { name: string; chartRoot: string; months: number } | null = null;
     for (const line of counted) {
@@ -162,6 +200,36 @@ export function buildRunwayContext(
     limitingAccountByEmployee,
     accounts: [...accounts.values()],
     accountContributors,
+    fundedRoots,
+    rootsByEmployee,
+  };
+}
+
+/**
+ * Total balance and combined burn across every account with current payroll,
+ * already deduped by fund-dept-project. Same shape as computeEmployeeRunway's
+ * own blendedMonthsRunway (totalBalance / totalMonthlyBurn over deduped roots),
+ * widened from one person to a set of accounts — not a new derivation.
+ */
+export function totalFundedRoots(roots: Iterable<FundedRoot>): {
+  balance: number;
+  monthlyBurn: number;
+  months: number | null;
+  hasEstimated: boolean;
+} {
+  let balance = 0;
+  let monthlyBurn = 0;
+  let hasEstimated = false;
+  for (const root of roots) {
+    balance += root.balance;
+    monthlyBurn += root.sharedMonthlyBurn;
+    if (root.isEstimated) hasEstimated = true;
+  }
+  return {
+    balance,
+    monthlyBurn,
+    months: monthlyBurn > 0 ? balance / monthlyBurn : null,
+    hasEstimated,
   };
 }
 
