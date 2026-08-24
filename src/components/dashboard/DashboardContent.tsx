@@ -11,10 +11,12 @@ import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attenti
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
+import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
 import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
+import { SinceLastReportPanel } from "@/components/dashboard/SinceLastReportPanel";
 import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
@@ -28,6 +30,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     workingPlan,
     mergedPortfolioBalances,
     netPositionImports,
+    payrollImports,
   } = useApp();
   const [fundingPeriod, setFundingPeriod] = useState<FundingMixPeriod>("current_month");
 
@@ -131,6 +134,21 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, workingPlan, settings, mergedPortfolioBalances]);
 
+  const sinceLastReport = useMemo(() => {
+    if (!snapshot || !trend || !overview) return null;
+    return buildSinceLastReport({
+      payrollImports,
+      currentSnapshot: snapshot,
+      currentPlanningMonth: trend.planningMonth,
+      currentMonthlyBurn: overview.monthlyBurn,
+      currentRunwayMonths: overview.runwayMonths,
+      workingPlan,
+      fundingSources,
+      settings,
+      portfolio: mergedPortfolioBalances,
+    });
+  }, [snapshot, trend, overview, payrollImports, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
+
   if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
 
   const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
@@ -151,6 +169,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       ) : (
         <AnchorStats overview={overview} />
       )}
+      {sinceLastReport && <SinceLastReportPanel summary={sinceLastReport} />}
       <RunwayRibbon ribbon={ribbon} />
       <PersonnelCostTrendCharts
         monthly={trend.monthly}
