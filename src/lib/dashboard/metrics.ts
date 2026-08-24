@@ -23,7 +23,6 @@ import type {
   FundingSource,
   MonthlyCostRecord,
   PayrollReportSnapshot,
-  PersonnelType,
   ProjectionHorizonPreset,
   WorkingPlan,
 } from "@/types";
@@ -33,7 +32,6 @@ import {
   fiscalYearEndingYear,
   fiscalYearEndMonthYm,
   fiscalYearLabel,
-  fiscalYearStartMonthYm,
   shiftMonth,
 } from "@/lib/dashboard/month";
 import { simulateProjections } from "@/lib/projections/simulate";
@@ -46,25 +44,6 @@ export type FundingChartKey = string;
 export const UNATTRIBUTED_MIX_KEY = "unattributed";
 
 const COST_EPS = 0.005;
-
-export type FundingMixPeriod =
-  | "current_month"
-  | "ytd"
-  | "last_6m"
-  | "last_1y"
-  | "last_3y";
-
-export const FUNDING_MIX_PERIOD_OPTIONS: {
-  id: FundingMixPeriod;
-  label: string;
-  shortLabel: string;
-}[] = [
-  { id: "current_month", label: "Current month", shortLabel: "Month" },
-  { id: "ytd", label: "Avg of FYTD", shortLabel: "FYTD" },
-  { id: "last_6m", label: "Avg of last 6 months", shortLabel: "6 mo" },
-  { id: "last_1y", label: "Avg of last 1 year", shortLabel: "1 yr" },
-  { id: "last_3y", label: "Avg of last 3 years", shortLabel: "3 yr" },
-];
 
 export function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
   return getFundingSourceCategory(settings, fs) ?? "uncategorized";
@@ -135,58 +114,6 @@ export interface FundingMixSlice {
   name: string;
   value: number;
   color: string;
-}
-
-export interface PersonnelTypeFundingMix {
-  personnelType: PersonnelType | "unassigned";
-  label: string;
-  slices: FundingMixSlice[];
-  total: number;
-}
-
-/** Months included for a funding-mix period, ending at the planning month. */
-export function monthsForFundingMixPeriod(
-  period: FundingMixPeriod,
-  snapshot: PayrollReportSnapshot,
-  planningMonth: string,
-  fyStartMonth = 7
-): string[] {
-  const available = getAllMonths(snapshot).filter((m) => m <= planningMonth);
-  if (available.length === 0) return [];
-
-  switch (period) {
-    case "current_month":
-      return available.includes(planningMonth) ? [planningMonth] : [available[available.length - 1]!];
-    case "ytd": {
-      const fyStart = fiscalYearStartMonthYm(planningMonth, fyStartMonth);
-      const ytd = available.filter((m) => m >= fyStart && m <= planningMonth);
-      return ytd.length > 0 ? ytd : [available[available.length - 1]!];
-    }
-    case "last_6m":
-      return available.slice(-6);
-    case "last_1y":
-      return available.slice(-12);
-    case "last_3y":
-      return available.slice(-36);
-    default:
-      return [planningMonth];
-  }
-}
-
-export function fundingMixPeriodCaption(
-  period: FundingMixPeriod,
-  months: string[],
-  planningMonth: string
-): string {
-  if (months.length === 0) return formatMonthDisplay(planningMonth);
-  if (period === "current_month" || months.length === 1) {
-    return formatMonthDisplay(months[0]!);
-  }
-  const first = formatMonthDisplay(months[0]!);
-  const last = formatMonthDisplay(months[months.length - 1]!);
-  const option = FUNDING_MIX_PERIOD_OPTIONS.find((o) => o.id === period);
-  const avgLabel = option?.label ?? "Average";
-  return `${avgLabel} · ${first}–${last} (${months.length} mo)`;
 }
 
 /** Deviation from the trailing-12-month average that earns an inline anomaly marker. Same kind of hand-picked, documented threshold as CRITICAL_MONTHS/UNATTRIBUTED_THRESHOLD elsewhere on the dashboard — a display heuristic, not a financial calculation. */
@@ -550,73 +477,3 @@ export function buildFundingMixForEmployees(
     });
 }
 
-export function buildFundingTypeMix(
-  snapshot: PayrollReportSnapshot,
-  fundingSources: FundingSource[],
-  settings: AppSettings,
-  period: FundingMixPeriod = "current_month"
-): {
-  planningMonth: string;
-  period: FundingMixPeriod;
-  months: string[];
-  periodCaption: string;
-  total: FundingMixSlice[];
-  byPersonnelType: PersonnelTypeFundingMix[];
-} {
-  const employees = filterEmployeesForPlanning(snapshot.employees, settings);
-  const planningMonth = getCurrentMonth(snapshot);
-  const months = monthsForFundingMixPeriod(
-    period,
-    snapshot,
-    planningMonth,
-    settings.fiscalYearStartMonth
-  );
-  const periodCaption = fundingMixPeriodCaption(period, months, planningMonth);
-
-  const total = buildFundingMixForEmployees(
-    employees,
-    months,
-    snapshot,
-    fundingSources,
-    settings
-  );
-
-  const personnelGroups = getPersonnelGroups(settings);
-  const groups: { personnelType: PersonnelType | "unassigned"; label: string; ids: string[] }[] = [
-    ...personnelGroups.map((t) => ({
-      personnelType: t.id as PersonnelType,
-      label: getPersonnelTypeMeta(t.id, settings).label,
-      ids: employees
-        .filter((e) => getEmployeePersonnelType(settings, e.id) === t.id)
-        .map((e) => e.id),
-    })),
-    {
-      personnelType: "unassigned" as const,
-      label: "Unassigned",
-      ids: employees
-        .filter((e) => !getEmployeePersonnelType(settings, e.id))
-        .map((e) => e.id),
-    },
-  ];
-
-  const byPersonnelType = groups
-    .map((g) => {
-      const slices = buildFundingMixForEmployees(
-        g.ids.map((id) => ({ id })),
-        months,
-        snapshot,
-        fundingSources,
-        settings
-      );
-      const groupTotal = slices.reduce((s, x) => s + x.value, 0);
-      return {
-        personnelType: g.personnelType,
-        label: g.label,
-        slices,
-        total: groupTotal,
-      };
-    })
-    .filter((g) => g.total > 0);
-
-  return { planningMonth, period, months, periodCaption, total, byPersonnelType };
-}

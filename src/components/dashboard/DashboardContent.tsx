@@ -1,26 +1,23 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useApp } from "@/context/AppContext";
-import {
-  buildFundingTypeMix,
-  buildPersonnelCostTrend,
-  type FundingMixPeriod,
-} from "@/lib/dashboard/metrics";
+import { buildPersonnelCostTrend } from "@/lib/dashboard/metrics";
 import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
+import { buildFundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
 import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { SinceLastReportPanel } from "@/components/dashboard/SinceLastReportPanel";
 import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
+import { FundingExposureBand } from "@/components/dashboard/FundingExposureBand";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
-import { FundingTypeDonutSection } from "@/components/dashboard/FundingTypeDonutChart";
 
 export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const {
@@ -32,7 +29,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     netPositionImports,
     payrollImports,
   } = useApp();
-  const [fundingPeriod, setFundingPeriod] = useState<FundingMixPeriod>("current_month");
 
   const trend = useMemo(
     () =>
@@ -44,14 +40,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
           })
         : null,
     [snapshot, settings, workingPlan, mergedPortfolioBalances, horizonMonths]
-  );
-
-  const funding = useMemo(
-    () =>
-      snapshot
-        ? buildFundingTypeMix(snapshot, fundingSources, settings, fundingPeriod)
-        : null,
-    [snapshot, fundingSources, settings, fundingPeriod]
   );
 
   const runway = useMemo(() => {
@@ -149,7 +137,19 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, trend, overview, payrollImports, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
 
-  if (!snapshot || !trend || !funding || !overview || !verdict || !attentionQueue) return null;
+  const exposureTimeline = useMemo(() => {
+    if (!snapshot) return null;
+    return buildFundingExposureTimeline({
+      snapshot,
+      workingPlan,
+      fundingSources,
+      settings,
+      portfolio: mergedPortfolioBalances,
+      horizonMonths,
+    });
+  }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances, horizonMonths]);
+
+  if (!snapshot || !trend || !overview || !verdict || !attentionQueue) return null;
 
   const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
   const hasMoreRows = isAction && attentionQueue.rows.length > 1;
@@ -181,13 +181,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         groupBreakdown={trend.groupBreakdown}
         planningMonth={trend.planningMonth}
       />
-      <FundingTypeDonutSection
-        period={fundingPeriod}
-        onPeriodChange={setFundingPeriod}
-        periodCaption={funding.periodCaption}
-        totalSlices={funding.total}
-        byPersonnelType={funding.byPersonnelType}
-      />
+      <FundingExposureBand timeline={exposureTimeline} />
     </div>
   );
 }

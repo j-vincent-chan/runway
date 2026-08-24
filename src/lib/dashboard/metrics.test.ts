@@ -11,7 +11,6 @@ import {
   buildFundingMixForEmployees,
   buildPersonnelCostTrend,
   flagAnomalousMonths,
-  monthsForFundingMixPeriod,
   UNATTRIBUTED_MIX_KEY,
   type PersonnelCostTrendPoint,
 } from "@/lib/dashboard/metrics";
@@ -197,22 +196,6 @@ describe("buildPersonnelCostTrend group breakdown", () => {
 
     expect(current.actual).toBe(2000);
     expect(current.projected).toBe(10_000);
-  });
-});
-
-describe("monthsForFundingMixPeriod", () => {
-  it("treats ytd as fiscal-year-to-date when the FY starts in July", () => {
-    const months = ymRange("2026-01", "2026-08");
-    const snap = snapshot({
-      employees: [{ id: "e1", name: "Ada" }],
-      months,
-      costs: months.map((month, i) => costRow(`c-${i}`, "e1", month, 1)),
-    });
-
-    expect(monthsForFundingMixPeriod("ytd", snap, "2026-08", 7)).toEqual([
-      "2026-07",
-      "2026-08",
-    ]);
   });
 });
 
