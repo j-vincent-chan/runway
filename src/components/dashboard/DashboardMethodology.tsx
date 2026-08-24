@@ -25,15 +25,26 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
       <h2 className="type-heading text-ink">How these numbers were produced</h2>
       <div className="mt-4 space-y-5">
         <Entry title="Available funds and monthly burn">
-          Available funds sums the listed balance on every account you track on Account Balances,
-          excluding any you&rsquo;ve hidden. Monthly burn averages total personnel cost — salary
-          and benefits — across the trailing {BURN_WINDOW_MONTHS} months.
+          Available funds covers only the accounts that currently have payroll charged to them,
+          at the balance Runway resolves for each — your MyPortfolio figure, or the amount you
+          entered there by hand. Accounts nobody is paid from are left out, along with any
+          you&rsquo;ve hidden, so the figure will not match the Account Balances total, which
+          lists everything. An account you&rsquo;ve marked as not yours counts the balance its
+          end date implies: its share of the burn multiplied by the months left on it. An
+          account charged with no balance on file anywhere counts as $0, so the total reads low
+          until you fill one in — the stat says how many are waiting. Monthly burn averages
+          total personnel cost — salary and benefits — across the trailing {BURN_WINDOW_MONTHS}{" "}
+          months, unchanged by any of this.
         </Entry>
-        <Entry title="Shortest runway">
-          Takes the minimum across every person&rsquo;s and every account&rsquo;s own runway,
-          calculated against their own restricted funding only — never a blended total, since
-          accounts can&rsquo;t be freely reallocated. An account already overdrawn shows as a
-          dollar deficit rather than a negative month count.
+        <Entry title="Runway, overall and by team">
+          Available funds divided by the combined monthly burn on those same accounts, capped at
+          the window you have in view rather than extrapolated past it. Each team&rsquo;s row
+          does the same over the accounts its own members draw on; an account two people share
+          is counted once. Where a team shares an account with someone outside it, the whole
+          account&rsquo;s burn stays in that team&rsquo;s denominator — splitting it would mean
+          inventing a rule for who owns which dollar — so a shared account always reads shorter
+          than it would in isolation, never longer. Individual people run dry sooner than any of
+          these blends; those are named in the attention queue, and beneath their own team.
         </Entry>
         <Entry title="Attention queue">
           An account or person is Critical when already overdrawn, or when funding runs out
