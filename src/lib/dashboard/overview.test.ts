@@ -86,9 +86,9 @@ function fundedRoot(
   chartRoot: string,
   balance: number,
   sharedMonthlyBurn: number,
-  isEstimated = false
+  balanceSource: FundedRoot["balanceSource"] = "portfolio"
 ): FundedRoot {
-  return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, isEstimated };
+  return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, balanceSource };
 }
 
 function runwayContext(
@@ -369,13 +369,36 @@ describe("buildDashboardOverview", () => {
         [],
         [],
         [],
-        [fundedRoot("a", 600_000, 40_000), fundedRoot("b", 120_000, 20_000, true)]
+        [fundedRoot("a", 600_000, 40_000), fundedRoot("b", 120_000, 20_000, "estimated")]
       ),
       employees: [],
       settings,
     });
     expect(overview.availableFunds).toBe(720_000);
     expect(overview.fundsIncludeEstimated).toBe(true);
+  });
+
+  it("separates accounts with no balance on file from the ones the total is built from", () => {
+    const overview = buildDashboardOverview({
+      monthly,
+      planningMonth: "2026-08",
+      accountItems: [],
+      netPositionImports: [],
+      runway: runwayContext(
+        [],
+        [],
+        [],
+        [],
+        [fundedRoot("a", 600_000, 40_000), fundedRoot("b", 0, 60_000, "none")]
+      ),
+      employees: [],
+      settings,
+    });
+    expect(overview.availableFunds).toBe(600_000);
+    expect(overview.accountCount).toBe(1);
+    expect(overview.unpricedAccountCount).toBe(1);
+    // The unpriced account still drags the runway down — 6 months, not 15.
+    expect(overview.runwayMonths).toBe(6);
   });
 
   it("sums the prior-report delta only from payroll accounts that have history", () => {

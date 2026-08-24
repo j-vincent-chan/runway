@@ -8,6 +8,7 @@ import { buildDashboardOverview } from "@/lib/dashboard/overview";
 import { buildVerdict } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
+import { buildTeamRunway } from "@/lib/dashboard/teamRunway";
 import { buildFundingExposureMatrix, buildFundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
 import { FundingStatusPanel } from "@/components/dashboard/FundingStatusPanel";
@@ -20,6 +21,7 @@ import { FundingExposureMatrix } from "@/components/dashboard/FundingExposureMat
 import { DashboardMethodology } from "@/components/dashboard/DashboardMethodology";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
+import { TeamRunwaySection } from "@/components/dashboard/TeamRunwaySection";
 
 export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const {
@@ -139,6 +141,16 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, trend, overview, payrollImports, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
 
+  const teamRunway = useMemo(() => {
+    if (!snapshot || !trend || !runway) return null;
+    return buildTeamRunway({
+      runway,
+      snapshot,
+      settings,
+      planningMonth: trend.planningMonth,
+    });
+  }, [snapshot, trend, runway, settings]);
+
   const exposureTimeline = useMemo(() => {
     if (!snapshot) return null;
     return buildFundingExposureTimeline({
@@ -167,6 +179,15 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
   const hasMoreRows = isAction && attentionQueue.rows.length > 1;
 
+  const anchors = (
+    <AnchorStats
+      overview={overview}
+      horizonMonths={horizonMonths}
+      priorRunwayMonths={sinceLastReport?.priorRunwayMonths ?? null}
+      priorReportLabel={sinceLastReport?.priorLabel ?? null}
+    />
+  );
+
   return (
     <div className="space-y-8">
       <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
@@ -175,13 +196,12 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
           <div className="col-span-12 lg:col-span-5">
             <AttentionQueueBox queue={attentionQueue} />
           </div>
-          <div className="col-span-12 lg:col-span-7">
-            <AnchorStats overview={overview} />
-          </div>
+          <div className="col-span-12 lg:col-span-7">{anchors}</div>
         </div>
       ) : (
-        <AnchorStats overview={overview} />
+        anchors
       )}
+      {teamRunway && <TeamRunwaySection rows={teamRunway} />}
       {sinceLastReport && <SinceLastReportPanel summary={sinceLastReport} />}
       <RunwayRibbon ribbon={ribbon} />
       <PersonnelCostTrendCharts

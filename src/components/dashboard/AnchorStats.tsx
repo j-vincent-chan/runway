@@ -8,7 +8,6 @@ import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
-import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
 const SPARK_HEIGHT = 34;
@@ -51,9 +50,9 @@ function LineSpark({ points, label }: { points: SparkPoint[]; label: string }) {
 }
 
 /**
- * Balance history of the account driving the shortest-runway figure — a
- * zero line so a crossing into deficit is visible, and the line/endpoint
- * turn critical when the current balance is already negative.
+ * Balance history of the account that runs dry soonest — a zero line so a
+ * crossing into deficit is visible, and the line/endpoint turn critical when
+ * the current balance is already negative.
  */
 function BalanceSpark({ points, label }: { points: SparkPoint[]; label: string }) {
   if (points.length < 2) return <SparkPlaceholder />;
@@ -121,7 +120,6 @@ function Anchor({
   valueNode,
   comparison,
   comparisonTone = "neutral",
-  comparisonAvatar,
   spark,
 }: {
   label: string;
@@ -130,8 +128,6 @@ function Anchor({
   valueNode?: React.ReactNode;
   comparison: React.ReactNode;
   comparisonTone?: "neutral" | "caution" | "critical" | "healthy";
-  /** Small avatar of the person the comparison line names, when known. */
-  comparisonAvatar?: React.ReactNode;
   spark?: React.ReactNode;
 }) {
   return (
@@ -152,7 +148,6 @@ function Anchor({
           comparisonTone === "healthy" && "text-healthy"
         )}
       >
-        {comparisonAvatar}
         <span className="min-w-0">{comparison}</span>
       </p>
       {spark}
@@ -164,10 +159,23 @@ function signed(amount: number): string {
   return `${amount >= 0 ? "+" : "−"}${formatCurrency(Math.abs(amount))}`;
 }
 
-export function AnchorStats({ overview }: { overview: DashboardOverview }) {
+export function AnchorStats({
+  overview,
+  horizonMonths,
+  priorRunwayMonths,
+  priorReportLabel,
+}: {
+  overview: DashboardOverview;
+  /** The Dashboard's own scope control — the runway figure never extrapolates past it. */
+  horizonMonths: number;
+  priorRunwayMonths: number | null;
+  priorReportLabel: string | null;
+}) {
   const {
     availableFunds,
     accountCount,
+    unpricedAccountCount,
+    fundsIncludeEstimated,
     fundsDelta,
     fundsPriorLabel,
     monthlyBurn,
@@ -175,9 +183,6 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
     burnDelta,
     runwayMonths,
     runwayLimitingLabel,
-    runwayDeficitAmount,
-    runwayLimitingPersonName,
-    runwayLimitingPhotoUrl,
     runwayTargetMonth,
   } = overview;
 
@@ -193,6 +198,35 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
   const burnBasis =
     burnMonthsUsed === 1 ? "the one payroll month on file" : `the last ${burnMonthsUsed} payroll months`;
 
+  // Capped at the same horizon buildVerdict caps its funded-through date at, so
+  // the two never disagree about when the money runs out.
+  const beyondHorizon = runwayMonths !== null && runwayMonths > horizonMonths;
+
+  const fundsExplanation = [
+    `Balance on the ${accountCount} ${accountCount === 1 ? "account" : "accounts"} that both have payroll charged to them and have a balance on file, at the same figure Runway uses.`,
+    "Accounts nobody is paid from are left out, as are accounts you have hidden.",
+    fundsIncludeEstimated
+      ? "Includes an estimated balance for at least one account marked as not yours, worked out from the end date you set on Runway."
+      : null,
+    unpricedAccountCount > 0
+      ? `A further ${unpricedAccountCount} ${unpricedAccountCount === 1 ? "account carries" : "accounts carry"} payroll with no balance on file, so ${unpricedAccountCount === 1 ? "it counts" : "they count"} as $0 here — the real total is higher.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const runwayExplanation = [
+    "Available funds divided by the combined monthly burn on those same accounts.",
+    beyondHorizon
+      ? `The result runs past the ${horizonMonths}-month window in view, so no exact date is shown.`
+      : "Individual people and accounts run dry sooner — those are listed under what needs attention.",
+    unpricedAccountCount > 0
+      ? `${unpricedAccountCount} ${unpricedAccountCount === 1 ? "account is" : "accounts are"} charged with no balance on file, counted at $0, so this reads shorter than the truth.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <section aria-label="Funding inputs" className="flex flex-col divide-y divide-rule sm:flex-row sm:divide-x sm:divide-y-0">
       <Anchor
@@ -201,24 +235,33 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
         valueNode={
           <DerivedFigure
             value={formatCurrency(availableFunds)}
-            explanation={`Sum of the listed balance on all ${accountCount} accounts you track on Account Balances, excluding any you have hidden.`}
+            explanation={fundsExplanation}
             className="type-stat text-ink"
           />
         }
         comparison={
-          fundsDelta !== null && fundsPriorLabel ? (
-            <>
-              {accountCount} {accountCount === 1 ? "account" : "accounts"} ·{" "}
-              {signed(fundsDelta)} since the {fundsPriorLabel} report
-            </>
-          ) : (
-            <>
-              {accountCount} {accountCount === 1 ? "account" : "accounts"} · no prior report to
-              compare
-            </>
-          )
+          <>
+            {accountCount} {accountCount === 1 ? "account" : "accounts"} with payroll ·{" "}
+            {unpricedAccountCount > 0 ? (
+              <Link href="/runway" className="underline decoration-dotted underline-offset-2">
+                {unpricedAccountCount} more {unpricedAccountCount === 1 ? "needs" : "need"} a
+                balance
+              </Link>
+            ) : fundsDelta !== null && fundsPriorLabel ? (
+              <>
+                {signed(fundsDelta)} since the {fundsPriorLabel} report
+              </>
+            ) : (
+              <>no prior report to compare</>
+            )}
+          </>
         }
-        spark={<LineSpark points={overview.fundsSeries} label="Total balance by report period" />}
+        spark={
+          <LineSpark
+            points={overview.fundsSeries}
+            label="Balance on the payroll accounts by report period"
+          />
+        }
       />
 
       <Anchor
@@ -244,53 +287,58 @@ export function AnchorStats({ overview }: { overview: DashboardOverview }) {
       />
 
       <Anchor
-        label="Shortest runway"
+        label="Runway"
         href="/runway"
         valueNode={
           runwayMonths === null ? (
             <span className="text-muted">—</span>
-          ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
-            <DerivedFigure
-              value={formatCurrency(-runwayDeficitAmount)}
-              explanation="The account or person with the shortest runway — in this case, already negative."
-              className="type-stat text-critical"
-            />
           ) : runwayMonths < 0 ? (
             <DerivedFigure
+              projected
               value="Already short"
-              explanation="The account or person with the shortest runway — in this case, already negative."
+              explanation="Combined burn on your payroll accounts already exceeds what is left in them."
               className="type-stat text-critical"
             />
           ) : (
             <DerivedFigure
               projected
-              value={`${runwayMonths.toFixed(1)} mo`}
-              explanation="The soonest any account or person is projected to run out, given only their own restricted funding — never a blend of your total balance, since accounts can't be freely reallocated."
+              value={beyondHorizon ? `${horizonMonths}+ mo` : `${runwayMonths.toFixed(1)} mo`}
+              explanation={runwayExplanation}
               className="type-stat text-ink"
             />
           )
         }
         comparisonTone={runwayTone}
-        comparisonAvatar={
-          runwayLimitingPersonName ? (
-            <EmployeeAvatar name={runwayLimitingPersonName} photoUrl={runwayLimitingPhotoUrl ?? undefined} size="xs" />
-          ) : undefined
-        }
         comparison={
           runwayMonths === null ? (
-            <>needs restricted funding data to project</>
-          ) : runwayMonths < 0 && runwayDeficitAmount !== null ? (
-            <>{runwayLimitingLabel ?? "an account"} is overdrawn</>
-          ) : runwayMonths < 0 ? (
-            <>{runwayLimitingLabel ?? "an account"} is already short</>
-          ) : runwayTargetMonth ? (
+            <>needs account balances to project</>
+          ) : (
             <>
-              runs out {monthLabelLong(runwayTargetMonth)}
-              {runwayLimitingLabel && <> · limited by {runwayLimitingLabel}</>}
+              {runwayMonths < 0 ? (
+                <>overdrawn today</>
+              ) : beyondHorizon ? (
+                <>past the {horizonMonths}-month window</>
+              ) : runwayTargetMonth ? (
+                <>runs out {monthLabelLong(runwayTargetMonth)}</>
+              ) : null}
+              {priorRunwayMonths !== null && priorReportLabel ? (
+                <> · was {priorRunwayMonths.toFixed(1)} mo at the {priorReportLabel} report</>
+              ) : (
+                <> · no prior report to compare</>
+              )}
             </>
-          ) : null
+          )
         }
-        spark={<BalanceSpark points={overview.runwaySeries} label="Balance of the account with the shortest runway" />}
+        spark={
+          <BalanceSpark
+            points={overview.runwaySeries}
+            label={
+              runwayLimitingLabel
+                ? `Balance of ${runwayLimitingLabel}, the first to run dry`
+                : "Balance of the account that runs dry first"
+            }
+          />
+        }
       />
     </section>
   );

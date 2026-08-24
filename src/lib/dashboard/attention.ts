@@ -9,6 +9,7 @@ import {
   buildSharedAccountBurnIndex,
   computeEmployeeRunway,
   type RunwayAccountLine,
+  type RunwayBalanceSource,
 } from "@/lib/runway/calculate";
 import { buildFundingMixForEmployees } from "@/lib/dashboard/metrics";
 import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
@@ -82,8 +83,12 @@ export interface FundedRoot {
   balance: number;
   /** Combined burn of everyone charging this account, not just one person's share. */
   sharedMonthlyBurn: number;
-  /** Balance is derived from an assumed-OK fund's end date, not a reported figure. */
-  isEstimated: boolean;
+  /**
+   * How the balance was arrived at. `"none"` means no MyPortfolio row, manual
+   * override, or end-date estimate matched this chartstring — the account is
+   * charged but unpriced, which is a data gap, not a zero balance.
+   */
+  balanceSource: RunwayBalanceSource;
 }
 
 export interface RunwayContext {
@@ -162,7 +167,7 @@ export function buildRunwayContext(
           name: line.displayName,
           balance: line.balance,
           sharedMonthlyBurn: line.sharedMonthlyBurn,
-          isEstimated: line.balanceSource === "estimated",
+          balanceSource: line.balanceSource,
         });
       }
     }
@@ -215,20 +220,38 @@ export function totalFundedRoots(roots: Iterable<FundedRoot>): {
   balance: number;
   monthlyBurn: number;
   months: number | null;
+  /** Accounts whose balance is known — the ones the total is actually built from. */
+  pricedCount: number;
+  /** Accounts charged but with no balance on file. They drag the runway down at $0. */
+  unpricedCount: number;
+  /** Monthly burn sitting on those unpriced accounts. */
+  unpricedMonthlyBurn: number;
   hasEstimated: boolean;
 } {
   let balance = 0;
   let monthlyBurn = 0;
+  let pricedCount = 0;
+  let unpricedCount = 0;
+  let unpricedMonthlyBurn = 0;
   let hasEstimated = false;
   for (const root of roots) {
     balance += root.balance;
     monthlyBurn += root.sharedMonthlyBurn;
-    if (root.isEstimated) hasEstimated = true;
+    if (root.balanceSource === "none") {
+      unpricedCount += 1;
+      unpricedMonthlyBurn += root.sharedMonthlyBurn;
+    } else {
+      pricedCount += 1;
+      if (root.balanceSource === "estimated") hasEstimated = true;
+    }
   }
   return {
     balance,
     monthlyBurn,
     months: monthlyBurn > 0 ? balance / monthlyBurn : null,
+    pricedCount,
+    unpricedCount,
+    unpricedMonthlyBurn,
     hasEstimated,
   };
 }

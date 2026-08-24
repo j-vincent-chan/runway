@@ -30,9 +30,9 @@ function root(
   chartRoot: string,
   balance: number,
   sharedMonthlyBurn: number,
-  isEstimated = false
+  balanceSource: FundedRoot["balanceSource"] = "portfolio"
 ): FundedRoot {
-  return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, isEstimated };
+  return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, balanceSource };
 }
 
 function context({
@@ -198,7 +198,7 @@ describe("buildTeamRunway", () => {
   it("flags a team leaning on an assumed-OK fund's estimate", () => {
     const rows = build(
       context({
-        fundedRoots: [root("a", 120_000, 20_000, true)],
+        fundedRoots: [root("a", 120_000, 20_000, "estimated")],
         rootsByEmployee: [["e1", ["a"]]],
       }),
       [{ id: "e1", name: "M. Chen" }]

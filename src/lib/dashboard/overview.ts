@@ -34,7 +34,14 @@ export interface DashboardOverview {
    * is paid from does not answer "how long does my staff stay funded".
    */
   availableFunds: number;
+  /** Accounts with payroll whose balance is known — what the total is built from. */
   accountCount: number;
+  /**
+   * Accounts with payroll but no balance on file. They contribute $0 to the
+   * total while their burn still counts against the runway, so the figure is
+   * conservative and the gap has to be stated rather than hidden.
+   */
+  unpricedAccountCount: number;
   /** At least one balance came from an assumed-OK fund's end-date estimate. */
   fundsIncludeEstimated: boolean;
   /** Change since the prior Net Position period, when history exists. */
@@ -305,7 +312,7 @@ export function buildDashboardOverview({
     .slice(-BURN_SERIES_MONTHS)
     .map((m) => ({ key: m.month, label: m.label, value: m.total }));
 
-  const hasFunds = runway.fundedRoots.size > 0 && availableFunds !== 0;
+  const hasFunds = funded.pricedCount > 0 && availableFunds !== 0;
   const hasBurn = monthlyBurn > 0;
 
   const constrained = buildConstrainedRunway(runway, employees, settings);
@@ -320,7 +327,8 @@ export function buildDashboardOverview({
 
   return {
     availableFunds,
-    accountCount: runway.fundedRoots.size,
+    accountCount: funded.pricedCount,
+    unpricedAccountCount: funded.unpricedCount,
     fundsIncludeEstimated: funded.hasEstimated,
     fundsDelta,
     fundsPriorLabel,
