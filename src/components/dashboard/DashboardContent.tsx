@@ -17,6 +17,7 @@ import { SinceLastReportPanel } from "@/components/dashboard/SinceLastReportPane
 import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
 import { FundingExposureBand } from "@/components/dashboard/FundingExposureBand";
 import { FundingExposureMatrix } from "@/components/dashboard/FundingExposureMatrix";
+import { DashboardMethodology } from "@/components/dashboard/DashboardMethodology";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
 
@@ -195,6 +196,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       />
       <FundingExposureBand timeline={exposureTimeline} />
       <FundingExposureMatrix matrix={exposureMatrix} />
+      <DashboardMethodology projectedMonthCount={trend.monthlyProjected.length} />
     </div>
   );
 }

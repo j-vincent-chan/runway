@@ -25,9 +25,9 @@ import type {
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
 /** Trailing history shown alongside the projection, matching the personnel-cost chart's window. */
-const HISTORY_WINDOW_MONTHS = 12;
+export const EXPOSURE_HISTORY_WINDOW_MONTHS = 12;
 /** "Cap at five named sources plus other" — docs/design-system.md. */
-const CATEGORY_CAP = 5;
+export const EXPOSURE_CATEGORY_CAP = 5;
 const OTHER_KEY = "other";
 
 export interface ExposureBand {
@@ -63,7 +63,7 @@ export function buildFundingExposureTimeline(args: {
 
   const actualMonths = getAllMonths(snapshot)
     .filter((m) => m <= planningMonth)
-    .slice(-HISTORY_WINDOW_MONTHS);
+    .slice(-EXPOSURE_HISTORY_WINDOW_MONTHS);
 
   // Per-actual-month category totals: a single-month window makes
   // buildFundingMixForEmployees return real dollars (divisor === 1), not an
@@ -126,8 +126,8 @@ export function buildFundingExposureTimeline(args: {
     .filter(([key]) => key !== UNATTRIBUTED_MIX_KEY)
     .sort((a, b) => b[1] - a[1])
     .map(([key]) => key);
-  const topKeys = rankedKeys.slice(0, CATEGORY_CAP);
-  const hasOther = rankedKeys.length > CATEGORY_CAP;
+  const topKeys = rankedKeys.slice(0, EXPOSURE_CATEGORY_CAP);
+  const hasOther = rankedKeys.length > EXPOSURE_CATEGORY_CAP;
   const hasUnattributed = (windowTotals.get(UNATTRIBUTED_MIX_KEY) ?? 0) > 0;
 
   function bandKeyFor(key: FundingChartKey): FundingChartKey {

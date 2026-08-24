@@ -9,8 +9,10 @@ import { trailingBurn } from "@/lib/dashboard/overview";
 import { formatCurrency } from "@/lib/utils/parse";
 
 const CHART_HEIGHT = 260;
-const HISTORY_WINDOW_MONTHS = 12;
-const REFERENCE_WINDOW_MONTHS = 12;
+export const COST_HISTORY_WINDOW_MONTHS = 12;
+export const COST_REFERENCE_WINDOW_MONTHS = 12;
+const HISTORY_WINDOW_MONTHS = COST_HISTORY_WINDOW_MONTHS;
+const REFERENCE_WINDOW_MONTHS = COST_REFERENCE_WINDOW_MONTHS;
 
 function MonthlyTooltip({
   active,

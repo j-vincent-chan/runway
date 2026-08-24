@@ -17,9 +17,9 @@ import type {
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
 /** Minimum |%| cost swing worth naming — below this reads as noise, not a change. */
-const COST_MATERIALITY = 0.01;
+export const COST_MATERIALITY = 0.01;
 /** Minimum |months| runway swing worth stating as a consequence. */
-const RUNWAY_MATERIALITY = 0.05;
+export const RUNWAY_MATERIALITY = 0.05;
 /** Names shown inline before collapsing to "+N more" — a prose list, not a table row. */
 const NAME_CAP = 3;
 

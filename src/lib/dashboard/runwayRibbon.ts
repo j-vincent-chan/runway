@@ -9,7 +9,7 @@ import type { AppSettings, PayrollReportSnapshot, ProjectionHorizonPreset, Worki
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
 /** Fixed per the task spec — not tied to the Dashboard's own 12/24/36 scope control. */
-const RIBBON_HORIZON_MONTHS = 24;
+export const RIBBON_HORIZON_MONTHS = 24;
 /** Uncertainty hatch begins here — a fixed threshold, not a fitted confidence cone (no variance model exists to derive one). */
 const UNCERTAINTY_START_MONTH_INDEX = 6;
 /** Rows shown before truncating, matching the attention queue's cap. */
