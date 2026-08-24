@@ -4,6 +4,7 @@ import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/
 import { getEmployeeEndDate } from "@/lib/employees/profile";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
+import { getAllocations, getCurrentMonth } from "@/lib/calculations";
 import type { AppSettings, PayrollReportSnapshot, ProjectionHorizonPreset, WorkingPlan } from "@/types";
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
@@ -25,6 +26,8 @@ export interface RibbonBand {
   values: number[];
   /** First month index this band's balance reaches zero or below, else null. */
   depletionMonthIndex: number | null;
+  /** True when a currently active employee has non-zero effort charged here this planning month. */
+  hasCurrentPersonnel: boolean;
 }
 
 export interface RibbonMarker {
@@ -103,6 +106,47 @@ function buildMarkers(
 }
 
 /**
+ * Roots with at least one currently active employee charging non-zero effort
+ * to them this planning month — the "current personnel" scope the ribbon
+ * defaults to. Matches buildRunwayContext's own roster filter, so a person
+ * counted here is a person the rest of the dashboard also treats as current.
+ */
+function currentPersonnelRoots(
+  snapshot: PayrollReportSnapshot,
+  workingPlan: WorkingPlan | null,
+  settings: AppSettings
+): Set<string> {
+  const planningMonth = getCurrentMonth(snapshot);
+  const activeEmployeeIds = new Set(
+    filterEmployeesForPlanning(snapshot.employees, settings).map((e) => e.id)
+  );
+  const fundingSourceById = new Map(snapshot.fundingSources.map((fs) => [fs.id, fs]));
+
+  const roots = new Set<string>();
+  for (const a of getAllocations(snapshot, workingPlan)) {
+    if (a.month !== planningMonth) continue;
+    if (a.percentEffort <= 0) continue;
+    if (!activeEmployeeIds.has(a.employeeId)) continue;
+    const source = fundingSourceById.get(a.fundingSourceId);
+    if (!source) continue;
+    roots.add(rootOf(chartstringKeyForFundingSource(source)));
+  }
+  return roots;
+}
+
+/** Sum of the given bands per month, and the first index the sum crosses zero. Plain aggregation, not a new derivation. */
+export function ribbonTotals(
+  bands: RibbonBand[],
+  monthCount: number
+): { totalByMonth: number[]; terminalIndex: number | null } {
+  const totalByMonth = Array.from({ length: monthCount }, (_, i) =>
+    bands.reduce((sum, band) => sum + (band.values[i] ?? 0), 0)
+  );
+  const terminalIdx = totalByMonth.findIndex((v) => v <= 0);
+  return { totalByMonth, terminalIndex: terminalIdx === -1 ? null : terminalIdx };
+}
+
+/**
  * Stacked per-account depletion, today through +24 months. Reuses
  * simulateProjections (the only canonical month-by-month forward-projection
  * engine — never re-derives burn/effort/reassignment math) and just shapes
@@ -148,6 +192,8 @@ export function buildRunwayRibbon({
     }
   }
 
+  const currentRoots = currentPersonnelRoots(snapshot, workingPlan, settings);
+
   const bands: RibbonBand[] = [...roots].map((chartRoot) => {
     const values = result.states.map((s) => s.remainingByRoot[chartRoot] ?? 0);
     const depletionIdx = values.findIndex((v) => v <= 0);
@@ -156,12 +202,12 @@ export function buildRunwayRibbon({
       label: labelByRoot.get(chartRoot) ?? chartRoot,
       values,
       depletionMonthIndex: depletionIdx === -1 ? null : depletionIdx,
+      hasCurrentPersonnel: currentRoots.has(chartRoot),
     };
   });
   bands.sort((a, b) => (b.values[0] ?? 0) - (a.values[0] ?? 0));
 
-  const totalByMonth = months.map((_, i) => bands.reduce((sum, band) => sum + (band.values[i] ?? 0), 0));
-  const terminalIdx = totalByMonth.findIndex((v) => v <= 0);
+  const { totalByMonth, terminalIndex } = ribbonTotals(bands, months.length);
 
   const { markers, hiddenMarkerCount } = buildMarkers(snapshot, settings, months);
 
@@ -169,7 +215,7 @@ export function buildRunwayRibbon({
     months,
     bands,
     totalByMonth,
-    terminalIndex: terminalIdx === -1 ? null : terminalIdx,
+    terminalIndex,
     markers,
     hiddenMarkerCount,
     uncertaintyStartIndex: Math.min(UNCERTAINTY_START_MONTH_INDEX, Math.max(months.length - 1, 0)),

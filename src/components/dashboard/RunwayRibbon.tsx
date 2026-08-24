@@ -1,12 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Area, AreaChart, ReferenceDot, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import { HatchPattern, PROJECTED_PATTERN_ID, projectedFill } from "@/components/charts/HatchPattern";
 import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
-import type { RunwayRibbon as RunwayRibbonData } from "@/lib/dashboard/runwayRibbon";
+import { ribbonTotals, type RunwayRibbon as RunwayRibbonData } from "@/lib/dashboard/runwayRibbon";
 
 const CHART_HEIGHT = 260;
 /** Bottom (healthiest, never depletes) to top (soonest to deplete) — narrowing at the top is the depletion signal. */
@@ -74,10 +75,20 @@ function RibbonTooltip({
 }
 
 export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
+  const [includeAllAccounts, setIncludeAllAccounts] = useState(false);
+
   if (!ribbon || ribbon.bands.length === 0) return null;
 
+  const currentBands = ribbon.bands.filter((b) => b.hasCurrentPersonnel);
+  const noCurrentPersonnel = currentBands.length === 0;
+  const showAll = includeAllAccounts || noCurrentPersonnel;
+  const scopedBands = showAll ? ribbon.bands : currentBands;
+  const { totalByMonth, terminalIndex } = showAll
+    ? { totalByMonth: ribbon.totalByMonth, terminalIndex: ribbon.terminalIndex }
+    : ribbonTotals(scopedBands, ribbon.months.length);
+
   // Soonest-to-deplete last (top of stack), so the outer edge narrowing is the depletion signal.
-  const orderedBands = [...ribbon.bands].sort((a, b) => {
+  const orderedBands = [...scopedBands].sort((a, b) => {
     const aIdx = a.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
     const bIdx = b.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
     return bIdx - aIdx;
@@ -95,19 +106,36 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   }));
 
   const chartData = buildChartData(ribbon, stackOrder);
-  const maxTotal = Math.max(...ribbon.totalByMonth, 1);
+  const maxTotal = Math.max(...totalByMonth, 1);
 
-  const namedBands = [...ribbon.bands]
+  const namedBands = [...scopedBands]
     .sort((a, b) => (b.values[0] ?? 0) - (a.values[0] ?? 0))
     .slice(0, 5);
-  const hiddenBandCount = Math.max(0, ribbon.bands.length - namedBands.length);
+  const hiddenBandCount = Math.max(0, scopedBands.length - namedBands.length);
+
+  const scopeCaption = noCurrentPersonnel
+    ? "No account currently has active personnel funding, so all accounts are shown."
+    : showAll
+      ? `Showing all ${ribbon.bands.length} ${ribbon.bands.length === 1 ? "account" : "accounts"} in the projection.`
+      : `Showing ${scopedBands.length} of ${ribbon.bands.length} accounts — those with current personnel.`;
 
   return (
     <section aria-label="Funding depletion over time">
-      <h2 className="type-caption text-muted">Funding depletion, next 24 months</h2>
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 className="type-caption text-muted">Funding depletion, next 24 months</h2>
+        {!noCurrentPersonnel && (
+          <button
+            type="button"
+            onClick={() => setIncludeAllAccounts((v) => !v)}
+            className="type-mono inline-flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            {showAll ? "Show current personnel only" : "Include all accounts"}
+          </button>
+        )}
+      </div>
       <p className="type-mono mt-1 text-muted">
         Shows funded capacity remaining, floored at zero — not deficit depth. An account already
-        overdrawn today still starts this chart at $0, not negative.
+        overdrawn today still starts this chart at $0, not negative. {scopeCaption}
       </p>
 
       <div className="mt-2">
@@ -195,11 +223,11 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         <p
           className={cn(
             "type-mono",
-            ribbon.terminalIndex !== null ? "text-critical" : "text-healthy"
+            terminalIndex !== null ? "text-critical" : "text-healthy"
           )}
         >
-          {ribbon.terminalIndex !== null
-            ? `Runs out ${monthLabelLong(ribbon.months[ribbon.terminalIndex]!)}`
+          {terminalIndex !== null
+            ? `Runs out ${monthLabelLong(ribbon.months[terminalIndex]!)}`
             : "Funded through the full 24-month window"}
         </p>
       </div>

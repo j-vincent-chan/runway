@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
+import { buildRunwayRibbon, ribbonTotals } from "@/lib/dashboard/runwayRibbon";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
   AppSettings,
@@ -195,6 +195,22 @@ describe("buildRunwayRibbon", () => {
     expect(ribbon.markers.find((m) => m.employeeName === e.name)).toBeUndefined();
   });
 
+  it("flags bands with a currently active employee charging effort against them this month", () => {
+    const e = emp();
+    const fs1 = fs("f1", "7000-1-7030720-45", "Grant A");
+    const fs2 = fs("f2", "9500-2-9029200-90", "Grant B");
+    const snap = snapshot(["2026-07", "2026-08"], [e], [fs1, fs2]);
+    const port = new Map([
+      ["7000-1-7030720-45", { chartstring: "7000-1-7030720-45", balance: 100_000, reportRunDate: "2026-07-31", sourceFileName: "mp.xlsx" }],
+      ["9500-2-9029200-90", { chartstring: "9500-2-9029200-90", balance: 50_000, reportRunDate: "2026-07-31", sourceFileName: "mp.xlsx" }],
+    ]);
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: settings(), now: NOW, portfolio: port });
+    const staffed = ribbon.bands.find((b) => b.chartRoot.includes("7030720"));
+    const unstaffed = ribbon.bands.find((b) => b.chartRoot.includes("9029200"));
+    expect(staffed?.hasCurrentPersonnel).toBe(true);
+    expect(unstaffed?.hasCurrentPersonnel).toBe(false);
+  });
+
   it("caps markers and reports the hidden count", () => {
     const employees = Array.from({ length: 8 }, (_, i) => emp(`e${i}`, `Person ${i}`));
     const snap = snapshot(["2026-08"], employees);
@@ -204,5 +220,26 @@ describe("buildRunwayRibbon", () => {
     const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
     expect(ribbon.markers).toHaveLength(5);
     expect(ribbon.hiddenMarkerCount).toBe(3);
+  });
+});
+
+describe("ribbonTotals", () => {
+  it("sums only the given subset of bands per month", () => {
+    const bands = [
+      { chartRoot: "a", label: "A", values: [10, 5, 0], depletionMonthIndex: 2, hasCurrentPersonnel: true },
+      { chartRoot: "b", label: "B", values: [20, 20, 20], depletionMonthIndex: null, hasCurrentPersonnel: false },
+    ];
+    const { totalByMonth, terminalIndex } = ribbonTotals(bands, 3);
+    expect(totalByMonth).toEqual([30, 25, 20]);
+    expect(terminalIndex).toBeNull();
+  });
+
+  it("reports terminalIndex when the subset alone depletes", () => {
+    const bands = [
+      { chartRoot: "a", label: "A", values: [10, 0, 0], depletionMonthIndex: 1, hasCurrentPersonnel: true },
+    ];
+    const { totalByMonth, terminalIndex } = ribbonTotals(bands, 3);
+    expect(totalByMonth).toEqual([10, 0, 0]);
+    expect(terminalIndex).toBe(1);
   });
 });
