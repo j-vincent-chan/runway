@@ -32,8 +32,15 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const [fundingPeriod, setFundingPeriod] = useState<FundingMixPeriod>("current_month");
 
   const trend = useMemo(
-    () => (snapshot ? buildPersonnelCostTrend(snapshot, settings) : null),
-    [snapshot, settings]
+    () =>
+      snapshot
+        ? buildPersonnelCostTrend(snapshot, settings, undefined, {
+            workingPlan,
+            portfolio: mergedPortfolioBalances,
+            horizonMonths,
+          })
+        : null,
+    [snapshot, settings, workingPlan, mergedPortfolioBalances, horizonMonths]
   );
 
   const funding = useMemo(
@@ -145,7 +152,12 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         <AnchorStats overview={overview} />
       )}
       <RunwayRibbon ribbon={ribbon} />
-      <PersonnelCostTrendCharts monthly={trend.monthly} />
+      <PersonnelCostTrendCharts
+        monthly={trend.monthly}
+        monthlyProjected={trend.monthlyProjected}
+        planningMonth={trend.planningMonth}
+        activeRuleCount={settings.projectionRules?.length ?? 0}
+      />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}
         planningMonth={trend.planningMonth}
