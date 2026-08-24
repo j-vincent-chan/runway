@@ -10,8 +10,10 @@ import {
 import {
   buildFundingMixForEmployees,
   buildPersonnelCostTrend,
+  flagAnomalousMonths,
   monthsForFundingMixPeriod,
   UNATTRIBUTED_MIX_KEY,
+  type PersonnelCostTrendPoint,
 } from "@/lib/dashboard/metrics";
 import { shiftMonth } from "@/lib/dashboard/month";
 
@@ -67,6 +69,43 @@ const settings: AppSettings = {
   ...DEFAULT_SETTINGS,
   employeePersonnelTypes: { e1: "researchDevelopment", e2: "dataManagement" },
 };
+
+function fundingSource(id = "f1", account = "7000-1-7030720-45"): FundingSource {
+  return { id, rawName: account, alias: "Grant A", accountString: account, fund: "7000", color: "#ccc" };
+}
+
+function allocation(
+  month: string,
+  employeeId: string,
+  fundingSourceId: string,
+  pct = 100
+): MonthlyAllocation {
+  return {
+    id: `${employeeId}|${fundingSourceId}|${month}`,
+    employeeId,
+    fundingSourceId,
+    month,
+    percentEffort: pct,
+    sourceType: "actual",
+    status: "imported",
+  };
+}
+
+function salaryAndBenefitCosts(
+  month: string,
+  employeeId: string,
+  fundingSourceId: string,
+  total = 10_000
+): MonthlyCostRecord[] {
+  return [
+    costRow(`s-${employeeId}-${month}`, employeeId, month, total * 0.75, {
+      rowType: "baseSalary",
+      fundingSourceId,
+    }),
+    costRow(`b-${employeeId}-${month}`, employeeId, month, total * 0.25, { rowType: "benefits" }),
+    costRow(`t-${employeeId}-${month}`, employeeId, month, total, { rowType: "totalCompBenefits" }),
+  ];
+}
 
 function mixTotal(slices: { value: number }[]): number {
   return slices.reduce((s, x) => s + x.value, 0);
@@ -327,5 +366,106 @@ describe("buildFundingMixForEmployees reconciles with personnel cost", () => {
     expect(slices).toHaveLength(1);
     expect(slices[0]?.key).toBe(UNATTRIBUTED_MIX_KEY);
     expect(slices[0]?.name).toBe("No funding source");
+  });
+});
+
+describe("buildPersonnelCostTrend projected extension", () => {
+  it("extends past the last actual month without overlapping it, tagging isProjected", () => {
+    const fs1 = fundingSource();
+    const snap = snapshot({
+      employees: [{ id: "e1", name: "Ada" }],
+      months: ["2026-07", "2026-08"],
+      costs: [
+        ...salaryAndBenefitCosts("2026-07", "e1", fs1.id),
+        ...salaryAndBenefitCosts("2026-08", "e1", fs1.id),
+      ],
+      fundingSources: [fs1],
+      allocations: [
+        allocation("2026-07", "e1", fs1.id),
+        allocation("2026-08", "e1", fs1.id),
+      ],
+    });
+
+    const { monthly, monthlyProjected } = buildPersonnelCostTrend(snap, settings, "2026-08", {
+      workingPlan: null,
+      portfolio: new Map(),
+      horizonMonths: 3,
+    });
+
+    expect(monthly.every((m) => !m.isProjected)).toBe(true);
+    expect(monthly[monthly.length - 1]!.month).toBe("2026-08");
+
+    // horizonMonths counts today (already covered by `monthly`) as month 1,
+    // so a 3-month horizon yields 2 new projected months beyond it.
+    expect(monthlyProjected.every((m) => m.isProjected)).toBe(true);
+    expect(monthlyProjected.map((m) => m.month)).toEqual(["2026-09", "2026-10"]);
+    expect(monthlyProjected.every((m) => m.total > 0)).toBe(true);
+    expect(monthlyProjected.every((m) => m.headcount === 1)).toBe(true);
+  });
+
+  it("supports a 36-month horizon, which is not a named projectionHorizon preset", () => {
+    const fs1 = fundingSource();
+    const snap = snapshot({
+      employees: [{ id: "e1", name: "Ada" }],
+      months: ["2026-08"],
+      costs: salaryAndBenefitCosts("2026-08", "e1", fs1.id),
+      fundingSources: [fs1],
+      allocations: [allocation("2026-08", "e1", fs1.id)],
+    });
+
+    const { monthlyProjected } = buildPersonnelCostTrend(snap, settings, "2026-08", {
+      workingPlan: null,
+      portfolio: new Map(),
+      horizonMonths: 36,
+    });
+
+    expect(monthlyProjected).toHaveLength(35);
+    expect(monthlyProjected[0]!.month).toBe("2026-09");
+    expect(monthlyProjected[34]!.month).toBe("2029-07");
+  });
+
+  it("returns an empty monthlyProjected and leaves monthly untouched when projection is omitted", () => {
+    const snap = snapshot({
+      employees: [{ id: "e1", name: "Ada" }],
+      months: ["2026-08"],
+      costs: [costRow("c1", "e1", "2026-08", 8000)],
+    });
+
+    const { monthly, monthlyProjected } = buildPersonnelCostTrend(snap, settings, "2026-08");
+
+    expect(monthlyProjected).toEqual([]);
+    expect(monthly).toHaveLength(1);
+    expect(monthly[0]?.isProjected).toBe(false);
+    expect(monthly[0]?.total).toBe(8000);
+  });
+});
+
+describe("flagAnomalousMonths", () => {
+  function point(month: string, total: number): PersonnelCostTrendPoint {
+    return { month, label: month, total, headcount: 1, isProjected: false };
+  }
+
+  it("flags months more than the threshold away from the reference average, signed", () => {
+    const monthly = [
+      point("2026-01", 100),
+      point("2026-02", 100),
+      point("2026-03", 100),
+      point("2026-04", 130),
+      point("2026-05", 70),
+    ];
+    const flagged = flagAnomalousMonths(monthly, 100);
+    expect(flagged.get("2026-04")).toBeCloseTo(0.3, 5);
+    expect(flagged.get("2026-05")).toBeCloseTo(-0.3, 5);
+    expect(flagged.has("2026-01")).toBe(false);
+  });
+
+  it("does not flag anything below the minimum-months guard", () => {
+    const monthly = [point("2026-01", 100), point("2026-02", 500)];
+    expect(flagAnomalousMonths(monthly, 100).size).toBe(0);
+  });
+
+  it("does not flag anything when the reference average is non-positive", () => {
+    const monthly = [point("2026-01", 100), point("2026-02", 100), point("2026-03", 100)];
+    expect(flagAnomalousMonths(monthly, 0).size).toBe(0);
   });
 });

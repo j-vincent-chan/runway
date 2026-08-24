@@ -24,9 +24,11 @@ import type {
   MonthlyCostRecord,
   PayrollReportSnapshot,
   PersonnelType,
+  ProjectionHorizonPreset,
+  WorkingPlan,
 } from "@/types";
 import { formatMonthDisplay, hasPercentEffort } from "@/lib/utils/parse";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import {
   fiscalYearEndingYear,
   fiscalYearEndMonthYm,
@@ -34,6 +36,9 @@ import {
   fiscalYearStartMonthYm,
   shiftMonth,
 } from "@/lib/dashboard/month";
+import { simulateProjections } from "@/lib/projections/simulate";
+import { addMonthsYm } from "@/lib/projections/horizon";
+import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
 export type FundingChartKey = string;
 
@@ -70,6 +75,7 @@ export interface PersonnelCostTrendPoint {
   label: string;
   total: number;
   headcount: number;
+  isProjected: boolean;
 }
 
 export interface YearlyCostPoint {
@@ -183,12 +189,36 @@ export function fundingMixPeriodCaption(
   return `${avgLabel} · ${first}–${last} (${months.length} mo)`;
 }
 
+/** Deviation from the trailing-12-month average that earns an inline anomaly marker. Same kind of hand-picked, documented threshold as CRITICAL_MONTHS/UNATTRIBUTED_THRESHOLD elsewhere on the dashboard — a display heuristic, not a financial calculation. */
+export const ANOMALY_THRESHOLD = 0.2;
+
+/** Months in `monthly` whose total deviates from `referenceAverage` by more than ANOMALY_THRESHOLD. Returns month -> signed deviation fraction (0.24 = 24% above, -0.18 = 18% below). Skipped entirely on too little data to mean anything. */
+export function flagAnomalousMonths(
+  monthly: PersonnelCostTrendPoint[],
+  referenceAverage: number,
+  minMonthsForSignal = 3
+): Map<string, number> {
+  const flagged = new Map<string, number>();
+  if (monthly.length < minMonthsForSignal || referenceAverage <= 0) return flagged;
+  for (const point of monthly) {
+    const deviation = (point.total - referenceAverage) / referenceAverage;
+    if (Math.abs(deviation) > ANOMALY_THRESHOLD) flagged.set(point.month, deviation);
+  }
+  return flagged;
+}
+
 export function buildPersonnelCostTrend(
   snapshot: PayrollReportSnapshot,
   settings: AppSettings,
-  todayYm = format(new Date(), "yyyy-MM")
+  todayYm = format(new Date(), "yyyy-MM"),
+  projection?: {
+    workingPlan: WorkingPlan | null;
+    portfolio: Map<string, MergedPortfolioBalance>;
+    horizonMonths: number;
+  }
 ): {
   monthly: PersonnelCostTrendPoint[];
+  monthlyProjected: PersonnelCostTrendPoint[];
   yearly: YearlyCostPoint[];
   planningMonth: string;
   groupBreakdown: PersonnelGroupBreakdown[];
@@ -209,7 +239,47 @@ export function buildPersonnelCostTrend(
       0
     ),
     headcount: planningHeadcountInMonth(employeeIds, month, snapshot.monthlyCosts, settings),
+    isProjected: false,
   }));
+
+  const monthlyProjected: PersonnelCostTrendPoint[] = projection
+    ? (() => {
+        /**
+         * `horizonMonths` is the Dashboard's own local scope control (12/24/36),
+         * a separate concept from settings.projectionHorizon's presets — none of
+         * which is "36". Use "custom" with an explicit end month rather than
+         * casting the number to a preset string, which would silently fall back
+         * to 12 months for any value the preset union doesn't recognize.
+         */
+        const fixedHorizonSettings: AppSettings = {
+          ...settings,
+          projectionHorizon: {
+            preset: "custom" as ProjectionHorizonPreset,
+            customEndMonth: addMonthsYm(todayYm, projection.horizonMonths - 1),
+          },
+        };
+        const result = simulateProjections({
+          snapshot,
+          workingPlan: projection.workingPlan,
+          settings: fixedHorizonSettings,
+          portfolio: projection.portfolio,
+          now: parse(`${todayYm}-01`, "yyyy-MM-dd", new Date()),
+        });
+        const lastActualMonth = monthly[monthly.length - 1]?.month ?? todayYm;
+        return result.states
+          .map((state, i) => ({ state, month: result.months[i]! }))
+          .filter(({ month }) => month > lastActualMonth)
+          .map(({ state, month }) => ({
+            month,
+            label: formatMonthDisplay(month),
+            total: state.allocations.reduce((sum, a) => sum + a.monthlyBurn, 0),
+            headcount: new Set(
+              state.allocations.filter((a) => a.percentEffort > 0).map((a) => a.employeeId)
+            ).size,
+            isProjected: true,
+          }));
+      })()
+    : [];
 
   const byYear = new Map<
     number,
@@ -285,7 +355,7 @@ export function buildPersonnelCostTrend(
     settings
   );
 
-  return { monthly, yearly, planningMonth, groupBreakdown };
+  return { monthly, monthlyProjected, yearly, planningMonth, groupBreakdown };
 }
 
 export function employeeGroupKey(settings: AppSettings, employeeId: string): string {

@@ -20,7 +20,7 @@ import {
 function months(start: string, count: number, total: number): PersonnelCostTrendPoint[] {
   return Array.from({ length: count }, (_, i) => {
     const month = shiftMonth(start, i);
-    return { month, label: month, total, headcount: 2 };
+    return { month, label: month, total, headcount: 2, isProjected: false };
   });
 }
 
