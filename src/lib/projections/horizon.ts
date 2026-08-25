@@ -48,7 +48,12 @@ export function fiscalYearEndMonth(origin: string, fiscalYearStartMonth: number)
   const [y, m] = origin.split("-").map(Number);
   const start = fiscalYearStartMonth;
   const fyEndMonth = start === 1 ? 12 : start - 1;
-  const fyEndYear = m >= start ? y + 1 : y;
+  /**
+   * A fiscal year starting in January ends that same December — it does not
+   * span a year boundary. `m >= start` is always true when start is 1, so the
+   * general rule alone pushed every calendar fiscal year a full year out.
+   */
+  const fyEndYear = start === 1 ? y : m! >= start ? y! + 1 : y;
   return `${fyEndYear}-${String(fyEndMonth).padStart(2, "0")}`;
 }
 
