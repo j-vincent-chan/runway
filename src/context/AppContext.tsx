@@ -69,6 +69,8 @@ import {
   parseOfferLetterFile,
 } from "@/lib/employees/offerLetterParse";
 import { migrateCategoryKeys } from "@/lib/funding/accountCategory";
+import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/assumedEndDate";
+import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import {
   deleteOfferLetterFile,
   getOfferLetterFile,
@@ -260,6 +262,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...s.settings,
         fundingSourceAliases: normalizedAliases,
         fundingSourceCategories: normalizedCategories,
+        // Workspaces saved before the end date became required can hold
+        // accounts marked "not my account" with no horizon; those would keep
+        // reading as infinite runway until touched by hand.
+        runwayAssumedEndDates: backfillAssumedEndDates(
+          s.settings.runwayAssumedOkFunds,
+          s.settings.runwayAssumedEndDates,
+          s.settings.fiscalYearStartMonth,
+          getProjectionOriginMonth()
+        ),
         employeeProfiles: s.snapshot
           ? rematchEmployeeProfiles(s.settings.employeeProfiles, s.snapshot.employees)
           : { ...(s.settings.employeeProfiles ?? {}) },
@@ -674,6 +685,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delete endDates[key];
       } else {
         assumed.add(key);
+        // Marking an account always gives it a horizon. Without one it would
+        // read as never running out, and there is no such thing as infinite
+        // runway — fiscal year end is editable, but it is never absent.
+        if (!endDates[key]) {
+          endDates[key] = defaultAssumedEndDate(
+            prev.fiscalYearStartMonth,
+            getProjectionOriginMonth()
+          );
+        }
       }
       return {
         ...prev,
@@ -688,8 +708,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const key = hiddenFundKey(employeeId, fundingSourceId);
       setSettings((prev) => {
         const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
-        if (!endDate) delete endDates[key];
-        else endDates[key] = endDate;
+        const stillAssumedOk = (prev.runwayAssumedOkFunds ?? []).includes(key);
+        if (endDate) {
+          endDates[key] = endDate;
+        } else if (stillAssumedOk) {
+          // Clearing the field falls back to the default rather than emptying
+          // it. The requirement is held here, not defended in the input.
+          endDates[key] = defaultAssumedEndDate(
+            prev.fiscalYearStartMonth,
+            getProjectionOriginMonth()
+          );
+        } else {
+          delete endDates[key];
+        }
         return { ...prev, runwayAssumedEndDates: endDates };
       });
     },

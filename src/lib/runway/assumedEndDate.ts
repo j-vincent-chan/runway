@@ -1,7 +1,8 @@
 import type { AppSettings } from "@/types";
 import { hiddenFundKey } from "@/lib/funding/visibility";
 import { roundCurrencyAmount } from "@/lib/utils/parse";
-import { differenceInCalendarDays, endOfMonth, isValid, parseISO } from "date-fns";
+import { differenceInCalendarDays, endOfMonth, format, isValid, parseISO } from "date-fns";
+import { fiscalYearEndMonth } from "@/lib/projections/horizon";
 
 export function getRunwayAssumedEndDate(
   settings: AppSettings,
@@ -10,6 +11,27 @@ export function getRunwayAssumedEndDate(
 ): string | undefined {
   const key = hiddenFundKey(employeeId, fundingSourceId);
   return settings.runwayAssumedEndDates?.[key];
+}
+
+/**
+ * The end date an account marked "not my account" gets when none is given.
+ *
+ * Every such account must carry one: without it the account reads as never
+ * running out, and there is no such thing as infinite runway. Fiscal year end
+ * is the default because it is the horizon the money is actually budgeted
+ * against, and it forces a review each year rather than never.
+ *
+ * The last day of that month, not the first — `fiscalYearEndMonth` returns
+ * `yyyy-MM`, and anchoring to the 1st would cut the final month off the
+ * estimate. Full `yyyy-MM-dd` so a date input can display it.
+ */
+export function defaultAssumedEndDate(
+  fiscalYearStartMonth: number,
+  originMonth: string
+): string {
+  const fyEnd = fiscalYearEndMonth(originMonth, fiscalYearStartMonth);
+  const [y, m] = fyEnd.split("-").map(Number);
+  return format(endOfMonth(new Date(y!, m! - 1, 1)), "yyyy-MM-dd");
 }
 
 /** Fractional months from end of planning month to the estimated end date. */
@@ -35,4 +57,30 @@ export function estimateBalanceFromAssumedEnd(
 ): number {
   if (sharedMonthlyBurn <= 0 || monthsRunway <= 0) return 0;
   return roundCurrencyAmount(sharedMonthlyBurn * monthsRunway);
+}
+
+/**
+ * Give every already-marked account an end date it is missing.
+ *
+ * Workspaces saved before the date became required can hold accounts marked
+ * "not my account" with no horizon at all. Left alone they would keep reading
+ * as infinite forever, so they converge to the same default on load rather
+ * than behaving differently from anything marked afterwards.
+ *
+ * Returns the same object when there is nothing to add, so callers can skip a
+ * pointless settings write.
+ */
+export function backfillAssumedEndDates(
+  assumedOkFunds: string[] | undefined,
+  endDates: Record<string, string> | undefined,
+  fiscalYearStartMonth: number,
+  originMonth: string
+): Record<string, string> {
+  const current = { ...(endDates ?? {}) };
+  const missing = (assumedOkFunds ?? []).filter((key) => !current[key]);
+  if (missing.length === 0) return endDates ?? current;
+
+  const fallback = defaultAssumedEndDate(fiscalYearStartMonth, originMonth);
+  for (const key of missing) current[key] = fallback;
+  return current;
 }
