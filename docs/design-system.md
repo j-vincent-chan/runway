@@ -134,5 +134,6 @@ The settled names:
 
 - **Team** — the grouping a person belongs to. Every user-visible surface says "team", never "personnel group" or "personnel type"; those names survive only in code, settings keys, and the `personnel_groups` table. The org chart's own "Our Team" heading is a different feature and a known collision — rename it before adding any new copy there.
 - **Account** — one fund-dept-project. Never "chartstring" in user-visible copy.
-- **Available funds** — the balance on accounts that currently have payroll charged to them, never the sum of every account on file.
-- **Runway** — funds over burn, in months. The soonest single person or account to run dry is never called "runway"; it is an attention item, named with its person and date.
+- **Available payroll** — the balance on accounts that currently have payroll charged to them, never the sum of every account on file.
+- **Monthly payroll burn** — trailing-average salary and benefits.
+- **Avg payroll runway** — payroll funds over payroll burn, in months, averaged across those accounts. "Avg" is load-bearing: it warns that individuals run dry sooner. The soonest single person or account to run dry is never called runway; it is an attention item, named with its person and date.

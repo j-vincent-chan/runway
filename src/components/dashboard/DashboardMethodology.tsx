@@ -24,20 +24,20 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
     <section aria-label="How these numbers were produced">
       <h2 className="type-heading text-ink">How these numbers were produced</h2>
       <div className="mt-4 space-y-5">
-        <Entry title="Available funds and monthly burn">
-          Available funds covers only the accounts that currently have payroll charged to them,
+        <Entry title="Available payroll and monthly payroll burn">
+          Available payroll covers only the accounts that currently have payroll charged to them,
           at the balance Runway resolves for each — your MyPortfolio figure, or the amount you
           entered there by hand. Accounts nobody is paid from are left out, along with any
           you&rsquo;ve hidden, so the figure will not match the Account Balances total, which
           lists everything. An account you&rsquo;ve marked as not yours counts the balance its
           end date implies: its share of the burn multiplied by the months left on it. An
           account charged with no balance on file anywhere counts as $0, so the total reads low
-          until you fill one in — the stat says how many are waiting. Monthly burn
+          until you fill one in — the stat says how many are waiting. Monthly payroll burn
           averages total personnel cost — salary and benefits — across the trailing{" "}
           {BURN_WINDOW_MONTHS} months, unchanged by any of this.
         </Entry>
-        <Entry title="Runway, overall and by team">
-          Available funds divided by the combined monthly burn on those same accounts. It is an
+        <Entry title="Avg payroll runway, overall and by team">
+          Available payroll divided by the combined monthly burn on those same accounts. It is an
           average across those accounts, not a floor: the month count is plain arithmetic and is
           shown in full, but the calendar date it implies is withheld once it lands past the
           window you have in view, rather than extrapolated there. Each team does the same over

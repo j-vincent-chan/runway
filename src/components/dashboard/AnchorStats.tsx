@@ -230,7 +230,7 @@ export function AnchorStats({
     .join(" ");
 
   const runwayExplanation = [
-    "Available funds divided by the combined monthly burn on those same accounts.",
+    "Available payroll divided by the combined monthly burn on those same accounts — an average across them, not a promise about any one person.",
     beyondHorizon
       ? `That lands past the ${horizonMonths}-month window in view, so the month count is shown but no exact date is — projecting one that far would go beyond what the scope covers.`
       : "Individual people and accounts run dry sooner — those are listed under what needs attention.",
@@ -244,7 +244,7 @@ export function AnchorStats({
   return (
     <section aria-label="Funding inputs" className="flex flex-col divide-y divide-rule sm:flex-row sm:divide-x sm:divide-y-0">
       <Anchor
-        label="Available funds"
+        label="Available Payroll"
         href="/account-balances"
         valueNode={
           <DerivedFigure
@@ -279,7 +279,7 @@ export function AnchorStats({
       />
 
       <Anchor
-        label="Monthly burn"
+        label="Monthly Payroll Burn"
         href="/timeline"
         valueNode={
           <DerivedFigure
@@ -310,7 +310,7 @@ export function AnchorStats({
         />
       ) : (
       <Anchor
-        label="Runway"
+        label="Avg Payroll Runway"
         href="/runway"
         valueNode={
           runwayMonths === null ? (

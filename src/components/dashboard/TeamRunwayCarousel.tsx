@@ -84,7 +84,7 @@ export function TeamRunwayCarousel({
         href="/runway"
         className="type-caption flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
-        Runway
+        Avg Payroll Runway
       </Link>
 
       {/* aria-live so paging is announced; the figure alone would change silently. */}
