@@ -316,3 +316,28 @@ describe("collapseBands", () => {
     expect(out.at(-1)!.hasCurrentPersonnel).toBe(true);
   });
 });
+
+describe("label collisions", () => {
+  it("falls back to the account code when two accounts share an alias", () => {
+    // 5020-801025-… and 5020-801026-… differ only by department, and the alias
+    // drops the department, so both resolve to "Fund 5020".
+    const snap = snapshot(
+      ["2026-08"],
+      [emp()],
+      [fs("f1", "5020-801025-1111111-42", "Fund 5020"), fs("f2", "5020-801026-1111111-42", "Fund 5020")]
+    );
+    const ribbon = buildRunwayRibbon({
+      snapshot: snap,
+      workingPlan: null,
+      settings: DEFAULT_SETTINGS,
+      portfolio: new Map<string, MergedPortfolioBalance>(),
+      horizonMonths: 3,
+      now: NOW,
+    });
+
+    const labels = ribbon.bands.map((b) => b.label);
+    expect(new Set(labels).size).toBe(labels.length);
+    // Each collided band names itself by its own fund-dept-project.
+    for (const band of ribbon.bands) expect(band.label).toBe(band.chartRoot);
+  });
+});

@@ -147,6 +147,31 @@ export function ribbonTotals(
   return { totalByMonth, terminalIndex: terminalIdx === -1 ? null : terminalIdx };
 }
 
+/**
+ * Two accounts that differ only by department resolve to the same display
+ * alias — 5020-801025-1111111 and 5020-801026-1111111 both read
+ * "Fund 5020 · 1111111". Once bands are labelled directly on the chart those
+ * land side by side, and one name for two accounts is unreadable.
+ *
+ * Colliding members fall back to their own fund-dept-project code, which is
+ * unique by construction and *shorter* than the alias plus a qualifier — a
+ * longer label would only be truncated back into the same collision. This is
+ * the form the attention queue already shows accounts in.
+ *
+ * Scoped to this chart on purpose: projectionSourceLabel is shared with
+ * Projections and Runway, so widening the alias itself is a separate call.
+ */
+function disambiguateLabels(labelByRoot: Map<string, string>): void {
+  const rootsByLabel = new Map<string, string[]>();
+  for (const [root, label] of labelByRoot) {
+    rootsByLabel.set(label, [...(rootsByLabel.get(label) ?? []), root]);
+  }
+  for (const [, roots] of rootsByLabel) {
+    if (roots.length < 2) continue;
+    for (const root of roots) labelByRoot.set(root, root);
+  }
+}
+
 /** Named bands before the rest collapse into one. */
 export const RIBBON_BAND_CAP = 5;
 /** chartRoot of the aggregate band; never a real fund-dept-project. */
@@ -252,6 +277,7 @@ export function buildRunwayRibbon({
       labelByRoot.set(root, projectionSourceLabel(fs, settings));
     }
   }
+  disambiguateLabels(labelByRoot);
 
   const currentRoots = currentPersonnelRoots(snapshot, workingPlan, settings);
 
