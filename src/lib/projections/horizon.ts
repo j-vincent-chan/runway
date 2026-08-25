@@ -2,7 +2,12 @@ import { addMonths, format, parse } from "date-fns";
 import type { PayrollReportSnapshot, ProjectionHorizonSettings } from "@/types";
 import { getAllMonths } from "@/lib/calculations";
 
-export const MAX_PROJECTION_MONTHS = 36;
+/**
+ * Hard ceiling on any projected window. `monthsInclusive` stops here silently,
+ * so this must be at least the longest option the Dashboard's scope control
+ * offers — otherwise picking that option renders a shorter window than it says.
+ */
+export const MAX_PROJECTION_MONTHS = 48;
 
 export function addMonthsYm(ym: string, count: number): string {
   return format(addMonths(parse(`${ym}-01`, "yyyy-MM-dd", new Date()), count), "yyyy-MM");

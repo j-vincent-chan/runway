@@ -5,10 +5,13 @@ import type { ImportContext } from "@/lib/dashboard/importContext";
 
 /**
  * Runway ÷ burn is a division, not a trend read off historical periods, so
- * (unlike the funding-mix averaging windows) no window here outruns the
- * data — all three stay offered up to the app's existing 36-month ceiling.
+ * (unlike the funding-mix averaging windows) no window here outruns the data.
+ *
+ * The longest option must stay within MAX_PROJECTION_MONTHS: `monthsInclusive`
+ * stops at that ceiling without complaint, so a longer option here would
+ * quietly render a shorter window than the one the reader picked.
  */
-const HORIZON_OPTIONS = [12, 24, 36] as const;
+const HORIZON_OPTIONS = [6, 12, 24, 48] as const;
 
 export function ContextBar({
   context,

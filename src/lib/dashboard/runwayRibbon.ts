@@ -8,7 +8,7 @@ import { getAllocations, getCurrentMonth } from "@/lib/calculations";
 import type { AppSettings, PayrollReportSnapshot, ProjectionHorizonPreset, WorkingPlan } from "@/types";
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
-/** Fixed per the task spec — not tied to the Dashboard's own 12/24/36 scope control. */
+/** Fixed per the task spec — not tied to the Dashboard's own 6/12/24/48 scope control. */
 export const RIBBON_HORIZON_MONTHS = 24;
 /** Uncertainty hatch begins here — a fixed threshold, not a fitted confidence cone (no variance model exists to derive one). */
 const UNCERTAINTY_START_MONTH_INDEX = 6;

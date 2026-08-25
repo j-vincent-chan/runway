@@ -172,11 +172,12 @@ export function buildPersonnelCostTrend(
   const monthlyProjected: PersonnelCostTrendPoint[] = projection
     ? (() => {
         /**
-         * `horizonMonths` is the Dashboard's own local scope control (12/24/36),
-         * a separate concept from settings.projectionHorizon's presets — none of
-         * which is "36". Use "custom" with an explicit end month rather than
-         * casting the number to a preset string, which would silently fall back
-         * to 12 months for any value the preset union doesn't recognize.
+         * `horizonMonths` is the Dashboard's own local scope control
+         * (6/12/24/48), a separate concept from settings.projectionHorizon's
+         * presets — which offer neither 36 nor 48. Use "custom" with an explicit
+         * end month rather than casting the number to a preset string:
+         * resolveHorizonMonths has no default branch, so an unrecognized preset
+         * silently falls back to 12 months.
          */
         const fixedHorizonSettings: AppSettings = {
           ...settings,
