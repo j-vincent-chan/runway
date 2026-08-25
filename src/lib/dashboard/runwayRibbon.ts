@@ -5,10 +5,11 @@ import { getEmployeeEndDate } from "@/lib/employees/profile";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import { getAllocations, getCurrentMonth } from "@/lib/calculations";
+import { addMonthsYm, getProjectionOriginMonth } from "@/lib/projections/horizon";
 import type { AppSettings, PayrollReportSnapshot, ProjectionHorizonPreset, WorkingPlan } from "@/types";
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 
-/** Fixed per the task spec — not tied to the Dashboard's own 6/12/24/48 scope control. */
+/** Fallback when no scope is passed; the Dashboard always passes its own. */
 export const RIBBON_HORIZON_MONTHS = 24;
 /** Uncertainty hatch begins here — a fixed threshold, not a fitted confidence cone (no variance model exists to derive one). */
 const UNCERTAINTY_START_MONTH_INDEX = 6;
@@ -147,7 +148,7 @@ export function ribbonTotals(
 }
 
 /**
- * Stacked per-account depletion, today through +24 months. Reuses
+ * Stacked per-account depletion across the Dashboard's selected scope. Reuses
  * simulateProjections (the only canonical month-by-month forward-projection
  * engine — never re-derives burn/effort/reassignment math) and just shapes
  * its remainingByRoot output into bands.
@@ -157,17 +158,30 @@ export function buildRunwayRibbon({
   workingPlan,
   settings,
   portfolio,
+  horizonMonths = RIBBON_HORIZON_MONTHS,
   now,
 }: {
   snapshot: PayrollReportSnapshot;
   workingPlan: WorkingPlan | null;
   settings: AppSettings;
   portfolio: Map<string, MergedPortfolioBalance>;
+  /** Months forward to project, from the Dashboard's scope control. */
+  horizonMonths?: number;
   now?: Date;
 }): RunwayRibbon {
+  /**
+   * "custom" with an explicit end month, never `String(horizonMonths)` cast to
+   * a preset: the preset union has no "48" (nor "36"), and
+   * resolveHorizonMonths has no default branch, so an unrecognized preset
+   * silently yields 12 months. buildPersonnelCostTrend does the same.
+   */
+  const origin = getProjectionOriginMonth(now);
   const fixedHorizonSettings: AppSettings = {
     ...settings,
-    projectionHorizon: { preset: String(RIBBON_HORIZON_MONTHS) as ProjectionHorizonPreset },
+    projectionHorizon: {
+      preset: "custom" as ProjectionHorizonPreset,
+      customEndMonth: addMonthsYm(origin, Math.max(horizonMonths, 1) - 1),
+    },
   };
   const result = simulateProjections({
     snapshot,

@@ -1,7 +1,6 @@
 import { CAUTION_MONTHS, CRITICAL_MONTHS, UNATTRIBUTED_THRESHOLD } from "@/lib/dashboard/attention";
 import { ANOMALY_THRESHOLD } from "@/lib/dashboard/metrics";
 import { BURN_WINDOW_MONTHS } from "@/lib/dashboard/overview";
-import { RIBBON_HORIZON_MONTHS } from "@/lib/dashboard/runwayRibbon";
 import { COST_MATERIALITY, RUNWAY_MATERIALITY } from "@/lib/dashboard/sinceLastReport";
 import { EXPOSURE_CATEGORY_CAP } from "@/lib/dashboard/fundingExposure";
 import { COST_HISTORY_WINDOW_MONTHS } from "@/components/dashboard/PersonnelCostTrendCharts";
@@ -66,8 +65,8 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
           treated as no material change.
         </Entry>
         <Entry title="Funding depletion">
-          Projects every account&rsquo;s balance forward {RIBBON_HORIZON_MONTHS} months by
-          continuing each person&rsquo;s current funding mix, changing only where a projection
+          Projects every account&rsquo;s balance forward across the scope you have selected
+          above, by continuing each person&rsquo;s current funding mix, changing only where a projection
           rule you&rsquo;ve set says otherwise. Bands floor at $0 — they show funded capacity
           remaining, not deficit depth. Only accounts with current personnel are shown by
           default; a toggle reveals the rest.

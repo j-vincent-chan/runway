@@ -108,8 +108,9 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       workingPlan,
       settings,
       portfolio: mergedPortfolioBalances,
+      horizonMonths,
     });
-  }, [snapshot, workingPlan, settings, mergedPortfolioBalances]);
+  }, [snapshot, workingPlan, settings, mergedPortfolioBalances, horizonMonths]);
 
   const sinceLastReport = useMemo(() => {
     if (!snapshot || !trend || !overview) return null;

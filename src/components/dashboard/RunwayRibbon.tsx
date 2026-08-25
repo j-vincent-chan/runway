@@ -119,10 +119,21 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
       ? `Showing all ${ribbon.bands.length} ${ribbon.bands.length === 1 ? "account" : "accounts"} in the projection.`
       : `Showing ${scopedBands.length} of ${ribbon.bands.length} accounts — those with current personnel.`;
 
+  const horizonMonths = ribbon.months.length;
+  /**
+   * A short scope can contain no depletion at all. Saying so is a positive
+   * statement the reader can act on; a chart of flat bands is not, and reads
+   * as though the projection failed.
+   */
+  const depletingCount = scopedBands.filter((b) => b.depletionMonthIndex !== null).length;
+  const nothingDepletes = depletingCount === 0;
+
   return (
     <section aria-label="Funding depletion over time">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="type-caption text-muted">Funding depletion, next 24 months</h2>
+        <h2 className="type-caption text-muted">
+          Funding depletion, next {horizonMonths} months
+        </h2>
         {!noCurrentPersonnel && (
           <button
             type="button"
@@ -133,6 +144,18 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
           </button>
         )}
       </div>
+      {nothingDepletes ? (
+        <p className="type-row mt-1 text-healthy">
+          No account runs dry inside the next {horizonMonths} months. Widen the scope above to see
+          when the first one does.
+        </p>
+      ) : (
+        <p className="type-row mt-1 text-ink-2">
+          {depletingCount} of {scopedBands.length}{" "}
+          {scopedBands.length === 1 ? "account runs" : "accounts run"} dry inside the next{" "}
+          {horizonMonths} months.
+        </p>
+      )}
       <p className="type-mono mt-1 text-muted">
         Shows funded capacity remaining, floored at zero — not deficit depth. An account already
         overdrawn today still starts this chart at $0, not negative. {scopeCaption}
