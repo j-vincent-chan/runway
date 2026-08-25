@@ -133,6 +133,8 @@ Almost none. Hover states instant. A single 200ms fade on first paint is the max
 
 One name per concept across every surface — axis labels, legends, tables, and copy must agree. Where a team is called "PM & clinical coord." on one axis and "Projects" in the legend beneath it, that is a defect, not a style choice.
 
+**A catalog entry's short label is the name that renders — everywhere, including prose.** Where a team defines one, every axis, list, table, chip, stat, and sentence uses it; the full name survives only as a `title`, revealed on hover. Picking per surface is what produces two names for one bar. Truncating the shared name with an ellipsis is fine — it is still one name — but substituting a different string is not.
+
 The settled names:
 
 - **Team** — the grouping a person belongs to. Every user-visible surface says "team", never "personnel group" or "personnel type"; those names survive only in code, settings keys, and the `personnel_groups` table. The org chart's own "Our Team" heading is a different feature and a known collision — rename it before adding any new copy there.

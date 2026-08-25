@@ -114,7 +114,7 @@ function rankTeams(teamRows: TeamRunwayRow[]): TeamRunwayRow[] {
  * sentence, where repeating the unit reads as a stutter.
  */
 function teamState(row: TeamRunwayRow, { trailing = true }: { trailing?: boolean } = {}): VerdictSegment[] {
-  const name = data(row.label, "/runway");
+  const name = data(row.shortLabel, "/runway");
   if (row.months! < 0) {
     return [name, connective(" is already overdrawn")];
   }
@@ -251,7 +251,7 @@ export function buildVerdict({
       connective(worstItem.months < 0 ? " is already overdrawn" : " runs dry in "),
       ...(worstItem.months < 0 ? [] : [data(monthsPhrase(worstItem.months))]),
       connective(", well before "),
-      data(weakest.label, "/runway"),
+      data(weakest.shortLabel, "/runway"),
       connective(", your weakest team, at "),
       data(monthsPhrase(weakest.months!)),
       connective("."),
@@ -285,7 +285,7 @@ export function buildVerdict({
                 connective("Every team holds more than "),
                 data(`${CAUTION_MONTHS} months`),
                 connective(" of payroll runway; "),
-                data(weakest.label, "/runway"),
+                data(weakest.shortLabel, "/runway"),
                 connective(" is the shortest at "),
                 data(monthsPhrase(weakest.months!)),
                 connective("."),
@@ -319,7 +319,7 @@ export function buildVerdict({
   } else {
     segments.push(
       connective(", and so do "),
-      data(alsoShort.map((r) => r.label).join(", ")),
+      data(alsoShort.map((r) => r.shortLabel).join(", ")),
       connective(".")
     );
   }

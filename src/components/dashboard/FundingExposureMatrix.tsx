@@ -32,7 +32,9 @@ export function FundingExposureMatrix({ matrix }: { matrix: FundingExposureMatri
           <tbody>
             {matrix.rows.map((row) => (
               <tr key={row.groupKey} className="border-t border-rule">
-                <td className="type-row px-2 py-2 text-ink">{row.groupLabel}</td>
+                <td className="type-row px-2 py-2 text-ink" title={row.groupFullLabel}>
+                  {row.groupLabel}
+                </td>
                 {row.cells.map((cell) => (
                   <td key={cell.categoryKey} className="type-row px-2 py-2 text-right tabular-nums text-ink">
                     {cell.amount > 0 ? (

@@ -20,7 +20,7 @@ function CountTooltip({
   if (!row) return null;
   return (
     <div className="rounded-md border border-rule bg-surface px-3 py-2 shadow-sm">
-      <p className="type-mono text-muted">{row.label}</p>
+      <p className="type-mono text-muted">{row.shortLabel}</p>
       <p className="type-row mt-1 font-medium text-ink">{row.count}</p>
     </div>
   );
@@ -38,7 +38,7 @@ function CostTooltip({
   if (!row) return null;
   return (
     <div className="rounded-md border border-rule bg-surface px-3 py-2 shadow-sm">
-      <p className="type-mono text-muted">{row.label}</p>
+      <p className="type-mono text-muted">{row.shortLabel}</p>
       <p className="type-row mt-1 font-medium text-ink">{formatCurrency(row.cost)}</p>
     </div>
   );
@@ -120,7 +120,9 @@ function GroupPanel({
           <ul className="mt-2 space-y-1 border-t border-rule pt-2">
             {rows.map((g) => (
               <li key={g.key} className="type-row flex items-center justify-between gap-2 text-ink-2">
-                <span className="min-w-0 truncate">{g.label}</span>
+                <span className="min-w-0 truncate" title={g.label}>
+                  {g.shortLabel}
+                </span>
                 <span className="shrink-0 font-medium tabular-nums text-ink">
                   {formatValue(g)}
                   <span className="type-mono ml-1 text-muted">

@@ -6,6 +6,7 @@ import {
   type MonthlyAllocation,
   type MonthlyCostRecord,
   type PayrollReportSnapshot,
+  type PersonnelGroupDef,
 } from "@/types";
 import {
   buildFundingMixForEmployees,
@@ -454,14 +455,25 @@ describe("flagAnomalousMonths", () => {
   });
 });
 
+function group(id: string, label: string, sortOrder: number): PersonnelGroupDef {
+  return {
+    id,
+    label,
+    pillClass: "",
+    dotClass: "",
+    chartColor: "var(--accent)",
+    sortOrder,
+  };
+}
+
 describe("buildPersonnelGroupBreakdown ordering", () => {
   const month = "2026-06";
   const settings: AppSettings = {
     ...DEFAULT_SETTINGS,
     personnelGroups: [
-      { id: "alpha", label: "Alpha", chartColor: "var(--accent)" },
-      { id: "beta", label: "Beta", chartColor: "var(--accent)" },
-      { id: "gamma", label: "Gamma", chartColor: "var(--accent)" },
+      group("alpha", "Alpha", 0),
+      group("beta", "Beta", 1),
+      group("gamma", "Gamma", 2),
     ],
     // Alpha: one person, most expensive. Beta: three people, cheapest total.
     employeePersonnelTypes: { e1: "alpha", e2: "beta", e3: "beta", e4: "beta", e5: "gamma" },

@@ -184,6 +184,8 @@ export interface ExposureMatrixRow {
   groupLabel: string;
   cells: ExposureMatrixCell[];
   total: number;
+  /** Full catalog name, for the row header's title — never shown inline. */
+  groupFullLabel: string;
 }
 
 export interface FundingExposureMatrix {
@@ -210,14 +212,21 @@ export function buildFundingExposureMatrix(args: {
 
   const personnelGroups = getPersonnelGroups(settings);
   const groups = [
-    ...personnelGroups.map((t) => ({
+    ...personnelGroups.map((t) => {
+      const meta = getPersonnelTypeMeta(t.id, settings);
+      return {
       key: t.id,
-      label: getPersonnelTypeMeta(t.id, settings).label,
+      // Short name is the one that renders; see the vocabulary rule in the
+      // design system. The full name stays available for the title.
+      label: meta.shortLabel ?? meta.label,
+      fullLabel: meta.label,
       ids: employees.filter((e) => getEmployeePersonnelType(settings, e.id) === t.id).map((e) => e.id),
-    })),
+      };
+    }),
     {
       key: "unassigned",
       label: "Unassigned",
+      fullLabel: "Unassigned",
       ids: employees.filter((e) => !getEmployeePersonnelType(settings, e.id)).map((e) => e.id),
     },
   ];
@@ -247,7 +256,7 @@ export function buildFundingExposureMatrix(args: {
         amount: amounts.get(c.key) ?? 0,
         pct: total > 0 ? ((amounts.get(c.key) ?? 0) / total) * 100 : 0,
       }));
-      return { groupKey: g.key, groupLabel: g.label, cells, total };
+      return { groupKey: g.key, groupLabel: g.label, groupFullLabel: g.fullLabel, cells, total };
     })
     .filter((row) => row.total > 0)
     // Cost descending, matching buildPersonnelGroupBreakdown, so a team sits in
