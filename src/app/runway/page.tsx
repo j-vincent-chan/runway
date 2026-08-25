@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
@@ -110,14 +110,21 @@ export default function RunwayPage() {
    * or a page refresh. Rows that appear later fall to the end rather than
    * pushing existing ones around.
    */
-  const [frozenOrder, setFrozenOrder] = useState<string[] | null>(null);
+  const orderKey = `${employeeSort}|${snapshot?.id ?? ""}`;
+  const [heldOrder, setHeldOrder] = useState<{ key: string; ids: string[] }>({
+    key: "",
+    ids: [],
+  });
 
-  useEffect(() => {
-    setFrozenOrder(naturalOrder.map((s) => s.employee.id));
-    // naturalOrder is deliberately not a dependency: re-capturing whenever it
-    // changes would defeat the freeze, since hiding an account changes it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [employeeSort, snapshot?.id]);
+  // Adjusting state during render rather than in an effect: React re-renders
+  // immediately without committing the first pass, so the list never paints in
+  // one order and then jumps to another.
+  if (heldOrder.key !== orderKey && naturalOrder.length > 0) {
+    setHeldOrder({ key: orderKey, ids: naturalOrder.map((s) => s.employee.id) });
+  }
+
+  const frozenOrder = heldOrder.key === orderKey ? heldOrder.ids : null;
+  const setFrozenOrder = (ids: string[]) => setHeldOrder({ key: orderKey, ids });
 
   const summaries = useMemo(() => {
     if (!frozenOrder) return naturalOrder;
