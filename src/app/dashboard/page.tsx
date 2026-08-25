@@ -32,12 +32,10 @@ export default function DashboardPage() {
 
   return (
     <>
-      <Header
-        ledgerTitle
-        title="Dashboard"
-        subtitle="Who needs funding, personnel trends, and funding mix"
-        dashboardContextBar={contextBar}
-      />
+      {/* No subtitle: "Who needs funding, personnel trends, and funding mix"
+          was a table of contents, and the verdict sentence directly beneath
+          now says what the page is for, in terms specific to this data. */}
+      <Header ledgerTitle title="Dashboard" dashboardContextBar={contextBar} />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto w-full max-w-7xl">
           {!hasData ? <EmptyState /> : <DashboardContent horizonMonths={horizonMonths} />}
