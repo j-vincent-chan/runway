@@ -21,7 +21,6 @@ import { FundingExposureMatrix } from "@/components/dashboard/FundingExposureMat
 import { DashboardMethodology } from "@/components/dashboard/DashboardMethodology";
 import { PersonnelByGroupSection } from "@/components/dashboard/PersonnelByGroupSection";
 import { PersonnelCostTrendCharts } from "@/components/dashboard/PersonnelCostTrendCharts";
-import { TeamRunwaySection } from "@/components/dashboard/TeamRunwaySection";
 
 export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const {
@@ -185,6 +184,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       horizonMonths={horizonMonths}
       priorRunwayMonths={sinceLastReport?.priorRunwayMonths ?? null}
       priorReportLabel={sinceLastReport?.priorLabel ?? null}
+      teamRows={teamRunway}
     />
   );
 
@@ -201,7 +201,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       ) : (
         anchors
       )}
-      {teamRunway && <TeamRunwaySection rows={teamRunway} />}
       {sinceLastReport && <SinceLastReportPanel summary={sinceLastReport} />}
       <RunwayRibbon ribbon={ribbon} />
       <PersonnelCostTrendCharts

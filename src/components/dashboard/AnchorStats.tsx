@@ -8,6 +8,9 @@ import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
+import { TeamRunwayCarousel } from "@/components/dashboard/TeamRunwayCarousel";
+import { ALL_TEAMS_KEY, type TeamRunwayRow } from "@/lib/dashboard/teamRunway";
+import { runwayMonthsLabel } from "@/lib/runway/calculate";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
 const SPARK_HEIGHT = 34;
@@ -134,10 +137,14 @@ function Anchor({
     <div className="min-w-0 flex-1 px-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
       <Link
         href={href}
-        className="type-caption inline-flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="type-caption flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {label}
       </Link>
+      {/* Shared context line, one mono row tall. Empty for the two stats that
+          scope themselves, filled by the runway carousel with the team it is
+          showing — reserved in all three so the figures sit on one baseline. */}
+      <p className="type-mono min-h-[1.125rem] text-ink-2" aria-hidden />
       <p className="type-stat mt-0.5 text-ink">{valueNode ?? value}</p>
       <p
         className={cn(
@@ -164,12 +171,15 @@ export function AnchorStats({
   horizonMonths,
   priorRunwayMonths,
   priorReportLabel,
+  teamRows,
 }: {
   overview: DashboardOverview;
   /** The Dashboard's own scope control — the runway figure never extrapolates past it. */
   horizonMonths: number;
   priorRunwayMonths: number | null;
   priorReportLabel: string | null;
+  /** When more than one team exists, the runway anchor becomes a per-team carousel. */
+  teamRows: TeamRunwayRow[] | null;
 }) {
   const {
     availableFunds,
@@ -198,9 +208,13 @@ export function AnchorStats({
   const burnBasis =
     burnMonthsUsed === 1 ? "the one payroll month on file" : `the last ${burnMonthsUsed} payroll months`;
 
-  // Capped at the same horizon buildVerdict caps its funded-through date at, so
-  // the two never disagree about when the money runs out.
+  // The month count itself is plain arithmetic — funds over burn — so it is
+  // shown in full at any horizon. Only the *date* is a projection claim, and
+  // that is suppressed past the window rather than extrapolated, which is what
+  // buildVerdict does too.
   const beyondHorizon = runwayMonths !== null && runwayMonths > horizonMonths;
+
+  const hasTeams = !!teamRows && teamRows.filter((r) => r.key !== ALL_TEAMS_KEY).length > 1;
 
   const fundsExplanation = [
     `Balance on the ${accountCount} ${accountCount === 1 ? "account" : "accounts"} that both have payroll charged to them and have a balance on file, at the same figure Runway uses.`,
@@ -218,7 +232,7 @@ export function AnchorStats({
   const runwayExplanation = [
     "Available funds divided by the combined monthly burn on those same accounts.",
     beyondHorizon
-      ? `The result runs past the ${horizonMonths}-month window in view, so no exact date is shown.`
+      ? `That lands past the ${horizonMonths}-month window in view, so the month count is shown but no exact date is — projecting one that far would go beyond what the scope covers.`
       : "Individual people and accounts run dry sooner — those are listed under what needs attention.",
     unpricedAccountCount > 0
       ? `${unpricedAccountCount} ${unpricedAccountCount === 1 ? "account is" : "accounts are"} charged with no balance on file, counted at $0, so this reads shorter than the truth.`
@@ -286,6 +300,15 @@ export function AnchorStats({
         spark={<BarSpark points={overview.burnSeries} label="Monthly personnel cost" />}
       />
 
+      {hasTeams ? (
+        <TeamRunwayCarousel
+          rows={teamRows!}
+          horizonMonths={horizonMonths}
+          priorRunwayMonths={priorRunwayMonths}
+          priorReportLabel={priorReportLabel}
+          runwayExplanation={runwayExplanation}
+        />
+      ) : (
       <Anchor
         label="Runway"
         href="/runway"
@@ -302,7 +325,7 @@ export function AnchorStats({
           ) : (
             <DerivedFigure
               projected
-              value={beyondHorizon ? `${horizonMonths}+ mo` : `${runwayMonths.toFixed(1)} mo`}
+              value={runwayMonthsLabel(runwayMonths)}
               explanation={runwayExplanation}
               className="type-stat text-ink"
             />
@@ -340,6 +363,7 @@ export function AnchorStats({
           />
         }
       />
+      )}
     </section>
   );
 }

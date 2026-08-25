@@ -32,15 +32,17 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
           lists everything. An account you&rsquo;ve marked as not yours counts the balance its
           end date implies: its share of the burn multiplied by the months left on it. An
           account charged with no balance on file anywhere counts as $0, so the total reads low
-          until you fill one in — the stat says how many are waiting. Monthly burn averages
-          total personnel cost — salary and benefits — across the trailing {BURN_WINDOW_MONTHS}{" "}
-          months, unchanged by any of this.
+          until you fill one in — the stat says how many are waiting. Monthly burn
+          averages total personnel cost — salary and benefits — across the trailing{" "}
+          {BURN_WINDOW_MONTHS} months, unchanged by any of this.
         </Entry>
         <Entry title="Runway, overall and by team">
-          Available funds divided by the combined monthly burn on those same accounts, capped at
-          the window you have in view rather than extrapolated past it. Each team&rsquo;s row
-          does the same over the accounts its own members draw on; an account two people share
-          is counted once. Where a team shares an account with someone outside it, the whole
+          Available funds divided by the combined monthly burn on those same accounts. It is an
+          average across those accounts, not a floor: the month count is plain arithmetic and is
+          shown in full, but the calendar date it implies is withheld once it lands past the
+          window you have in view, rather than extrapolated there. Each team does the same over
+          the accounts its own members draw on; an account two people share is counted once.
+          Where a team shares an account with someone outside it, the whole
           account&rsquo;s burn stays in that team&rsquo;s denominator — splitting it would mean
           inventing a rule for who owns which dollar — so a shared account always reads shorter
           than it would in isolation, never longer. Individual people run dry sooner than any of

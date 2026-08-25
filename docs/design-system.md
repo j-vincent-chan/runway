@@ -46,7 +46,7 @@ Rules:
 - `--healthy` appears only on confirmed-good states, so green keeps its meaning.
 - **Projected data is never a different hue.** Always the same hue as actual at 45% opacity, plus a 45° diagonal hatch and a dotted stroke. One convention, used identically everywhere.
 - **Unattributed / uncategorized money renders as hatched grey** so it reads as a hole, not a category.
-- Personnel groups get no color assignment. They are table rows.
+- Teams get no color assignment. Color on a team means its runway state, nothing else.
 - Categorical color is permitted in exactly one place: the funding-exposure band. Cap at five named sources plus "other", ordered identically in every period.
 - Never define a color only inside a media query or theme block. Full light palette on bare `:root`; redefine tokens under `@media (prefers-color-scheme: dark)` guarded so an explicit light setting wins; redefine again for an explicit dark setting.
 

@@ -1,7 +1,7 @@
 import { CAUTION_MONTHS, totalFundedRoots, type RunwayContext } from "@/lib/dashboard/attention";
 import { employeeGroupKey, groupLabel } from "@/lib/dashboard/metrics";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
-import { getPersonnelGroups } from "@/lib/employees/personnelType";
+import { getPersonnelGroups, getPersonnelTypeMeta } from "@/lib/employees/personnelType";
 import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { shiftMonth } from "@/lib/dashboard/month";
 import type { AppSettings, Employee, PayrollReportSnapshot } from "@/types";
@@ -19,6 +19,8 @@ export interface TeamRunwayMember {
 export interface TeamRunwayRow {
   key: string;
   label: string;
+  /** Catalog short label where one exists — the anchor column is too narrow for the full name. */
+  shortLabel: string;
   memberCount: number;
   funds: number;
   monthlyBurn: number;
@@ -31,9 +33,16 @@ export interface TeamRunwayRow {
   hasEstimatedFunds: boolean;
 }
 
+function groupShortLabel(settings: AppSettings, key: string): string {
+  if (key === "unassigned") return "Unassigned";
+  const meta = getPersonnelTypeMeta(key, settings);
+  return meta.shortLabel ?? meta.label;
+}
+
 function memberRow(
   key: string,
   label: string,
+  shortLabel: string,
   members: Employee[],
   runway: RunwayContext,
   settings: AppSettings,
@@ -66,6 +75,7 @@ function memberRow(
   return {
     key,
     label,
+    shortLabel,
     memberCount: members.length,
     funds: funded.balance,
     monthlyBurn: funded.monthlyBurn,
@@ -121,12 +131,20 @@ export function buildTeamRunway({
   ];
 
   const teams = orderedKeys.map((key) =>
-    memberRow(key, groupLabel(settings, key), byTeam.get(key)!, runway, settings, planningMonth)
+    memberRow(
+      key,
+      groupLabel(settings, key),
+      groupShortLabel(settings, key),
+      byTeam.get(key)!,
+      runway,
+      settings,
+      planningMonth
+    )
   );
   teams.sort((a, b) => b.monthlyBurn - a.monthlyBurn);
 
   return [
     ...teams,
-    memberRow(ALL_TEAMS_KEY, "All teams", employees, runway, settings, planningMonth),
+    memberRow(ALL_TEAMS_KEY, "All teams", "All teams", employees, runway, settings, planningMonth),
   ];
 }
