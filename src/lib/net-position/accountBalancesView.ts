@@ -161,8 +161,19 @@ export function buildAccountBalanceView(args: {
   const watched = new Set(args.watchedPortfolioKeys.map(normalizeAccountBalanceKey));
   const groups = args.accountGroupByBalanceKey ?? {};
 
+  /**
+   * MyPortfolio rows only. `portfolioBalances` is the merged map, which also
+   * carries Net Position figures so Runway can spend against them — but here
+   * a Net Position entry must not masquerade as a MyPortfolio one, or an
+   * account known only to Net Position reports back as "both" and loses the
+   * period delta that is the whole point of its column.
+   *
+   * One rule, one place: mergeAccountBalances decides MyPortfolio wins, and
+   * this reads the `source` it stamped rather than re-deriving precedence.
+   */
   const portfolioByAccountKey = new Map<string, MergedPortfolioBalance>();
   for (const row of args.portfolioBalances.values()) {
+    if (row.source === "netPosition") continue;
     const key = accountKeyFromPortfolioChartstring(row.chartstring);
     if (!key) continue;
     const existing = portfolioByAccountKey.get(key);
@@ -447,6 +458,10 @@ export function listPortfolioWatchCandidates(
 
   const byKey = new Map<string, PortfolioWatchCandidate>();
   for (const row of portfolioBalances.values()) {
+    // MyPortfolio only — the merged map also carries Net Position figures, and
+    // offering those as "MyPortfolio accounts to watch" would invite the user
+    // to opt into accounts that already appear by default.
+    if (row.source === "netPosition") continue;
     const accountKey = accountKeyFromPortfolioChartstring(row.chartstring);
     if (!accountKey) continue;
     const existing = byKey.get(accountKey);
