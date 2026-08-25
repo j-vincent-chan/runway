@@ -1,12 +1,12 @@
-import { monthLabelLong, shiftMonth } from "@/lib/dashboard/month";
-import type { AccountAtRisk, PersonAtRisk } from "@/lib/dashboard/attention";
+import { CAUTION_MONTHS, CRITICAL_MONTHS, type AttentionQueue } from "@/lib/dashboard/attention";
+import { ALL_TEAMS_KEY, type TeamRunwayRow } from "@/lib/dashboard/teamRunway";
 
-export type VerdictKind =
-  | "at_risk"
-  | "healthy"
-  | "beyond_horizon"
-  | "overdrawn"
-  | "insufficient_data";
+/**
+ * Severity of the whole program, driven by whichever team is weakest.
+ * Mirrors the attention queue's thresholds so the hero and the rows beneath
+ * it can never disagree about what counts as urgent.
+ */
+export type VerdictStatus = "critical" | "at_risk" | "stable" | "insufficient_data";
 
 /** Data terms render in --ink; connective words in --ink-2. */
 export type SegmentEmphasis = "data" | "connective";
@@ -14,11 +14,12 @@ export type SegmentEmphasis = "data" | "connective";
 export interface VerdictSegment {
   text: string;
   emphasis: SegmentEmphasis;
+  /** Set on the named team so it links into its own detail. */
+  href?: string;
 }
 
 export interface VerdictClause {
   segments: VerdictSegment[];
-  tone?: "healthy";
 }
 
 export interface VerdictMissing {
@@ -28,169 +29,315 @@ export interface VerdictMissing {
 }
 
 export interface Verdict {
-  kind: VerdictKind;
-  clauses: VerdictClause[];
-  /** Set when the funded-through month should link into Runway. */
-  runwayMonth: string | null;
+  status: VerdictStatus;
+  /** Chip text. Never carried by color alone. */
+  statusLabel: string;
+  /** The finding: names the weakest team and its runway. */
+  finding: VerdictClause;
+  /** Whether money or a burn cut is needed now. Absent only when data is missing. */
+  action: string | null;
+  /** Key of the team driving the status, when a team does. */
+  weakestTeamKey: string | null;
   missing: VerdictMissing | null;
 }
 
-function data(text: string): VerdictSegment {
-  return { text, emphasis: "data" };
+function data(text: string, href?: string): VerdictSegment {
+  return href ? { text, emphasis: "data", href } : { text, emphasis: "data" };
 }
 
 function connective(text: string): VerdictSegment {
   return { text, emphasis: "connective" };
 }
 
-function pluralize(count: number, singular: string, plural: string): string {
-  return `${count} ${count === 1 ? singular : plural}`;
+/**
+ * Prose months, not the compact `runwayMonthsLabel` used in stat slots — this
+ * reads inside a sentence. Deficits never reach here; they are stated as
+ * "already overdrawn" instead, since a negative month count is not a duration.
+ */
+export function monthsPhrase(months: number): string {
+  if (months < 1) return "less than a month";
+  const rounded = Number(months.toFixed(1));
+  if (rounded === 1) return "1 month";
+  return `${rounded.toFixed(1)} months`;
+}
+
+const STATUS_LABEL: Record<Exclude<VerdictStatus, "insufficient_data">, string> = {
+  critical: "Critical",
+  at_risk: "At Risk",
+  stable: "Stable",
+};
+
+/**
+ * States whether money or a burn cut is needed now — the two levers a PI
+ * actually has. Deliberately does not prescribe which: Runway cannot know
+ * whether a transfer, a re-budget, or an effort change is the right remedy,
+ * and inventing one would be advice the data doesn't support.
+ */
+function actionFor(
+  status: Exclude<VerdictStatus, "insufficient_data">,
+  shortTeamCount: number
+): string {
+  const subject = shortTeamCount > 1 ? "them" : "it";
+  const possessive = shortTeamCount > 1 ? "their" : "its";
+  switch (status) {
+    case "critical":
+      return `Move money onto ${subject} or cut ${possessive} burn now.`;
+    case "at_risk":
+      return `Line up funding or trim burn this quarter, before ${shortTeamCount > 1 ? "they turn" : "it turns"} critical.`;
+    case "stable":
+      return "No funding action needed right now.";
+  }
+}
+
+const SEVERITY_RANK: Record<Exclude<VerdictStatus, "insufficient_data">, number> = {
+  stable: 0,
+  at_risk: 1,
+  critical: 2,
+};
+
+function statusFor(months: number): Exclude<VerdictStatus, "insufficient_data"> {
+  if (months < CRITICAL_MONTHS) return "critical";
+  if (months < CAUTION_MONTHS) return "at_risk";
+  return "stable";
+}
+
+/** Teams with a real runway figure, weakest first. Teams with no burn can't be ranked. */
+function rankTeams(teamRows: TeamRunwayRow[]): TeamRunwayRow[] {
+  return teamRows
+    .filter((r) => r.key !== ALL_TEAMS_KEY && r.months !== null)
+    .sort((a, b) => a.months! - b.months!);
 }
 
 /**
- * Reads "2 people and 1 account fall short before then." — and omits either
- * side entirely at zero rather than emitting "and 0 accounts".
+ * "{Team} is already overdrawn" / "{Team} has 1.5 months of payroll runway".
+ * `trailing: false` drops "of payroll runway" for a second team in the same
+ * sentence, where repeating the unit reads as a stutter.
  */
-function shortfallClause(people: number, accounts: number): VerdictClause | null {
-  if (people === 0 && accounts === 0) return null;
-
-  const segments: VerdictSegment[] = [];
-  if (people > 0) segments.push(data(pluralize(people, "person", "people")));
-  if (people > 0 && accounts > 0) segments.push(connective(" and "));
-  if (accounts > 0) segments.push(data(pluralize(accounts, "account", "accounts")));
-
-  const verb = people + accounts === 1 ? " falls short before then." : " fall short before then.";
-  segments.push(connective(verb));
-  return { segments };
+function teamState(row: TeamRunwayRow, { trailing = true }: { trailing?: boolean } = {}): VerdictSegment[] {
+  const name = data(row.label, "/runway");
+  if (row.months! < 0) {
+    return [name, connective(" is already overdrawn")];
+  }
+  return [
+    name,
+    connective(" has "),
+    data(monthsPhrase(row.months!)),
+    ...(trailing ? [connective(" of payroll runway")] : []),
+  ];
 }
 
-function fundedThroughClause(month: string): VerdictClause {
-  return {
-    segments: [
-      connective("Funded through "),
-      data(monthLabelLong(month)),
-      connective(" at your current rate."),
-    ],
-  };
+/** The soonest single account or person to run dry, from the attention queue. */
+export interface WorstItem {
+  label: string;
+  months: number;
 }
 
-function fundedPastClause(month: string): VerdictClause {
-  return {
-    segments: [
-      connective("Funded past "),
-      data(monthLabelLong(month)),
-      connective(" at your current rate."),
-    ],
-  };
+/**
+ * The item the queue itself ranks first, so the hero and the list beneath it
+ * always name the same account or person — several can tie on months, and
+ * re-deriving the worst here would break those ties differently. Data-quality
+ * rows are skipped: an uncategorized charge is not a funding cliff.
+ */
+export function pickWorstItem(queue: AttentionQueue): WorstItem | null {
+  const row = queue.rows.find((r) => r.severity !== "data");
+  return row ? { label: row.entity, months: row.months } : null;
 }
 
 export function buildVerdict({
-  planningMonth,
-  horizonMonths,
-  runwayMonths,
+  teamRows,
+  overallRunwayMonths,
+  worstItem,
   hasFunds,
   hasBurn,
-  peopleAtRisk,
-  accountsAtRisk,
-  overdrawnAccounts,
 }: {
-  planningMonth: string;
-  horizonMonths: number;
-  runwayMonths: number | null;
+  /** Rows from buildTeamRunway, roll-up included; it is filtered out here. */
+  teamRows: TeamRunwayRow[];
+  /** Whole-roster runway, used when no team has been set up. */
+  overallRunwayMonths: number | null;
+  /**
+   * Team runway is an average, so a team can read healthy while one of its
+   * accounts is nearly dry. Passing the worst individual item keeps the hero
+   * from ever declaring safety above a critical row.
+   */
+  worstItem: WorstItem | null;
   hasFunds: boolean;
   hasBurn: boolean;
-  peopleAtRisk: PersonAtRisk[];
-  accountsAtRisk: AccountAtRisk[];
-  overdrawnAccounts: AccountAtRisk[];
 }): Verdict {
-  if (!hasFunds || !hasBurn || runwayMonths === null) {
-    const missing = !hasFunds
-      ? {
-          message:
-            "No account balances have been imported, so there is nothing to project against.",
-          href: "/upload",
-          hrefLabel: "Upload a Net Position or MyPortfolio file",
-        }
-      : {
-          message:
-            "No personnel costs were found in the payroll report, so there is no burn rate to project with.",
-          href: "/upload",
-          hrefLabel: "Upload a Payroll Funding Report",
-        };
-
+  if (!hasFunds || !hasBurn || overallRunwayMonths === null) {
     return {
-      kind: "insufficient_data",
-      clauses: [{ segments: [connective("Not enough data to project runway.")] }],
-      runwayMonth: null,
-      missing,
+      status: "insufficient_data",
+      statusLabel: "Not enough data",
+      finding: {
+        segments: [connective("There isn't enough on file to judge your funding position.")],
+      },
+      action: null,
+      weakestTeamKey: null,
+      missing: !hasFunds
+        ? {
+            message:
+              "No account balances have been imported, so there is nothing to measure runway against.",
+            href: "/upload",
+            hrefLabel: "Upload a Net Position or MyPortfolio file",
+          }
+        : {
+            message:
+              "No personnel costs were found in the payroll report, so there is no burn rate to measure against.",
+            href: "/upload",
+            hrefLabel: "Upload a Payroll Funding Report",
+          },
     };
   }
 
-  const shortfall = shortfallClause(peopleAtRisk.length, accountsAtRisk.length);
+  const ranked = rankTeams(teamRows);
 
-  // Never extrapolate a date past the projection horizon.
-  const beyond = runwayMonths > horizonMonths;
-  const targetMonth = beyond
-    ? shiftMonth(planningMonth, horizonMonths)
-    : shiftMonth(planningMonth, Math.floor(Math.max(runwayMonths, 0)));
-  const followOn = beyond ? fundedPastClause(targetMonth) : fundedThroughClause(targetMonth);
-  const runwayMonth = beyond ? null : targetMonth;
+  // No teams set up (or none with burn): the roll-up is the only honest subject.
+  if (ranked.length === 0) {
+    const rollupStatus = statusFor(overallRunwayMonths);
+    const itemStatus = worstItem ? statusFor(worstItem.months) : "stable";
 
-  if (overdrawnAccounts.length > 0) {
-    // The specific overdrawn account is named by the attention-queue spotlight
-    // row instead of a duplicate clause here — this state now only carries tone.
-    return {
-      kind: "overdrawn",
-      clauses: [followOn],
-      runwayMonth,
-      missing: null,
-    };
-  }
-
-  if (beyond) {
-    return {
-      kind: "beyond_horizon",
-      clauses: shortfall
-        ? [followOn, shortfall]
-        : [
-            followOn,
-            {
-              segments: [connective("No one runs short in that window.")],
-              tone: "healthy" as const,
-            },
+    // Same averaging trap as the team path: the roll-up can look fine while one
+    // account is nearly dry, so the sharper fact leads when there is one.
+    if (SEVERITY_RANK[itemStatus] > SEVERITY_RANK[rollupStatus] && worstItem) {
+      return {
+        status: itemStatus,
+        statusLabel: STATUS_LABEL[itemStatus],
+        finding: {
+          segments: [
+            data(worstItem.label, "/runway"),
+            connective(worstItem.months < 0 ? " is already overdrawn" : " runs dry in "),
+            ...(worstItem.months < 0 ? [] : [data(monthsPhrase(worstItem.months))]),
+            connective(", well before your accounts average of "),
+            data(monthsPhrase(overallRunwayMonths)),
+            connective("."),
           ],
-      runwayMonth,
+        },
+        action: actionFor(itemStatus, 1),
+        weakestTeamKey: null,
+        missing: null,
+      };
+    }
+
+    const segments: VerdictSegment[] =
+      overallRunwayMonths < 0
+        ? [connective("Your payroll accounts are "), data("already overdrawn"), connective(".")]
+        : [
+            connective("Your payroll accounts hold "),
+            data(monthsPhrase(overallRunwayMonths)),
+            connective(" of runway."),
+          ];
+    return {
+      status: rollupStatus,
+      statusLabel: STATUS_LABEL[rollupStatus],
+      finding: { segments },
+      action: actionFor(rollupStatus, 0),
+      weakestTeamKey: null,
       missing: null,
     };
   }
 
-  if (!shortfall) {
+  const weakest = ranked[0]!;
+  const teamStatus = statusFor(weakest.months!);
+  const itemStatus = worstItem ? statusFor(worstItem.months) : "stable";
+
+  /**
+   * An account or person running dry sooner than any team average outranks the
+   * team view. Leading with the team here would put "no action needed" directly
+   * above a critical row — the averaging is exactly what "Avg payroll runway"
+   * warns about, so the hero names the sharper fact instead.
+   */
+  if (SEVERITY_RANK[itemStatus] > SEVERITY_RANK[teamStatus] && worstItem) {
+    const segments: VerdictSegment[] = [
+      data(worstItem.label, "/runway"),
+      connective(worstItem.months < 0 ? " is already overdrawn" : " runs dry in "),
+      ...(worstItem.months < 0 ? [] : [data(monthsPhrase(worstItem.months))]),
+      connective(", well before "),
+      data(weakest.label, "/runway"),
+      connective(", your weakest team, at "),
+      data(monthsPhrase(weakest.months!)),
+      connective("."),
+    ];
     return {
-      kind: "healthy",
-      clauses: [
-        followOn,
-        {
-          segments: [connective("No one runs short in that window.")],
-          tone: "healthy" as const,
-        },
-      ],
-      runwayMonth,
+      status: itemStatus,
+      statusLabel: STATUS_LABEL[itemStatus],
+      finding: { segments },
+      action: actionFor(itemStatus, 1),
+      weakestTeamKey: weakest.key,
       missing: null,
     };
+  }
+
+  const status = teamStatus;
+
+  if (status === "stable") {
+    // Every team clears the caution line — say so about all of them rather
+    // than singling one out, since none is a problem.
+    return {
+      status,
+      statusLabel: STATUS_LABEL[status],
+      finding: {
+        segments:
+          ranked.length === 1
+            ? [
+                ...teamState(weakest),
+                connective(", and no other team draws payroll."),
+              ]
+            : [
+                connective("Every team holds more than "),
+                data(`${CAUTION_MONTHS} months`),
+                connective(" of payroll runway; "),
+                data(weakest.label, "/runway"),
+                connective(" is the shortest at "),
+                data(monthsPhrase(weakest.months!)),
+                connective("."),
+              ],
+      },
+      action: actionFor(status, 0),
+      weakestTeamKey: weakest.key,
+      missing: null,
+    };
+  }
+
+  // Name every team under the caution line rather than counting them, up to a
+  // second one; past that the queue below carries the full list.
+  const alsoShort = ranked.slice(1).filter((r) => r.months! < CAUTION_MONTHS);
+  const segments: VerdictSegment[] = [...teamState(weakest)];
+
+  if (alsoShort.length === 0) {
+    segments.push(
+      connective(
+        ranked.length === 1
+          ? ", and no other team draws payroll."
+          : `, while every other team stays above ${CAUTION_MONTHS} months.`
+      )
+    );
+  } else if (alsoShort.length === 1) {
+    segments.push(
+      connective(", and "),
+      ...teamState(alsoShort[0]!, { trailing: false }),
+      connective(".")
+    );
+  } else {
+    segments.push(
+      connective(", and so do "),
+      data(alsoShort.map((r) => r.label).join(", ")),
+      connective(".")
+    );
   }
 
   return {
-    kind: "at_risk",
-    clauses: [followOn, shortfall],
-    runwayMonth,
+    status,
+    statusLabel: STATUS_LABEL[status],
+    finding: { segments },
+    action: actionFor(status, 1 + alsoShort.length),
+    weakestTeamKey: weakest.key,
     missing: null,
   };
 }
 
 /** Flattened sentence, for aria-labels and tests. */
 export function verdictText(verdict: Verdict): string {
-  return verdict.clauses
-    .map((clause) => clause.segments.map((s) => s.text).join(""))
+  const finding = verdict.finding.segments.map((s) => s.text).join("");
+  return [`${verdict.statusLabel}:`, finding, verdict.action ?? ""]
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();

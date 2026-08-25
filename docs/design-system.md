@@ -108,6 +108,9 @@ Projections drive hiring decisions. The seams must show.
 
 - Write from the faculty member's side of the screen. Active voice. A control says exactly what happens.
 - **Never show a count where a name is available.** "2 personnel require attention" is a defect; naming both people is the fix.
+- **The hero verdict must name its subject, not describe a state in the abstract.** A sentence like "Funded through {month} at your current rate" states a fact nobody can act on — it names no owner and implies no next step. The hero is one sentence carrying three things: a severity word ("Critical" / "At Risk" / "Stable"), the weakest named entity with its own figure, and whether money or a burn cut is needed now. This is the count/name rule one level up: an abstract verdict is to a named problem what a bare count is to a name.
+- **Never prescribe a financial remedy the data can't support.** The verdict says *that* funding or a burn cut is needed, never *which* — Runway cannot know whether a transfer, a re-budget, or an effort change is right, and naming one would be advice dressed as a calculation.
+- **Severity thresholds are shared, never restated.** The hero and any queue beneath it read the same constants, so they can never disagree about what counts as urgent.
 - Templated strings only for anything derived from data. No free-form generated prose in the product.
 - Handle singular, plural, and zero in every templated sentence. Never emit "and 0 accounts".
 - Empty states are positive statements, not blank boxes.

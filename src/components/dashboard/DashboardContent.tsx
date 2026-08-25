@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { buildPersonnelCostTrend } from "@/lib/dashboard/metrics";
 import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
-import { buildVerdict } from "@/lib/dashboard/verdict";
+import { buildVerdict, pickWorstItem } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
 import { buildTeamRunway } from "@/lib/dashboard/teamRunway";
@@ -101,20 +101,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, fundingSources, settings, trend, runway, horizonMonths]);
 
-  const verdict = useMemo(() => {
-    if (!trend || !overview || !attentionQueue) return null;
-    return buildVerdict({
-      planningMonth: trend.planningMonth,
-      horizonMonths,
-      runwayMonths: overview.runwayMonths,
-      hasFunds: overview.hasFunds,
-      hasBurn: overview.hasBurn,
-      peopleAtRisk: attentionQueue.peopleAtRisk,
-      accountsAtRisk: attentionQueue.accountsAtRisk,
-      overdrawnAccounts: attentionQueue.overdrawnAccounts,
-    });
-  }, [trend, overview, attentionQueue, horizonMonths]);
-
   const ribbon = useMemo(() => {
     if (!snapshot) return null;
     return buildRunwayRibbon({
@@ -150,6 +136,17 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     });
   }, [snapshot, trend, runway, settings]);
 
+  const verdict = useMemo(() => {
+    if (!overview || !teamRunway || !attentionQueue) return null;
+    return buildVerdict({
+      teamRows: teamRunway,
+      overallRunwayMonths: overview.runwayMonths,
+      worstItem: pickWorstItem(attentionQueue),
+      hasFunds: overview.hasFunds,
+      hasBurn: overview.hasBurn,
+    });
+  }, [overview, teamRunway, attentionQueue]);
+
   const exposureTimeline = useMemo(() => {
     if (!snapshot) return null;
     return buildFundingExposureTimeline({
@@ -175,8 +172,8 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
 
   if (!snapshot || !trend || !overview || !verdict || !attentionQueue) return null;
 
-  const isAction = attentionQueue.rows.length > 0 && verdict.kind !== "insufficient_data";
-  const hasMoreRows = isAction && attentionQueue.rows.length > 1;
+  const hasQueue =
+    attentionQueue.rows.length > 0 && verdict.status !== "insufficient_data";
 
   const anchors = (
     <AnchorStats
@@ -190,8 +187,8 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
 
   return (
     <div className="space-y-8">
-      <FundingStatusPanel verdict={verdict} queue={attentionQueue} />
-      {hasMoreRows ? (
+      <FundingStatusPanel verdict={verdict} />
+      {hasQueue ? (
         <div className="grid grid-cols-12 gap-8">
           <div className="col-span-12 lg:col-span-5">
             <AttentionQueueBox queue={attentionQueue} />

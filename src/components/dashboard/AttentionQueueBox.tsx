@@ -15,9 +15,13 @@ function Row({ row }: { row: AttentionRow }) {
         className="group flex min-h-11 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-4 py-3 hover:bg-inset focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
       >
         <span className="flex min-w-0 flex-1 items-center gap-2.5">
+          {/* One width across severities so every row's entity starts at the
+              same x — ragged chips turn the list into a zigzag. Sized past the
+              widest label ("Critical", 103px) so it actually binds on all three;
+              min-, not fixed, so a longer future label grows rather than clips. */}
           <span
             className={cn(
-              "type-caption inline-flex shrink-0 items-center gap-1 rounded-sm px-1.5 py-0.5",
+              "type-caption inline-flex min-w-[6.75rem] shrink-0 items-center justify-center gap-1 rounded-sm px-1.5 py-0.5",
               CHIP_CLASS[row.severity]
             )}
           >
@@ -40,19 +44,19 @@ function Row({ row }: { row: AttentionRow }) {
 }
 
 /**
- * The rest of the queue, after the worst item — which `FundingStatusPanel`
- * already spotlights full width above this. Only rendered by the caller when
- * there's more than one row (otherwise there'd be nothing left to list).
+ * The full queue. The hero verdict above names the weakest *team*; these are
+ * the individual people and accounts behind it, so the worst row belongs here
+ * rather than being lifted out — nothing is duplicated between the two.
  */
 export function AttentionQueueBox({ queue }: { queue: AttentionQueue }) {
-  const rows = queue.rows.slice(1);
+  const rows = queue.rows;
   const worst = rows[0]?.severity ?? null;
   const hidden = queue.totalCount - queue.rows.length;
 
   return (
     <section aria-labelledby="attention-queue-heading">
       <h3 id="attention-queue-heading" className="type-caption text-muted">
-        Also needs attention
+        Needs attention
       </h3>
       <div className="mt-2 flex overflow-hidden rounded-md border border-rule bg-surface">
         <div className={cn("w-[3px] shrink-0", stripeClass(worst))} aria-hidden />
