@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildRunwayRibbon, ribbonTotals } from "@/lib/dashboard/runwayRibbon";
+import {
+  buildRunwayRibbon,
+  collapseBands,
+  ribbonTotals,
+  RIBBON_OTHER_ROOT,
+  type RibbonBand,
+} from "@/lib/dashboard/runwayRibbon";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
   AppSettings,
@@ -241,5 +247,72 @@ describe("ribbonTotals", () => {
     const { totalByMonth, terminalIndex } = ribbonTotals(bands, 3);
     expect(totalByMonth).toEqual([10, 0, 0]);
     expect(terminalIndex).toBe(1);
+  });
+});
+
+describe("collapseBands", () => {
+  function band(
+    chartRoot: string,
+    values: number[],
+    depletionMonthIndex: number | null,
+    hasCurrentPersonnel = true
+  ): RibbonBand {
+    return { chartRoot, label: chartRoot, values, depletionMonthIndex, hasCurrentPersonnel };
+  }
+
+  // Six accounts, one month-0 balance each, varied depletion timing.
+  const many = [
+    band("survives-mid", [500, 400, 300], null),
+    band("m1-small", [100, 0, 0], 1),
+    band("m2-big", [300, 200, 0], 2),
+    band("m1-big", [200, 0, 0], 1, false),
+    band("survives-big", [900, 800, 700], null),
+    band("m2-small", [50, 40, 0], 2),
+  ];
+
+  it("keeps the soonest-to-deplete and folds the rest into one band", () => {
+    const out = collapseBands(many, 3);
+    expect(out).toHaveLength(4);
+    expect(out.slice(0, 3).map((b) => b.chartRoot)).toEqual(["m1-big", "m1-small", "m2-big"]);
+    expect(out[3]!.chartRoot).toBe(RIBBON_OTHER_ROOT);
+    expect(out[3]!.label).toBe("3 other accounts");
+  });
+
+  it("breaks ties on depletion month by larger current balance", () => {
+    // Both deplete at index 1; the larger current balance ranks first, so a
+    // reader meets the bigger exposure before the smaller one.
+    const out = collapseBands(many, 3);
+    expect(out[0]!.chartRoot).toBe("m1-big");
+    expect(out[1]!.chartRoot).toBe("m1-small");
+  });
+
+  it("preserves the monthly total, so ribbonTotals is unaffected", () => {
+    const before = ribbonTotals(many, 3);
+    const after = ribbonTotals(collapseBands(many, 3), 3);
+    expect(after.totalByMonth).toEqual(before.totalByMonth);
+    expect(after.terminalIndex).toBe(before.terminalIndex);
+  });
+
+  it("leaves the bands untouched when there are few enough to render", () => {
+    const few = many.slice(0, 4);
+    expect(collapseBands(few, 3)).toBe(few);
+  });
+
+  it("marks the aggregate depleted only once every account inside it has", () => {
+    const allDeplete = [
+      band("a", [10, 0], 1),
+      band("b", [20, 0], 1),
+      band("c", [30, 20], 1),
+      band("d", [40, 30], 0),
+    ];
+    expect(collapseBands(allDeplete, 1).at(-1)!.depletionMonthIndex).toBe(1);
+
+    const oneSurvives = [...allDeplete.slice(0, 3), band("survivor", [5, 5], null)];
+    expect(collapseBands(oneSurvives, 1).at(-1)!.depletionMonthIndex).toBeNull();
+  });
+
+  it("carries current-personnel scope forward if any folded account has it", () => {
+    const out = collapseBands(many, 3);
+    expect(out.at(-1)!.hasCurrentPersonnel).toBe(true);
   });
 });

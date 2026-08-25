@@ -147,6 +147,53 @@ export function ribbonTotals(
   return { totalByMonth, terminalIndex: terminalIdx === -1 ? null : terminalIdx };
 }
 
+/** Named bands before the rest collapse into one. */
+export const RIBBON_BAND_CAP = 5;
+/** chartRoot of the aggregate band; never a real fund-dept-project. */
+export const RIBBON_OTHER_ROOT = "__other";
+
+/**
+ * The `cap` accounts that run dry soonest, plus one band summing the rest.
+ *
+ * Rendering every account defeated the chart: 33 of them meant a 66-series
+ * stack whose opacity ramp stepped ~0.01 between neighbours, so no band could
+ * be told from the next and the legend degenerated into a run-on list. Six
+ * bands make both the ramp and direct end-labelling work.
+ *
+ * Pure reshaping — values are summed, never recomputed, so ribbonTotals and
+ * terminalIndex are unchanged by collapsing.
+ */
+export function collapseBands(bands: RibbonBand[], cap = RIBBON_BAND_CAP): RibbonBand[] {
+  if (bands.length <= cap + 1) return bands;
+
+  const ranked = [...bands].sort((a, b) => {
+    // Soonest to deplete first; accounts that never run dry rank last.
+    const aIdx = a.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
+    const bIdx = b.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
+    if (aIdx !== bIdx) return aIdx - bIdx;
+    return (b.values[0] ?? 0) - (a.values[0] ?? 0);
+  });
+
+  const named = ranked.slice(0, cap);
+  const rest = ranked.slice(cap);
+  const monthCount = bands[0]?.values.length ?? 0;
+
+  const other: RibbonBand = {
+    chartRoot: RIBBON_OTHER_ROOT,
+    label: `${rest.length} other accounts`,
+    values: Array.from({ length: monthCount }, (_, i) =>
+      rest.reduce((sum, b) => sum + (b.values[i] ?? 0), 0)
+    ),
+    // The aggregate depletes only when every account inside it has.
+    depletionMonthIndex: rest.every((b) => b.depletionMonthIndex !== null)
+      ? Math.max(...rest.map((b) => b.depletionMonthIndex!))
+      : null,
+    hasCurrentPersonnel: rest.some((b) => b.hasCurrentPersonnel),
+  };
+
+  return [...named, other];
+}
+
 /**
  * Stacked per-account depletion across the Dashboard's selected scope. Reuses
  * simulateProjections (the only canonical month-by-month forward-projection
