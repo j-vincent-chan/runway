@@ -10,6 +10,7 @@ import {
 import {
   buildFundingMixForEmployees,
   buildPersonnelCostTrend,
+  buildPersonnelGroupBreakdown,
   flagAnomalousMonths,
   UNATTRIBUTED_MIX_KEY,
   type PersonnelCostTrendPoint,
@@ -450,5 +451,49 @@ describe("flagAnomalousMonths", () => {
   it("does not flag anything when the reference average is non-positive", () => {
     const monthly = [point("2026-01", 100), point("2026-02", 100), point("2026-03", 100)];
     expect(flagAnomalousMonths(monthly, 0).size).toBe(0);
+  });
+});
+
+describe("buildPersonnelGroupBreakdown ordering", () => {
+  const month = "2026-06";
+  const settings: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    personnelGroups: [
+      { id: "alpha", label: "Alpha", chartColor: "var(--accent)" },
+      { id: "beta", label: "Beta", chartColor: "var(--accent)" },
+      { id: "gamma", label: "Gamma", chartColor: "var(--accent)" },
+    ],
+    // Alpha: one person, most expensive. Beta: three people, cheapest total.
+    employeePersonnelTypes: { e1: "alpha", e2: "beta", e3: "beta", e4: "beta", e5: "gamma" },
+  };
+  const costs: MonthlyCostRecord[] = [
+    costRow("c1", "e1", month, 9000),
+    costRow("c2", "e2", month, 500),
+    costRow("c3", "e3", month, 500),
+    costRow("c4", "e4", month, 500),
+    costRow("c5", "e5", month, 4000),
+  ];
+  const employees = ["e1", "e2", "e3", "e4", "e5"].map((id) => ({ id }));
+
+  it("orders by cost descending, not by headcount", () => {
+    const rows = buildPersonnelGroupBreakdown(employees, month, costs, settings);
+    expect(rows.map((r) => r.label)).toEqual(["Alpha", "Gamma", "Beta"]);
+    // Beta has the most people but the least cost, and still sorts last —
+    // one order, so a team keeps its position across the count and cost views.
+    expect(rows.map((r) => r.count)).toEqual([1, 1, 3]);
+  });
+
+  it("breaks cost ties by label so the order is stable across renders", () => {
+    const tied: MonthlyCostRecord[] = [
+      costRow("t1", "e1", month, 1000),
+      costRow("t2", "e5", month, 1000),
+    ];
+    const rows = buildPersonnelGroupBreakdown(
+      [{ id: "e1" }, { id: "e5" }],
+      month,
+      tied,
+      settings
+    );
+    expect(rows.map((r) => r.label)).toEqual(["Alpha", "Gamma"]);
   });
 });

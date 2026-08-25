@@ -249,7 +249,12 @@ export function buildFundingExposureMatrix(args: {
       }));
       return { groupKey: g.key, groupLabel: g.label, cells, total };
     })
-    .filter((row) => row.total > 0);
+    .filter((row) => row.total > 0)
+    // Cost descending, matching buildPersonnelGroupBreakdown, so a team sits in
+    // the same position here as in the charts and lists above. `total` is the
+    // same monthly cost those rank on — buildFundingMixForEmployees always sums
+    // to calculateMonthlyCost for the same employees and month.
+    .sort((a, b) => b.total - a.total || a.groupLabel.localeCompare(b.groupLabel));
 
   return {
     categories: categories.map((c) => ({ key: c.key, label: c.label, color: c.color })),

@@ -346,7 +346,17 @@ export function buildPersonnelGroupBreakdown(
     rows.set(key, prev);
   }
 
-  return [...rows.values()].filter((r) => r.count > 0 || r.cost > 0);
+  /**
+   * Sorted once, by cost descending, and every consumer holds this order —
+   * the two charts, the two lists beneath them, and the exposure matrix.
+   * Sorting each display by its own value put a team in a different position
+   * in each of the four, so the eye could not track one across them; rank
+   * differences are only readable as position differences if position means
+   * the same thing everywhere. Ties break by label so the order is stable.
+   */
+  return [...rows.values()]
+    .filter((r) => r.count > 0 || r.cost > 0)
+    .sort((a, b) => b.cost - a.cost || a.label.localeCompare(b.label));
 }
 
 export function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {

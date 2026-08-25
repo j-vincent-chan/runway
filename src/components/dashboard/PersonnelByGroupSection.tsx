@@ -144,8 +144,10 @@ export function PersonnelByGroupSection({
   planningMonth: string;
 }) {
   const monthLabel = formatMonthDisplay(planningMonth);
-  const countRows = [...groupBreakdown].filter((g) => g.count > 0).sort((a, b) => b.count - a.count);
-  const costRows = [...groupBreakdown].filter((g) => g.cost > 0).sort((a, b) => b.cost - a.cost);
+  // Filtered, never re-sorted: buildPersonnelGroupBreakdown already ordered
+  // these by cost descending, and both panels hold that one order.
+  const countRows = groupBreakdown.filter((g) => g.count > 0);
+  const costRows = groupBreakdown.filter((g) => g.cost > 0);
   const totalCount = countRows.reduce((s, g) => s + g.count, 0);
   const totalCost = costRows.reduce((s, g) => s + g.cost, 0);
 
