@@ -62,55 +62,64 @@ function buildChartData(
 }
 
 /**
- * One entry per band: the account, and the month it runs dry.
+ * One entry per band: the account, when it runs dry, and — only for the ones
+ * that do — the point on the chart to mark it.
  *
- * These were in-chart labels first, which is what the design system asks for.
- * On real data five of six bands deplete within a few months of each other, so
- * their labels landed on top of one another — ten overlapping pairs at every
+ * The text was in-chart first, which is what the design system asks for. On
+ * real data five of six bands deplete within a few months of each other, so
+ * the labels landed on top of one another: ten overlapping pairs at every
  * scope. Direct labelling is genuinely impossible here, which is the condition
- * under which an ordered list is the sanctioned fallback. Listing them in stack
- * order keeps the mapping to the chart, which a run-on legend never had.
+ * under which an ordered list is the sanctioned fallback.
+ *
+ * What stays on the chart is the mark, not the name — a dot at each zero
+ * crossing, so "when" is still read directly off the axis. A band that never
+ * runs dry has no crossing to mark, hence `dryPoint: null`.
  */
-function directLabels(
+function bandCallouts(
   months: string[],
   stackOrder: StackedBand[],
   byRoot: Map<string, RibbonBand>
-): { key: string; x: string; y: number; label: string; when: string; depleted: boolean }[] {
+): {
+  key: string;
+  label: string;
+  when: string;
+  depleted: boolean;
+  dryPoint: { x: string; y: number } | null;
+}[] {
   const lastIndex = months.length - 1;
-  const out: { key: string; x: string; y: number; label: string; when: string; depleted: boolean }[] = [];
 
-  for (const band of stackOrder) {
+  return stackOrder.flatMap((band) => {
     const source = byRoot.get(band.chartRoot);
-    if (!source) continue;
+    if (!source) return [];
+
     const depletionIdx = source.depletionMonthIndex;
-    const atIndex = depletionIdx !== null && depletionIdx <= lastIndex ? depletionIdx : lastIndex;
-
-    // Stack from the bottom up to this band: its own top edge at that month.
-    let below = 0;
-    for (const other of stackOrder) {
-      if (other.chartRoot === band.chartRoot) break;
-      below += byRoot.get(other.chartRoot)?.values[atIndex] ?? 0;
-    }
-    const own = source.values[atIndex] ?? 0;
     const depleted = depletionIdx !== null && depletionIdx <= lastIndex;
+    const many = band.chartRoot === RIBBON_OTHER_ROOT;
 
-    out.push({
+    let dryPoint: { x: string; y: number } | null = null;
+    if (depleted) {
+      // The band's own top edge at that month: everything stacked beneath it.
+      // Its own value is zero there, which is what "runs dry" means.
+      let below = 0;
+      for (const other of stackOrder) {
+        if (other.chartRoot === band.chartRoot) break;
+        below += byRoot.get(other.chartRoot)?.values[depletionIdx!] ?? 0;
+      }
+      dryPoint = { x: monthLabelShort(months[depletionIdx!]!), y: below };
+    }
+
+    return [{
       key: band.chartRoot,
-      x: monthLabelShort(months[atIndex]!),
-      y: depleted ? below : below + own / 2,
       label: band.label,
-      // The aggregate band names many accounts, so the verb has to agree with
-      // it as well as with a single account.
-      when: (() => {
-        const many = band.chartRoot === RIBBON_OTHER_ROOT;
-        return depleted
-          ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[atIndex]!)}`
-          : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`;
-      })(),
+      // The aggregate names many accounts, so the verb has to agree with it as
+      // well as with a single account.
+      when: depleted
+        ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[depletionIdx!]!)}`
+        : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`,
       depleted,
-    });
-  }
-  return out;
+      dryPoint,
+    }];
+  });
 }
 
 function RibbonTooltip({
@@ -187,7 +196,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   const byRoot = new Map(drawnBands.map((b) => [b.chartRoot, b]));
   const chartData = buildChartData(drawnBands, ribbon.months, ribbon.uncertaintyStartIndex, stackOrder);
   const maxTotal = Math.max(...totalByMonth, 1);
-  const labels = directLabels(ribbon.months, stackOrder, byRoot);
+  const callouts = bandCallouts(ribbon.months, stackOrder, byRoot);
 
   const scopeCaption = noCurrentPersonnel
     ? "No account currently has active personnel funding, so all accounts are shown."
@@ -304,13 +313,13 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                   }}
                 />
               )}
-            {labels
-              .filter((entry) => entry.depleted)
+            {callouts
+              .filter((entry) => entry.dryPoint !== null)
               .map((entry) => (
                 <ReferenceDot
                   key={`dry-${entry.key}`}
-                  x={entry.x}
-                  y={entry.y}
+                  x={entry.dryPoint!.x}
+                  y={entry.dryPoint!.y}
                   r={3.5}
                   fill="var(--critical)"
                   stroke="var(--surface)"
@@ -342,7 +351,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
       {/* Stack order, top band first, so a row maps onto the band above it.
           The swatch carries the same opacity the band is drawn at. */}
       <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-        {[...labels].reverse().map((entry) => {
+        {[...callouts].reverse().map((entry) => {
           const band = stackOrder.find((b) => b.chartRoot === entry.key);
           return (
             <li key={entry.key} className="type-row flex items-baseline gap-2 text-ink-2">
