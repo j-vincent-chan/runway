@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
@@ -67,7 +67,7 @@ export default function RunwayPage() {
     return buildSharedAccountBurnIndex(snapshot, workingPlan, fundingSources, settings);
   }, [snapshot, workingPlan, fundingSources, settings]);
 
-  const summaries = useMemo(() => {
+  const naturalOrder = useMemo(() => {
     if (!snapshot) return [];
     const rows = filterEmployeesByPersonnelGroups(
       filterEmployeesForPlanning(snapshot.employees, settings),
@@ -101,6 +101,41 @@ export default function RunwayPage() {
     revealHiddenForEmployees,
     employeeSort,
   ]);
+
+  /**
+   * Hiding an account changes that person's blended runway, which under the
+   * Urgency sort moves their row mid-click — so hiding a second account means
+   * hunting for it again. The order is captured once and held while you work,
+   * and re-taken only on an explicit change: a different sort, a new import,
+   * or a page refresh. Rows that appear later fall to the end rather than
+   * pushing existing ones around.
+   */
+  const [frozenOrder, setFrozenOrder] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    setFrozenOrder(naturalOrder.map((s) => s.employee.id));
+    // naturalOrder is deliberately not a dependency: re-capturing whenever it
+    // changes would defeat the freeze, since hiding an account changes it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [employeeSort, snapshot?.id]);
+
+  const summaries = useMemo(() => {
+    if (!frozenOrder) return naturalOrder;
+    const rank = new Map(frozenOrder.map((id, i) => [id, i]));
+    return [...naturalOrder].sort(
+      (a, b) =>
+        (rank.get(a.employee.id) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.employee.id) ?? Number.MAX_SAFE_INTEGER)
+    );
+  }, [naturalOrder, frozenOrder]);
+
+  /** True once the held order no longer matches what the sort would produce. */
+  const orderIsHeld = useMemo(
+    () =>
+      summaries.length > 1 &&
+      summaries.some((s, i) => s.employee.id !== naturalOrder[i]?.employee.id),
+    [summaries, naturalOrder]
+  );
 
   return (
     <>
@@ -153,6 +188,16 @@ export default function RunwayPage() {
                     onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
                   />
                   <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+                  {orderIsHeld && (
+                    <button
+                      type="button"
+                      onClick={() => setFrozenOrder(naturalOrder.map((s) => s.employee.id))}
+                      title="Rows keep their positions while you hide accounts, so a hidden row's neighbours stay put."
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-[#12626e]"
+                    >
+                      Order held · re-sort now
+                    </button>
+                  )}
                 </div>
                 {totalHiddenFunds > 0 && (
                   <button
