@@ -341,3 +341,50 @@ describe("label collisions", () => {
     for (const band of ribbon.bands) expect(band.label).toBe(band.chartRoot);
   });
 });
+
+describe("a band for an account marked not-my-account", () => {
+  const key = "e1|f1";
+  const MONTHS = ["2026-06", "2026-07", "2026-08"];
+
+  function ribbonWith(patch: Partial<AppSettings>) {
+    return buildRunwayRibbon({
+      snapshot: snapshot(MONTHS),
+      workingPlan: null,
+      settings: settings(patch),
+      // $900k on file — far more than any estimate, so we can see which is used.
+      portfolio: portfolio(900_000),
+      horizonMonths: 12,
+      now: NOW,
+    });
+  }
+
+  it("opens at the estimate its end date implies, not the balance on file", () => {
+    const ribbon = ribbonWith({
+      runwayAssumedOkFunds: [key],
+      runwayAssumedEndDates: { [key]: "2026-12-31" },
+    });
+    const band = ribbon.bands[0]!;
+    expect(band.values[0]!).toBeGreaterThan(0);
+    expect(band.values[0]!).toBeLessThan(900_000);
+  });
+
+  it("draws down and runs out, rather than sitting flat forever", () => {
+    // The old behaviour opened at the real balance and skipped the burn, so
+    // the band never declined — infinite runway on the chart.
+    const ribbon = ribbonWith({
+      runwayAssumedOkFunds: [key],
+      runwayAssumedEndDates: { [key]: "2026-12-31" },
+    });
+    const band = ribbon.bands[0]!;
+    expect(band.values[band.values.length - 1]!).toBeLessThan(band.values[0]!);
+    expect(band.depletionMonthIndex).not.toBeNull();
+  });
+
+  it("still opens at the real balance when it is not marked", () => {
+    // Month 0 already has one month of burn applied, so this is 900,000 less
+    // the $10k monthly cost — the point is that it is the balance on file and
+    // not the ~$60k the same account would estimate to.
+    const ribbon = ribbonWith({});
+    expect(ribbon.bands[0]!.values[0]!).toBeCloseTo(890_000, 0);
+  });
+});
