@@ -199,13 +199,16 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         anchors
       )}
       {sinceLastReport && <SinceLastReportPanel summary={sinceLastReport} />}
-      <RunwayRibbon ribbon={ribbon} />
       <PersonnelCostTrendCharts
         monthly={trend.monthly}
         monthlyProjected={trend.monthlyProjected}
         planningMonth={trend.planningMonth}
         activeRuleCount={settings.projectionRules?.length ?? 0}
       />
+      {/* Depletion sits below personnel cost until it is finished — it takes
+          more vertical space and currently says less. Move it back up once it
+          carries a today rule, zero-crossing labels, and per-account bands. */}
+      <RunwayRibbon ribbon={ribbon} />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}
         planningMonth={trend.planningMonth}
