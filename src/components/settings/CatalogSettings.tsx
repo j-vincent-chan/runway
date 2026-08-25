@@ -9,7 +9,11 @@ import {
   getPersonnelTypeMeta,
 } from "@/lib/employees/personnelType";
 import { getFundingSourceTypes, getAccountCategoryMeta } from "@/lib/funding/accountCategory";
-import { nextCatalogStyle, slugifyCatalogId } from "@/lib/catalog/defaults";
+import {
+  nextCatalogStyle,
+  slugifyCatalogId,
+  UNDELETABLE_ACCOUNT_GROUP_IDS,
+} from "@/lib/catalog/defaults";
 import type { FundingSourceTypeDef, PersonnelGroupDef, AccountGroupDef } from "@/types";
 import { cn } from "@/lib/utils/cn";
 import { getAccountGroups, getAccountGroupMeta } from "@/lib/net-position/accountGroup";
@@ -29,12 +33,15 @@ function CatalogRow({
   dotClass,
   onEdit,
   onDelete,
+  undeletableReason,
 }: {
   label: string;
   pillClass: string;
   dotClass: string;
   onEdit: () => void;
   onDelete: () => void;
+  /** When set, the delete control is replaced by this explanation. */
+  undeletableReason?: string;
 }) {
   return (
     <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
@@ -56,14 +63,20 @@ function CatalogRow({
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
-          title="Delete"
-          onClick={onDelete}
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {undeletableReason ? (
+          <span className="self-center text-[11.5px] text-slate-500" title={undeletableReason}>
+            Built in
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
     </li>
   );
@@ -314,6 +327,11 @@ export function AccountGroupsSettings() {
                   void deleteAccountGroupDef(g.id);
                 }
               }}
+              undeletableReason={
+                UNDELETABLE_ACCOUNT_GROUP_IDS.includes(g.id)
+                  ? "Accounts you don't control are marked with this group on Runway, Timeline and Projections, so it can't be deleted."
+                  : undefined
+              }
             />
           );
         })}

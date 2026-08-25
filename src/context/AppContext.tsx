@@ -72,7 +72,10 @@ import { migrateCategoryKeys } from "@/lib/funding/accountCategory";
 import {
   migrateAssumedOkToAccountGroups,
 } from "@/lib/net-position/accountGroup";
-import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
+import {
+  NOT_MY_ACCOUNTS_GROUP_ID,
+  UNDELETABLE_ACCOUNT_GROUP_IDS,
+} from "@/lib/catalog/defaults";
 import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/assumedEndDate";
 import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import {
@@ -1304,6 +1307,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteAccountGroupDef = useCallback((id: string) => {
+    // Guarded here as well as in the UI: accounts carry this group to mean
+    // "not mine" on Runway, Timeline and Projections, so removing it would
+    // strand every marked account.
+    if (UNDELETABLE_ACCOUNT_GROUP_IDS.includes(id)) return;
     setSettings((prev) => {
       const groups = (prev.accountGroups ?? []).filter((g) => g.id !== id);
       const accountGroupByBalanceKey = { ...(prev.accountGroupByBalanceKey ?? {}) };
@@ -1321,9 +1328,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const key = normalizeAccountBalanceKey(accountKey);
       setSettings((prev) => {
         const map = { ...(prev.accountGroupByBalanceKey ?? {}) };
+        const wasNotMine = map[key] === NOT_MY_ACCOUNTS_GROUP_ID;
         if (groupId === null) delete map[key];
         else map[key] = groupId;
-        return { ...prev, accountGroupByBalanceKey: map };
+
+        /**
+         * Assigning the group here is the same act as the shield on Runway or
+         * Timeline, so it must leave the account in the same state — including
+         * the horizon. Without this, marking from Settings produced an account
+         * with no end date until the next reload backfilled one, and in the
+         * meantime it fell back to its real balance.
+         */
+        const isNowNotMine = groupId === NOT_MY_ACCOUNTS_GROUP_ID;
+        if (!wasNotMine && !isNowNotMine) {
+          return { ...prev, accountGroupByBalanceKey: map };
+        }
+        const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
+        if (isNowNotMine) {
+          if (!endDates[key]) {
+            endDates[key] = defaultAssumedEndDate(
+              prev.fiscalYearStartMonth,
+              getProjectionOriginMonth()
+            );
+          }
+        } else {
+          delete endDates[key];
+        }
+        return { ...prev, accountGroupByBalanceKey: map, runwayAssumedEndDates: endDates };
       });
     },
     []

@@ -18,6 +18,9 @@ import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { getEmployeesOnFundingSource } from "@/lib/funding/accountEmployees";
 import { EmployeeAvatarStack } from "@/components/employees/EmployeeAvatarStack";
 import { cn } from "@/lib/utils/cn";
+import { AccountGroupSelect } from "@/components/funding/AccountGroupSelect";
+import { getAccountGroupForBalanceKey } from "@/lib/net-position/accountGroup";
+import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
 import { plannedToFundingSource, unmatchedPlannedSources } from "@/lib/projections/sources";
 
 /** Accounts table — used inside Settings (and legacy /accounts redirect). */
@@ -33,6 +36,7 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
     portfolioTitlesByChartstring,
     updateFundingSourceAlias,
     setFundingSourceCategory,
+    setAccountGroupForBalanceKey,
     updateSettings,
   } = useApp();
 
@@ -97,6 +101,7 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
               <th className="min-w-[14rem] px-3 py-2">Account alias</th>
               <th className="px-3 py-2">Chartstring</th>
               <th className="min-w-[11.5rem] px-3 py-2">Funding source</th>
+              <th className="min-w-[11rem] px-3 py-2">Account group</th>
               <th className="min-w-[6rem] px-3 py-2 text-center">Employees</th>
               <th className="px-3 py-2 text-right">Current net balance</th>
               <th className="px-3 py-2 text-right">Current monthly burden</th>
@@ -111,6 +116,10 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
               const aliasEntry = getAliasEntry(settings.fundingSourceAliases, fs);
               const custom = isPlanned ? fs.alias : aliasEntry?.alias;
               const category = getFundingSourceCategory(settings, fs);
+              const accountRoot =
+                chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
+                (fs.accountString ?? fs.rawName);
+              const accountGroupId = getAccountGroupForBalanceKey(settings, accountRoot);
               const netBalance = isPlanned
                 ? (settings.plannedFundingSources ?? []).find((p) => p.id === fs.id)?.openingBalance
                 : getFundingSourceNetBalance(fs, mergedPortfolioBalances);
@@ -156,6 +165,14 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
                     <AccountCategorySelect
                       value={category}
                       onChange={(c) => setFundingSourceCategory(fs.id, c)}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    {/* Assigning "Not my accounts" here is the same action as the
+                        shield on Runway and Timeline — one store, three doors. */}
+                    <AccountGroupSelect
+                      value={accountGroupId}
+                      onChange={(groupId) => setAccountGroupForBalanceKey(accountRoot, groupId)}
                     />
                   </td>
                   <td className="px-3 py-2">
