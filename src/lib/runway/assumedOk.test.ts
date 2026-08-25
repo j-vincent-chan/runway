@@ -56,11 +56,15 @@ function portfolio(balance = 900_000): Map<string, MergedPortfolioBalance> {
   ]);
 }
 
-function runFor(settings: AppSettings) {
+/** Today is two months past the payroll month, which is the normal case. */
+const TODAY = "2026-08";
+
+function runFor(settings: AppSettings, estimateOriginMonth = TODAY) {
   const snap = snapshot();
   const index = buildSharedAccountBurnIndex(snap, null, snap.fundingSources, settings);
   return computeEmployeeRunway(
-    emp(), snap, null, snap.fundingSources, settings, portfolio(), index, { revealHidden: false }
+    emp(), snap, null, snap.fundingSources, settings, portfolio(), index,
+    { revealHidden: false, estimateOriginMonth }
   );
 }
 
@@ -75,7 +79,7 @@ describe("an account marked not-my-account", () => {
       runwayAssumedEndDates: { [key]: endDate },
     });
 
-    const months = monthsUntilAssumedEnd(MONTH, endDate)!;
+    const months = monthsUntilAssumedEnd(TODAY, endDate)!;
     // burn x months remaining — deliberately not the $900,000 on file, which
     // is restricted or rolled into a parent account we cannot see.
     expect(summary.totalBalance).toBeCloseTo(MONTHLY_COST * months, 0);
@@ -95,6 +99,29 @@ describe("an account marked not-my-account", () => {
     });
     expect(summary.totalMonthlyBurn).toBeGreaterThan(0);
     expect(summary.blendedMonthsRunway).not.toBeNull();
+  });
+
+  it("measures the estimate from today, not the payroll month", () => {
+    // The payroll month can be well behind today. Measuring from it would
+    // count money already spent as still available — here two extra months
+    // of burn, on an account whose whole point is that it is not ours.
+    const patch = {
+      ...DEFAULT_SETTINGS,
+      runwayAssumedOkFunds: [key],
+      runwayAssumedEndDates: { [key]: "2026-12-31" },
+    };
+    const fromToday = runFor(patch, TODAY);
+    const fromPayrollMonth = runFor(patch, MONTH);
+
+    expect(fromToday.totalBalance).toBeLessThan(fromPayrollMonth.totalBalance);
+
+    // The gap is exactly the burn over the months between the two origins.
+    // Not a round two months: monthsUntilAssumedEnd works in days / 30.4375,
+    // so Jun 30 -> Aug 31 is 2.04 months, and asserting "2" would be wrong.
+    const extraMonths =
+      monthsUntilAssumedEnd(MONTH, "2026-12-31")! - monthsUntilAssumedEnd(TODAY, "2026-12-31")!;
+    const gap = fromPayrollMonth.totalBalance - fromToday.totalBalance;
+    expect(gap).toBeCloseTo(MONTHLY_COST * extraMonths, 0);
   });
 
   it("uses the real balance when it is not marked", () => {

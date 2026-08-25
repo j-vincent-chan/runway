@@ -13,7 +13,6 @@ import {
   calculateMonthlyCost,
   getAllMonths,
   getAllocations,
-  getCurrentMonth,
 } from "@/lib/calculations";
 import {
   chartstringFundDeptProject,
@@ -378,7 +377,8 @@ function assumedOkOpeningEstimates(
   snapshot: PayrollReportSnapshot,
   workingPlan: WorkingPlan | null,
   sources: FundingSource[],
-  settings: AppSettings
+  settings: AppSettings,
+  estimateOriginMonth: string
 ): Map<string, number> {
   const marked = settings.runwayAssumedOkFunds ?? [];
   if (marked.length === 0) return new Map();
@@ -394,11 +394,10 @@ function assumedOkOpeningEstimates(
     if (!fs) continue;
     const endDate = getRunwayAssumedEndDate(settings, employeeId, fundingSourceId);
     if (!endDate) continue;
-    // Measured from the payroll planning month, the same origin
-    // computeEmployeeRunway uses. Using today's month instead produced a
-    // different estimate for the same account than the Runway page and
-    // Available Payroll show — two numbers for one balance.
-    const months = monthsUntilAssumedEnd(getCurrentMonth(snapshot), endDate);
+    // From today, matching computeEmployeeRunway's estimate origin. These two
+    // must use the same month or the chart and the Runway page report
+    // different balances for the same account.
+    const months = monthsUntilAssumedEnd(estimateOriginMonth, endDate);
     if (months === null) continue;
     const root = chartRoot(chartstringKeyForFundingSource(fs));
     monthsByRoot.set(root, Math.max(monthsByRoot.get(root) ?? 0, months));
@@ -493,7 +492,13 @@ export function simulateProjections(input: {
     ? mixFromAllocations(seedMonth, employees, allocations, idToKey)
     : new Map(employees.map((e) => [e.id, new Map<string, number>()]));
 
-  const assumedOkEstimates = assumedOkOpeningEstimates(snapshot, workingPlan, sources, settings);
+  const assumedOkEstimates = assumedOkOpeningEstimates(
+    snapshot,
+    workingPlan,
+    sources,
+    settings,
+    originMonth
+  );
   const remaining = openingBalances(sources, settings, portfolio, assumedOkEstimates);
   const conflicts: ProjectionConflict[] = [];
   const pendingOff: PendingOff[] = [];

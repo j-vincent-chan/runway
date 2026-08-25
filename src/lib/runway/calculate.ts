@@ -26,6 +26,7 @@ import {
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { resolveDisplayAlias } from "@/lib/funding/alias";
 import { hasPercentEffort } from "@/lib/utils/parse";
+import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 export type RunwayBalanceSource = "portfolio" | "manual" | "estimated" | "none";
 
@@ -422,10 +423,21 @@ export function computeEmployeeRunway(
   settings: AppSettings,
   portfolio: Map<string, MergedPortfolioBalance>,
   sharedBurnIndex: Map<string, SharedAccountBurn>,
-  options: { revealHidden: boolean }
+  options: { revealHidden: boolean; estimateOriginMonth?: string }
 ): EmployeeRunwaySummary {
   const allocations = getAllocations(snapshot, workingPlan);
   const currentMonth = getCurrentMonth(snapshot);
+  /**
+   * "How much is left on this account" is a question about now, so an assumed
+   * end date is measured from today's month — not the payroll planning month,
+   * which can be several months back and would count money already spent as
+   * still available.
+   *
+   * Only the estimate uses this. Burn and account activity still come from the
+   * planning month, because that is the last month with real payroll behind it.
+   * Injectable so tests do not depend on the wall clock.
+   */
+  const estimateOrigin = options.estimateOriginMonth ?? getProjectionOriginMonth();
   const activeSources = getRunwayFundingSources(
     employee.id,
     allocations,
@@ -465,7 +477,7 @@ export function computeEmployeeRunway(
       sharedMonthlyBurn > 0 ? bal.balance / sharedMonthlyBurn : null;
 
     if (isAssumedOk && assumedEndDate) {
-      const monthsFromEnd = monthsUntilAssumedEnd(currentMonth, assumedEndDate);
+      const monthsFromEnd = monthsUntilAssumedEnd(estimateOrigin, assumedEndDate);
       if (monthsFromEnd !== null && sharedMonthlyBurn > 0) {
         monthsRunway = monthsFromEnd;
         balance = estimateBalanceFromAssumedEnd(monthsFromEnd, sharedMonthlyBurn);
