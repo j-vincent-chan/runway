@@ -48,6 +48,8 @@ export interface RunwayRibbon {
   markers: RibbonMarker[];
   hiddenMarkerCount: number;
   uncertaintyStartIndex: number;
+  /** True when a band opens at an assumed end date's estimate, not a real balance. */
+  hasEstimatedOpening: boolean;
 }
 
 /**
@@ -305,6 +307,7 @@ export function buildRunwayRibbon({
     terminalIndex,
     markers,
     hiddenMarkerCount,
+    hasEstimatedOpening: (settings.runwayAssumedOkFunds ?? []).length > 0,
     uncertaintyStartIndex: Math.min(UNCERTAINTY_START_MONTH_INDEX, Math.max(months.length - 1, 0)),
   };
 }

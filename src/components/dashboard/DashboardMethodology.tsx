@@ -67,7 +67,10 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
         <Entry title="Funding depletion">
           Projects every account&rsquo;s balance forward across the scope you have selected
           above, by continuing each person&rsquo;s current funding mix, changing only where a projection
-          rule you&rsquo;ve set says otherwise. Bands floor at $0 — they show funded capacity
+          rule you&rsquo;ve set says otherwise. An account marked as not yours opens at the
+          amount its end date implies rather than its balance on file, and burns down to zero on
+          that date — a balance that is restricted, or running a deficit into a parent account,
+          is not money this payroll can spend. Bands floor at $0 — they show funded capacity
           remaining, not deficit depth. Only accounts with current personnel are shown by
           default; a toggle reveals the rest.
         </Entry>

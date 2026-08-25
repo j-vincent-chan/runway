@@ -30,7 +30,8 @@ export function AssumedOkFundingCell({
           className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] text-slate-800"
           value={endDate ?? ""}
           onChange={(e) => onEndDateChange(e.target.value || null)}
-          title="Optional — projects balance and runway"
+          required
+          title="Required — every account you don't control still needs a horizon, or it reads as never running out. Defaults to fiscal year end; clearing it restores that."
         />
       </div>
       {hasEstimate ? (
@@ -43,7 +44,7 @@ export function AssumedOkFundingCell({
         </p>
       ) : (
         <p className="mt-1.5 text-[10px] leading-snug text-slate-400">
-          {sharedMonthlyBurn > 0 ? "Add end date to estimate balance" : "No burn data"}
+          {sharedMonthlyBurn > 0 ? "Set an end date to estimate this balance" : "No burn data"}
         </p>
       )}
     </div>

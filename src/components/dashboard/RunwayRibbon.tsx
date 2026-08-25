@@ -244,6 +244,13 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
       <p className="type-mono mt-1 text-muted">
         Shows funded capacity remaining, floored at zero — not deficit depth. An account already
         overdrawn today still starts this chart at $0, not negative. {scopeCaption}
+        {ribbon.hasEstimatedOpening && (
+          <>
+            {" "}
+            An account you marked as not yours starts at the amount its end date implies — its
+            burn to that date — rather than the balance on file.
+          </>
+        )}
       </p>
 
       <div className="mt-2">
