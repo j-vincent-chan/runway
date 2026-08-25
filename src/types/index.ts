@@ -463,6 +463,13 @@ export interface AppSettings {
    */
   hiddenAccountBalanceKeys?: string[];
   /**
+   * Accounts the user has explicitly revealed even though every person
+   * charging them has the fund hidden on Runway/Timeline. Without this an
+   * account hidden everywhere on Runway could never be shown again from
+   * Settings, since the hide is derived rather than stored.
+   */
+  unhiddenAccountBalanceKeys?: string[];
+  /**
    * Account Balances page: MyPortfolio accounts opted in for watching
    * (fund-dept-project keys). Net Position accounts appear by default.
    */
@@ -521,6 +528,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   analyticsPanelHidden: false,
   freezeGridHeader: true,
   hiddenAccountBalanceKeys: [],
+  unhiddenAccountBalanceKeys: [],
   watchedPortfolioAccountKeys: [],
 };
 

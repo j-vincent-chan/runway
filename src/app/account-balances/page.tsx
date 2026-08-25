@@ -19,6 +19,7 @@ import {
   fundingSourcesForAccountKey,
   getEmployeesOnAccountKey,
   listPortfolioWatchCandidates,
+  normalizeAccountBalanceKey,
   resolveAccountBalanceAlias,
   sectionAccountBalanceItemsByGroup,
   syntheticFundingSourceForAccount,
@@ -605,6 +606,7 @@ export default function AccountBalancesPage() {
     portfolioImports,
     mergedPortfolioBalances,
     settings,
+    hiddenAccountKeys,
     updateSettings,
   } = useApp();
   const [query, setQuery] = useState("");
@@ -620,7 +622,7 @@ export default function AccountBalancesPage() {
       buildAccountBalanceView({
         netPositionImports,
         portfolioBalances: mergedPortfolioBalances,
-        hiddenKeys: settings.hiddenAccountBalanceKeys ?? [],
+        hiddenKeys: hiddenAccountKeys,
         watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
@@ -629,7 +631,7 @@ export default function AccountBalancesPage() {
     [
       netPositionImports,
       mergedPortfolioBalances,
-      settings.hiddenAccountBalanceKeys,
+      hiddenAccountKeys,
       settings.watchedPortfolioAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,
@@ -694,9 +696,33 @@ export default function AccountBalancesPage() {
   const hasAnySource = netPositionImports.length > 0 || portfolioImports.length > 0;
   const hasVisibleContent = allItems.length > 0;
 
+  /**
+   * Writes both lists, because an account can be hidden without ever being in
+   * hiddenAccountBalanceKeys — hiding the fund for every person on Runway
+   * hides it too, and that is derived. Revealing therefore has to be recorded
+   * explicitly or the derived rule would immediately hide it again.
+   */
   const toggleHidden = (accountKey: string) => {
+    const norm = normalizeAccountBalanceKey(accountKey);
+    const isHidden = hiddenAccountKeys.some((k) => normalizeAccountBalanceKey(k) === norm);
+    const explicitHidden = new Set<string>(
+      (settings.hiddenAccountBalanceKeys ?? []).map(normalizeAccountBalanceKey)
+    );
+    const revealed = new Set<string>(
+      (settings.unhiddenAccountBalanceKeys ?? []).map(normalizeAccountBalanceKey)
+    );
+
+    if (isHidden) {
+      explicitHidden.delete(norm);
+      revealed.add(norm);
+    } else {
+      explicitHidden.add(norm);
+      revealed.delete(norm);
+    }
+
     updateSettings({
-      hiddenAccountBalanceKeys: toggleKeyInList(settings.hiddenAccountBalanceKeys, accountKey),
+      hiddenAccountBalanceKeys: [...explicitHidden],
+      unhiddenAccountBalanceKeys: [...revealed],
     });
   };
 

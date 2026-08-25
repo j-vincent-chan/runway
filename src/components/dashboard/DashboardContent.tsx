@@ -31,6 +31,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     mergedPortfolioBalances,
     netPositionImports,
     payrollImports,
+    hiddenAccountKeys,
   } = useApp();
 
   const trend = useMemo(
@@ -61,7 +62,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       buildAccountBalanceView({
         netPositionImports,
         portfolioBalances: mergedPortfolioBalances,
-        hiddenKeys: settings.hiddenAccountBalanceKeys ?? [],
+        hiddenKeys: hiddenAccountKeys,
         watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
@@ -69,7 +70,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     [
       netPositionImports,
       mergedPortfolioBalances,
-      settings.hiddenAccountBalanceKeys,
+      hiddenAccountKeys,
       settings.watchedPortfolioAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,

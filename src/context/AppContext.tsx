@@ -26,9 +26,15 @@ import { loadStateForAccount, saveState } from "@/lib/storage/localStorage";
 import { readWorkbook, parsePayrollFundingWorkbook } from "@/lib/parsers/payrollFundingParser";
 import { getAllocations, applyAliases, getCurrentMonth } from "@/lib/calculations";
 import { refreshFundingSourceColors } from "@/lib/timeline/colors";
+import { isAccountActiveInMonth } from "@/lib/funding/employeeSources";
 import { stripProjectFromAlias, getProjectNumber } from "@/lib/funding/alias";
 import { fundingSourceKey, migrateAliasKeys } from "@/lib/funding/sourceKey";
-import { hiddenFundKey, withoutHiddenFundsForEmployee } from "@/lib/funding/visibility";
+import {
+  accountsHiddenForEveryone,
+  effectiveHiddenAccountKeys,
+  hiddenFundKey,
+  withoutHiddenFundsForEmployee,
+} from "@/lib/funding/visibility";
 import {
   mergePayrollSnapshots,
   mergeWorkingPlanAllocations,
@@ -44,7 +50,7 @@ import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
 import { mergeAccountBalances, mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
-import { findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
+import { chartstringFundDeptProject, findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
   runwayBalanceValuesMatch,
@@ -166,6 +172,8 @@ interface AppContextValue {
   netPositionImports: NetPositionReportImport[];
   positionSalaryImports: PositionSalaryReportImport[];
   mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
+  /** Explicit hides + accounts hidden on Runway for everyone, minus explicit reveals. */
+  hiddenAccountKeys: string[];
   parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
   importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removePortfolioImport: (id: string) => void;
@@ -421,6 +429,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => overlayPositionSalaryOnSnapshot(snapshot, positionSalaryImports),
     [snapshot, positionSalaryImports]
   );
+
+  /**
+   * Accounts hidden on Runway/Timeline for every person charging them, unioned
+   * with explicit hides and minus explicit reveals. Computed once here so
+   * Account Balances, Settings and the Dashboard cannot disagree about which
+   * accounts are hidden.
+   */
+  const hiddenAccountKeys = useMemo(() => {
+    if (!snapshot) return effectiveHiddenAccountKeys(settings, new Set<string>());
+    const currentMonth = getCurrentMonth(snapshot);
+    const currentAllocations = getAllocations(snapshot, workingPlan);
+    const pairs: { employeeId: string; fundingSourceId: string; accountKey: string }[] = [];
+    for (const emp of snapshot.employees) {
+      for (const fs of snapshot.fundingSources) {
+        if (!isAccountActiveInMonth(emp.id, fs.id, currentMonth, snapshot, currentAllocations)) continue;
+        const accountKey = normalizeAccountBalanceKey(
+          chartstringFundDeptProject(fs.accountString ?? fs.rawName) ?? fs.accountString ?? fs.rawName
+        );
+        pairs.push({ employeeId: emp.id, fundingSourceId: fs.id, accountKey });
+      }
+    }
+    return effectiveHiddenAccountKeys(settings, accountsHiddenForEveryone(pairs, settings));
+  }, [snapshot, workingPlan, settings]);
 
   const portfolioTitlesByChartstring = useMemo(() => {
     const map = new Map<string, string>();
@@ -1404,6 +1435,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     netPositionImports,
     positionSalaryImports,
     mergedPortfolioBalances,
+    hiddenAccountKeys,
     parsePortfolioFile,
     importPortfolioFiles,
     removePortfolioImport,

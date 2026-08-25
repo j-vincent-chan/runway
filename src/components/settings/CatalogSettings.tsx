@@ -362,15 +362,17 @@ export function NetPositionAccountsSettings() {
     netPositionImports,
     mergedPortfolioBalances,
     settings,
+    hiddenAccountKeys,
     setAccountGroupForBalanceKey,
   } = useApp();
+  const [showHidden, setShowHidden] = useState(false);
 
   const items = useMemo(
     () =>
       buildAccountBalanceView({
         netPositionImports,
         portfolioBalances: mergedPortfolioBalances,
-        hiddenKeys: [],
+        hiddenKeys: hiddenAccountKeys,
         watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
@@ -379,11 +381,22 @@ export function NetPositionAccountsSettings() {
     [
       netPositionImports,
       mergedPortfolioBalances,
+      hiddenAccountKeys,
       settings.watchedPortfolioAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,
     ]
   );
+
+  /**
+   * buildAccountBalanceView flags hidden accounts but does not drop them, so
+   * this panel listed every account regardless. Hiding an account — directly,
+   * or by hiding its fund for everyone on Runway/Timeline — now removes it
+   * here too, with a disclosure so it can still be found and revealed.
+   */
+  const visibleItems = items.filter((i) => !i.isHidden);
+  const hiddenItems = items.filter((i) => i.isHidden);
+  const shownItems = showHidden ? items : visibleItems;
 
   if (items.length === 0) {
     return (
@@ -420,6 +433,17 @@ export function NetPositionAccountsSettings() {
         </p>
       </div>
       <AccountGroupLegend />
+      {hiddenItems.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowHidden((v) => !v)}
+          className="text-sm font-medium text-[#0c2340] underline underline-offset-2 hover:text-[#12626e]"
+        >
+          {showHidden
+            ? `Hide ${hiddenItems.length} hidden ${hiddenItems.length === 1 ? "account" : "accounts"}`
+            : `Show ${hiddenItems.length} hidden ${hiddenItems.length === 1 ? "account" : "accounts"}`}
+        </button>
+      )}
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-[#0c2340] text-xs text-white">
@@ -431,7 +455,7 @@ export function NetPositionAccountsSettings() {
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
+            {shownItems.map((item) => (
               <tr key={item.accountKey} className="border-t hover:bg-slate-50/80">
                 <td className="px-3 py-2 font-medium text-[#0c2340]">{item.title}</td>
                 <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.displayKey}</td>
