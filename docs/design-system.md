@@ -61,7 +61,7 @@ Interface sans with true tabular figures, plus one monospace for data furniture 
 16 / 24   body
 14 / 20   table and row text
 11.5      mono labels, metadata
-10.5      uppercase captions   tracking 0.11em
+11.5      uppercase captions   tracking 0.11em — shares the metadata size; every caption in the app is meaningful (severity labels, stat labels, section headings), so it can't sit below the 11px floor
 ```
 
 Seven steps. Do not improvise an eighth.
@@ -99,6 +99,7 @@ Projections drive hiring decisions. The seams must show.
 - Always state a period's closure status. An in-progress period is labelled as such and treated as provisional everywhere.
 - Every delta states its comparison basis in words. Because data arrives by upload, the honest baseline is the previous report, named and dated — not "YoY".
 - Never compare periods of unequal length as if they were peers.
+- **A figure that caps a projected date at a display horizon must never sit next to an uncapped figure for the same underlying measure without the two agreeing.** If one view of a number is horizon-limited and another isn't, they will eventually show different dates for "when it runs out" and read as a contradiction, not two honest views. Either cap both, or replace the capped one with a named concrete fact (see Copy) so there's nothing for the reader to reconcile.
 - Preserve the provenance line: filename, exact import timestamp, sync state.
 - Preserve the post-award disclaimer. Show it once, unobstructed. No floating element may overlap it.
 - Financial calculations are never reimplemented or guessed. Reuse the canonical selector. If one does not exist, stop and ask.
@@ -127,4 +128,11 @@ Almost none. Hover states instant. A single 200ms fade on first paint is the max
 
 ## Vocabulary
 
-One name per concept across every surface — axis labels, legends, tables, and copy must agree. Where a group is called "PM & clinical coord." on one axis and "Projects" in the legend beneath it, that is a defect, not a style choice.
+One name per concept across every surface — axis labels, legends, tables, and copy must agree. Where a team is called "PM & clinical coord." on one axis and "Projects" in the legend beneath it, that is a defect, not a style choice.
+
+The settled names:
+
+- **Team** — the grouping a person belongs to. Every user-visible surface says "team", never "personnel group" or "personnel type"; those names survive only in code, settings keys, and the `personnel_groups` table. The org chart's own "Our Team" heading is a different feature and a known collision — rename it before adding any new copy there.
+- **Account** — one fund-dept-project. Never "chartstring" in user-visible copy.
+- **Available funds** — the balance on accounts that currently have payroll charged to them, never the sum of every account on file.
+- **Runway** — funds over burn, in months. The soonest single person or account to run dry is never called "runway"; it is an attention item, named with its person and date.

@@ -306,7 +306,7 @@ function emptyGroupRow(
       shortLabel: "Unassigned",
       count: 0,
       cost: 0,
-      color: "#94a3b8",
+      color: "var(--muted)",
     };
   }
   const meta = getPersonnelTypeMeta(key, settings);
@@ -350,8 +350,8 @@ export function buildPersonnelGroupBreakdown(
 }
 
 export function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
-  if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "#94a3b8" };
-  if (key === "uncategorized") return { name: "Uncategorized", color: "#94a3b8" };
+  if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "var(--muted)" };
+  if (key === "uncategorized") return { name: "Uncategorized", color: "var(--muted)" };
   const meta = getAccountCategoryMeta(key, settings);
   return { name: meta.label, color: meta.chartColor };
 }

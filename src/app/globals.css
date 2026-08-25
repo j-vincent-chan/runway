@@ -103,7 +103,12 @@ body {
 
 /*
  * Seven-step scale. Sizes are rem so they inherit the app's 110% UI scale;
- * the ratios are the specified 40 / 26 / 20 / 16 / 14 / 11.5 / 10.5.
+ * the ratios are the specified 40 / 26 / 20 / 16 / 14 / 11.5 / 10.5, except
+ * the caption step, raised to match the 11.5 mono step: every caption in the
+ * app carries meaning (severity labels, stat labels, section headings), and
+ * the accessibility rule "nothing meaningful lives at 11px" overrides the
+ * nominal 10.5 figure for that step. Case and tracking still distinguish it
+ * from plain mono metadata.
  */
 .type-verdict {
   font-size: 2.5rem;
@@ -142,8 +147,8 @@ body {
 
 .type-caption {
   font-family: var(--font-mono);
-  font-size: 0.65625rem;
-  line-height: 1rem;
+  font-size: 0.71875rem;
+  line-height: 1.125rem;
   text-transform: uppercase;
   letter-spacing: 0.11em;
 }
