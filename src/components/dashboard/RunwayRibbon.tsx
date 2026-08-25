@@ -1,18 +1,36 @@
 "use client";
 
 import { useState } from "react";
-import { Area, AreaChart, ReferenceDot, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, ReferenceDot, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import { HatchPattern, PROJECTED_PATTERN_ID, projectedFill } from "@/components/charts/HatchPattern";
 import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
-import { ribbonTotals, type RunwayRibbon as RunwayRibbonData } from "@/lib/dashboard/runwayRibbon";
+import {
+  collapseBands,
+  ribbonTotals,
+  RIBBON_OTHER_ROOT,
+  type RibbonBand,
+  type RunwayRibbon as RunwayRibbonData,
+} from "@/lib/dashboard/runwayRibbon";
 
 const CHART_HEIGHT = 260;
-/** Bottom (healthiest, never depletes) to top (soonest to deplete) — narrowing at the top is the depletion signal. */
-const MIN_BAND_OPACITY = 0.14;
-const MAX_BAND_OPACITY = 0.6;
+/**
+ * Bottom (healthiest, never depletes) to top (soonest to deplete) — narrowing
+ * at the top is the depletion signal. The floor is set by contrast, not taste:
+ * accent over surface reaches 3:1 at roughly 0.65 opacity, and every band is a
+ * graphical object carrying meaning, so none may sit below it. At six bands the
+ * ramp still steps ~0.07 apiece, which stays distinguishable.
+ */
+const MIN_BAND_OPACITY = 0.65;
+const MAX_BAND_OPACITY = 1;
+/** $2.8M above a million, $950k below — never "$2777k". */
+function formatAxisMoney(value: number): string {
+  const v = Number(value);
+  if (Math.abs(v) >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`;
+  return `$${Math.round(v / 1000)}k`;
+}
 
 type ChartRow = Record<string, number | string> & { label: string };
 
@@ -24,17 +42,75 @@ interface StackedBand {
   opacity: number;
 }
 
-function buildChartData(ribbon: RunwayRibbonData, stackOrder: StackedBand[]): ChartRow[] {
-  return ribbon.months.map((month, i) => {
+/** Reads from the collapsed band list, which contains an aggregate `ribbon.bands` does not. */
+function buildChartData(
+  bands: RibbonBand[],
+  months: string[],
+  uncertaintyStartIndex: number,
+  stackOrder: StackedBand[]
+): ChartRow[] {
+  const byRoot = new Map(bands.map((b) => [b.chartRoot, b]));
+  return months.map((month, i) => {
     const row: ChartRow = { label: monthLabelShort(month) };
     for (const band of stackOrder) {
-      const source = ribbon.bands.find((b) => b.chartRoot === band.chartRoot)!;
-      const value = source.values[i] ?? 0;
-      row[band.nearKey] = i < ribbon.uncertaintyStartIndex ? value : 0;
-      row[band.farKey] = i >= ribbon.uncertaintyStartIndex ? value : 0;
+      const value = byRoot.get(band.chartRoot)?.values[i] ?? 0;
+      row[band.nearKey] = i < uncertaintyStartIndex ? value : 0;
+      row[band.farKey] = i >= uncertaintyStartIndex ? value : 0;
     }
     return row;
   });
+}
+
+/**
+ * One entry per band: the account, and the month it runs dry.
+ *
+ * These were in-chart labels first, which is what the design system asks for.
+ * On real data five of six bands deplete within a few months of each other, so
+ * their labels landed on top of one another — ten overlapping pairs at every
+ * scope. Direct labelling is genuinely impossible here, which is the condition
+ * under which an ordered list is the sanctioned fallback. Listing them in stack
+ * order keeps the mapping to the chart, which a run-on legend never had.
+ */
+function directLabels(
+  months: string[],
+  stackOrder: StackedBand[],
+  byRoot: Map<string, RibbonBand>
+): { key: string; x: string; y: number; label: string; when: string; depleted: boolean }[] {
+  const lastIndex = months.length - 1;
+  const out: { key: string; x: string; y: number; label: string; when: string; depleted: boolean }[] = [];
+
+  for (const band of stackOrder) {
+    const source = byRoot.get(band.chartRoot);
+    if (!source) continue;
+    const depletionIdx = source.depletionMonthIndex;
+    const atIndex = depletionIdx !== null && depletionIdx <= lastIndex ? depletionIdx : lastIndex;
+
+    // Stack from the bottom up to this band: its own top edge at that month.
+    let below = 0;
+    for (const other of stackOrder) {
+      if (other.chartRoot === band.chartRoot) break;
+      below += byRoot.get(other.chartRoot)?.values[atIndex] ?? 0;
+    }
+    const own = source.values[atIndex] ?? 0;
+    const depleted = depletionIdx !== null && depletionIdx <= lastIndex;
+
+    out.push({
+      key: band.chartRoot,
+      x: monthLabelShort(months[atIndex]!),
+      y: depleted ? below : below + own / 2,
+      label: band.label,
+      // The aggregate band names many accounts, so the verb has to agree with
+      // it as well as with a single account.
+      when: (() => {
+        const many = band.chartRoot === RIBBON_OTHER_ROOT;
+        return depleted
+          ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[atIndex]!)}`
+          : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`;
+      })(),
+      depleted,
+    });
+  }
+  return out;
 }
 
 function RibbonTooltip({
@@ -83,12 +159,15 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   const noCurrentPersonnel = currentBands.length === 0;
   const showAll = includeAllAccounts || noCurrentPersonnel;
   const scopedBands = showAll ? ribbon.bands : currentBands;
-  const { totalByMonth, terminalIndex } = showAll
-    ? { totalByMonth: ribbon.totalByMonth, terminalIndex: ribbon.terminalIndex }
-    : ribbonTotals(scopedBands, ribbon.months.length);
+
+  // Five named accounts plus one aggregate. Totals are unchanged by this —
+  // collapseBands sums, it does not recompute — so the figures below still
+  // describe every scoped account, not just the ones drawn separately.
+  const drawnBands = collapseBands(scopedBands);
+  const { totalByMonth, terminalIndex } = ribbonTotals(drawnBands, ribbon.months.length);
 
   // Soonest-to-deplete last (top of stack), so the outer edge narrowing is the depletion signal.
-  const orderedBands = [...scopedBands].sort((a, b) => {
+  const orderedBands = [...drawnBands].sort((a, b) => {
     const aIdx = a.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
     const bIdx = b.depletionMonthIndex ?? Number.POSITIVE_INFINITY;
     return bIdx - aIdx;
@@ -105,13 +184,10 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         : MAX_BAND_OPACITY,
   }));
 
-  const chartData = buildChartData(ribbon, stackOrder);
+  const byRoot = new Map(drawnBands.map((b) => [b.chartRoot, b]));
+  const chartData = buildChartData(drawnBands, ribbon.months, ribbon.uncertaintyStartIndex, stackOrder);
   const maxTotal = Math.max(...totalByMonth, 1);
-
-  const namedBands = [...scopedBands]
-    .sort((a, b) => (b.values[0] ?? 0) - (a.values[0] ?? 0))
-    .slice(0, 5);
-  const hiddenBandCount = Math.max(0, scopedBands.length - namedBands.length);
+  const labels = directLabels(ribbon.months, stackOrder, byRoot);
 
   const scopeCaption = noCurrentPersonnel
     ? "No account currently has active personnel funding, so all accounts are shown."
@@ -177,8 +253,8 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
             <YAxis
               domain={[0, maxTotal]}
               tick={{ fontSize: 11, fill: "var(--muted)" }}
-              tickFormatter={(v) => `$${(Number(v) / 1000).toFixed(0)}k`}
-              width={52}
+              tickFormatter={formatAxisMoney}
+              width={56}
               tickCount={4}
               tickLine={false}
               axisLine={false}
@@ -211,6 +287,36 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                 isAnimationActive={false}
               />
             ))}
+            {/* Not a "today" rule — this chart begins at today and is projection
+                end to end. What is worth marking is where the projection stops
+                being near-term, which is also where the fill turns hatched. */}
+            {ribbon.uncertaintyStartIndex > 0 &&
+              ribbon.uncertaintyStartIndex < ribbon.months.length && (
+                <ReferenceLine
+                  x={monthLabelShort(ribbon.months[ribbon.uncertaintyStartIndex]!)}
+                  stroke="var(--rule-strong)"
+                  strokeDasharray="2 2"
+                  label={{
+                    value: "less certain beyond here",
+                    position: "insideTopRight",
+                    fill: "var(--muted)",
+                    fontSize: 11,
+                  }}
+                />
+              )}
+            {labels
+              .filter((entry) => entry.depleted)
+              .map((entry) => (
+                <ReferenceDot
+                  key={`dry-${entry.key}`}
+                  x={entry.x}
+                  y={entry.y}
+                  r={3.5}
+                  fill="var(--critical)"
+                  stroke="var(--surface)"
+                  strokeWidth={1.5}
+                />
+              ))}
             {ribbon.markers.map((marker) => (
               <ReferenceDot
                 key={`${marker.month}-${marker.employeeName}`}
@@ -233,16 +339,32 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         </ChartResponsive>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <p className="type-mono flex flex-wrap items-center gap-x-1.5 text-muted">
-          {namedBands.map((band, i) => (
-            <span key={band.chartRoot}>
-              {i > 0 && <span aria-hidden> · </span>}
-              {band.label}
-            </span>
-          ))}
-          {hiddenBandCount > 0 && <span> · +{hiddenBandCount} more</span>}
-        </p>
+      {/* Stack order, top band first, so a row maps onto the band above it.
+          The swatch carries the same opacity the band is drawn at. */}
+      <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+        {[...labels].reverse().map((entry) => {
+          const band = stackOrder.find((b) => b.chartRoot === entry.key);
+          return (
+            <li key={entry.key} className="type-row flex items-baseline gap-2 text-ink-2">
+              <span
+                aria-hidden
+                className="mt-1 inline-block h-2 w-2 shrink-0 rounded-xs bg-accent"
+                style={{ opacity: band?.opacity ?? 1 }}
+              />
+              <span className="min-w-0 flex-1 truncate text-ink" title={entry.label}>
+                {entry.label}
+              </span>
+              <span
+                className={cn("type-mono shrink-0", entry.depleted ? "text-critical" : "text-muted")}
+              >
+                {entry.when}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
         <p
           className={cn(
             "type-mono",
@@ -251,7 +373,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         >
           {terminalIndex !== null
             ? `Runs out ${monthLabelLong(ribbon.months[terminalIndex]!)}`
-            : "Funded through the full 24-month window"}
+            : `Funded through the full ${horizonMonths}-month window`}
         </p>
       </div>
     </section>
