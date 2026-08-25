@@ -495,7 +495,18 @@ export function computeEmployeeRunway(
     };
   });
 
-  const included = accounts.filter((a) => !a.isHidden && !a.isAssumedOk);
+  /**
+   * Assumed-OK accounts count, at the estimated balance their end date
+   * implies — `balance` above is already that estimate, not the real one.
+   * They used to be dropped entirely, which meant marking an account "not my
+   * account" removed its people's funding from the maths rather than valuing
+   * it differently.
+   *
+   * Hidden is a separate idea and still excluded: hidden means "don't show me
+   * this", assumed-OK means "count this differently". Collapsing the two into
+   * one filter is what produced the old behaviour.
+   */
+  const included = accounts.filter((a) => !a.isHidden);
   const seenRoots = new Set<string>();
   let totalBalance = 0;
   let totalMonthlyBurn = 0;

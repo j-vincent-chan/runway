@@ -150,7 +150,11 @@ export function buildRunwayContext(
       { revealHidden: false }
     );
 
-    const counted = summary.accounts.filter((a) => !a.isHidden && !a.isAssumedOk);
+    // Assumed-OK accounts count at their estimated balance, matching
+    // computeEmployeeRunway and fundedRoots. Excluding them here is what kept
+    // per-person runway, the attention queue and the verdict disagreeing with
+    // Available Payroll about the same account.
+    const counted = summary.accounts.filter((a) => !a.isHidden);
     monthsByEmployee.set(
       employee.id,
       counted.length > 0 ? summary.blendedMonthsRunway : null
