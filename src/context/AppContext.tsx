@@ -43,7 +43,7 @@ import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
-import { mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
+import { mergeAccountBalances, mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
 import { findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
@@ -410,9 +410,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     userId,
   ]);
 
+  // Both report types, not just MyPortfolio — Runway resolves every balance
+  // through this map, so anything missing here is treated as $0.
   const mergedPortfolioBalances = useMemo(
-    () => mergePortfolioBalances(portfolioImports),
-    [portfolioImports]
+    () => mergeAccountBalances(portfolioImports, netPositionImports),
+    [portfolioImports, netPositionImports]
   );
 
   const snapshotForUi = useMemo(
