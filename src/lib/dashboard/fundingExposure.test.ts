@@ -215,3 +215,67 @@ describe("buildFundingExposureMatrix", () => {
     expect(research.cells.find((c) => c.categoryKey === "startup")!.pct).toBeCloseTo((600 / 1100) * 100, 3);
   });
 });
+
+describe("categorization coverage", () => {
+  it("reports the unattributed share against total cost", () => {
+    const snap = snapshot([MONTH]);
+    const timeline = buildFundingExposureTimeline({
+      snapshot: snap,
+      workingPlan: null,
+      fundingSources,
+      settings,
+      portfolio: portfolio(),
+      horizonMonths: 1,
+    });
+
+    const total = timeline.totalByMonth[0]!;
+    const unattributed = timeline.bands.find((b) => b.key === UNATTRIBUTED_MIX_KEY)!.values[0]!;
+    expect(timeline.uncategorizedShare).toBeCloseTo(unattributed / total, 5);
+    // Well-categorized fixture: the share must stay below the point where the
+    // chart would suppress itself.
+    expect(timeline.uncategorizedShare).toBeLessThan(1);
+  });
+
+  it("reaches a share of 1 when no account carries a funding type", () => {
+    const snap = snapshot([MONTH]);
+    // Strip every account→type mapping; the accounts and costs are untouched.
+    const uncategorizedSettings = { ...settings, fundingSourceCategories: {} };
+    const timeline = buildFundingExposureTimeline({
+      snapshot: snap,
+      workingPlan: null,
+      fundingSources,
+      settings: uncategorizedSettings,
+      portfolio: portfolio(),
+      horizonMonths: 1,
+    });
+
+    expect(timeline.uncategorizedShare).toBe(1);
+    // Every dollar lands in a non-type bucket, so there is no mix to draw.
+    const realTypes = timeline.bands.filter(
+      (b) => b.key !== UNATTRIBUTED_MIX_KEY && b.key !== "uncategorized"
+    );
+    expect(realTypes.every((b) => b.values.every((v) => v === 0))).toBe(true);
+  });
+
+  it("carries the same coverage figure into the by-team matrix", () => {
+    const snap = snapshot([MONTH]);
+    const uncategorizedSettings = { ...settings, fundingSourceCategories: {} };
+    const timeline = buildFundingExposureTimeline({
+      snapshot: snap,
+      workingPlan: null,
+      fundingSources,
+      settings: uncategorizedSettings,
+      portfolio: portfolio(),
+      horizonMonths: 1,
+    });
+    const matrix = buildFundingExposureMatrix({
+      snapshot: snap,
+      fundingSources,
+      settings: uncategorizedSettings,
+      planningMonth: MONTH,
+      categories: timeline.bands,
+    });
+
+    expect(matrix.uncategorizedShare).toBe(1);
+  });
+});

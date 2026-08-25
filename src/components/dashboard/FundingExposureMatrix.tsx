@@ -1,3 +1,4 @@
+import { UNATTRIBUTED_THRESHOLD } from "@/lib/dashboard/attention";
 import { UNATTRIBUTED_MIX_KEY } from "@/lib/dashboard/metrics";
 import { formatCurrency } from "@/lib/utils/parse";
 import type { FundingExposureMatrix as FundingExposureMatrixData } from "@/lib/dashboard/fundingExposure";
@@ -5,9 +6,23 @@ import type { FundingExposureMatrix as FundingExposureMatrixData } from "@/lib/d
 export function FundingExposureMatrix({ matrix }: { matrix: FundingExposureMatrixData | null }) {
   if (!matrix || matrix.rows.length === 0) return null;
 
+  /**
+   * Nothing classified means every row would read "Uncategorized · 100%" — a
+   * table with one column and no information. The band above already explains
+   * why and links to the fix, so this renders nothing rather than repeating it.
+   */
+  if (matrix.uncategorizedShare >= 1) return null;
+
   return (
     <section aria-label="Funding exposure by team">
       <h2 className="type-caption text-muted">Funding exposure, by team</h2>
+      {matrix.uncategorizedShare > UNATTRIBUTED_THRESHOLD && (
+        <p className="type-row mt-1 text-caution">
+          {Math.round(matrix.uncategorizedShare * 100)}% of this month&rsquo;s cost has no
+          funding type. That share sits in the Uncategorized column below — it is a gap in the
+          data, not a kind of funding.
+        </p>
+      )}
       <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[640px] border-collapse">
           <thead>

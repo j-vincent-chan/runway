@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Area, AreaChart, ReferenceDot, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import {
@@ -10,6 +12,7 @@ import {
   projectedFill,
 } from "@/components/charts/HatchPattern";
 import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
+import { UNATTRIBUTED_THRESHOLD } from "@/lib/dashboard/attention";
 import { UNATTRIBUTED_MIX_KEY } from "@/lib/dashboard/metrics";
 import { formatCurrency } from "@/lib/utils/parse";
 import type { FundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
@@ -97,6 +100,32 @@ function ExposureTooltip({
 export function FundingExposureBand({ timeline }: { timeline: FundingExposureTimeline | null }) {
   if (!timeline || timeline.bands.length === 0) return null;
 
+  /**
+   * With nothing classified there is no mix — every band would be the same
+   * grey "Uncategorized" block. Drawing it anyway dresses a data gap up as a
+   * finding: a full chart, a legend, and percentages that all read 100%. Say
+   * what is actually true and point at the fix instead.
+   */
+  if (timeline.uncategorizedShare >= 1) {
+    return (
+      <section aria-label="Funding exposure over time">
+        <h2 className="type-caption text-muted">Funding exposure, by type</h2>
+        <p className="type-body mt-2 max-w-prose text-ink-2">
+          No account carries a funding type yet, so there is no mix to show here or in the
+          by-team breakdown beneath. Assign types to your accounts and both fill in — the split
+          is drawn from the same payroll costs already on this page.{" "}
+          <Link
+            href="/settings#accounts"
+            className="inline-flex items-center gap-1 font-medium text-accent underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Assign funding types
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        </p>
+      </section>
+    );
+  }
+
   const stackOrder: StackedBand[] = timeline.bands.map((band) => ({
     key: band.key,
     label: band.label,
@@ -114,6 +143,23 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
       <p className="type-mono mt-1 text-muted">
         Share of personnel cost by funding type, trailing 12 months actual and projected ahead.
       </p>
+      {/* Above the same threshold the attention queue flags a team on, the mix
+          covers only part of the money and must say so — otherwise the grey
+          block reads as a category rather than a gap. */}
+      {timeline.uncategorizedShare > UNATTRIBUTED_THRESHOLD && (
+        <p className="type-row mt-1 text-caution">
+          {Math.round(timeline.uncategorizedShare * 100)}% of personnel cost has no funding type,
+          so only{" "}
+          {Math.round((1 - timeline.uncategorizedShare) * 100)}% of this chart is a real mix — the
+          rest is the grey Uncategorized band.{" "}
+          <Link
+            href="/settings#accounts"
+            className="font-medium underline underline-offset-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          >
+            Assign funding types
+          </Link>
+        </p>
+      )}
 
       <div className="mt-2">
         <ChartResponsive height={CHART_HEIGHT}>

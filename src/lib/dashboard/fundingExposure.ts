@@ -30,6 +30,23 @@ export const EXPOSURE_HISTORY_WINDOW_MONTHS = 12;
 export const EXPOSURE_CATEGORY_CAP = 5;
 const OTHER_KEY = "other";
 
+/**
+ * Keys that mean "we could not say what this money is", as opposed to a real
+ * funding type. `uncategorized` is an account with no type assigned;
+ * `unattributed` is payroll charged to no account at all. Neither can carry a
+ * mix, so both count against coverage.
+ */
+const UNCLASSIFIED_KEYS = new Set<FundingChartKey>([UNATTRIBUTED_MIX_KEY, "uncategorized"]);
+
+/**
+ * Share of cost, 0–1, that carries no funding type. At 1 there is no mix to
+ * draw at all; above UNATTRIBUTED_THRESHOLD the mix that is drawn covers only
+ * a fraction of the money and must say so.
+ */
+function shareUnclassified(unclassified: number, total: number): number {
+  return total > 0 ? unclassified / total : 0;
+}
+
 export interface ExposureBand {
   key: FundingChartKey;
   label: string;
@@ -47,6 +64,8 @@ export interface FundingExposureTimeline {
   hiddenMarkerCount: number;
   /** Index of the first projected month. */
   uncertaintyStartIndex: number;
+  /** Share of cost across the window with no funding type, 0–1. */
+  uncategorizedShare: number;
 }
 
 export function buildFundingExposureTimeline(args: {
@@ -163,6 +182,11 @@ export function buildFundingExposureTimeline(args: {
 
   const { markers, hiddenMarkerCount } = buildMarkers(snapshot, settings, months);
 
+  const unclassifiedTotal = bands
+    .filter((b) => UNCLASSIFIED_KEYS.has(b.key))
+    .reduce((sum, b) => sum + b.values.reduce((a, v) => a + v, 0), 0);
+  const grandTotal = totalByMonth.reduce((a, v) => a + v, 0);
+
   return {
     months,
     bands,
@@ -170,6 +194,7 @@ export function buildFundingExposureTimeline(args: {
     markers,
     hiddenMarkerCount,
     uncertaintyStartIndex: actualMonths.length,
+    uncategorizedShare: shareUnclassified(unclassifiedTotal, grandTotal),
   };
 }
 
@@ -191,6 +216,8 @@ export interface ExposureMatrixRow {
 export interface FundingExposureMatrix {
   categories: { key: FundingChartKey; label: string; color: string }[];
   rows: ExposureMatrixRow[];
+  /** Share of the planning month's cost with no funding type, 0–1. */
+  uncategorizedShare: number;
 }
 
 /**
@@ -265,8 +292,16 @@ export function buildFundingExposureMatrix(args: {
     // to calculateMonthlyCost for the same employees and month.
     .sort((a, b) => b.total - a.total || a.groupLabel.localeCompare(b.groupLabel));
 
+  const unclassifiedTotal = rows.reduce(
+    (sum, row) =>
+      sum + row.cells.filter((c) => UNCLASSIFIED_KEYS.has(c.categoryKey)).reduce((a, c) => a + c.amount, 0),
+    0
+  );
+  const grandTotal = rows.reduce((sum, row) => sum + row.total, 0);
+
   return {
     categories: categories.map((c) => ({ key: c.key, label: c.label, color: c.color })),
     rows,
+    uncategorizedShare: shareUnclassified(unclassifiedTotal, grandTotal),
   };
 }
