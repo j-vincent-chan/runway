@@ -1,16 +1,19 @@
 import type { AppSettings } from "@/types";
-import { hiddenFundKey } from "@/lib/funding/visibility";
+import { normalizeChartstring } from "@/lib/funding/chartstring";
 import { roundCurrencyAmount } from "@/lib/utils/parse";
 import { differenceInCalendarDays, endOfMonth, format, isValid, parseISO } from "date-fns";
 import { fiscalYearEndMonth } from "@/lib/projections/horizon";
 
+/**
+ * End dates are keyed by account, not by person-and-fund. The account is the
+ * thing that ends; keying per person would give one account as many dates as
+ * it has people charging it.
+ */
 export function getRunwayAssumedEndDate(
   settings: AppSettings,
-  employeeId: string,
-  fundingSourceId: string
+  accountKey: string
 ): string | undefined {
-  const key = hiddenFundKey(employeeId, fundingSourceId);
-  return settings.runwayAssumedEndDates?.[key];
+  return settings.runwayAssumedEndDates?.[normalizeChartstring(accountKey)];
 }
 
 /**
@@ -60,7 +63,7 @@ export function estimateBalanceFromAssumedEnd(
 }
 
 /**
- * Give every already-marked account an end date it is missing.
+ * Give every account marked "not mine" an end date it is missing.
  *
  * Workspaces saved before the date became required can hold accounts marked
  * "not my account" with no horizon at all. Left alone they would keep reading
@@ -71,13 +74,15 @@ export function estimateBalanceFromAssumedEnd(
  * pointless settings write.
  */
 export function backfillAssumedEndDates(
-  assumedOkFunds: string[] | undefined,
+  notMyAccountKeys: string[],
   endDates: Record<string, string> | undefined,
   fiscalYearStartMonth: number,
   originMonth: string
 ): Record<string, string> {
   const current = { ...(endDates ?? {}) };
-  const missing = (assumedOkFunds ?? []).filter((key) => !current[key]);
+  const missing = notMyAccountKeys
+    .map(normalizeChartstring)
+    .filter((key) => !current[key]);
   if (missing.length === 0) return endDates ?? current;
 
   const fallback = defaultAssumedEndDate(fiscalYearStartMonth, originMonth);

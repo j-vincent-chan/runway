@@ -32,8 +32,8 @@ export function RunwayEmployeeSection({
   revealHidden: boolean;
   onRevealHidden: () => void;
   onToggleHidden: (fundingSourceId: string) => void;
-  onToggleAssumedOk: (fundingSourceId: string) => void;
-  onAssumedEndDateChange: (fundingSourceId: string, endDate: string | null) => void;
+  onToggleAssumedOk: (chartstring: string) => void;
+  onAssumedEndDateChange: (chartstring: string, endDate: string | null) => void;
   onBalanceChange: (chartstring: string, value: number | null) => void;
   onBurnChange: (fundingSourceId: string, percentEffort: number, monthlyBurn: number) => void;
   onBurnReset: (fundingSourceId: string) => void;
@@ -248,7 +248,7 @@ export function RunwayEmployeeSection({
                               ? "Apply runway to this account again"
                               : "Not my account — assume they'll be fine; skip runway"
                           }
-                          onClick={() => onToggleAssumedOk(acct.fundingSourceId)}
+                          onClick={() => onToggleAssumedOk(acct.chartstring)}
                         >
                           <ShieldCheck className="h-3.5 w-3.5" />
                         </button>
@@ -290,7 +290,7 @@ export function RunwayEmployeeSection({
                         hasEstimate={acct.balanceSource === "estimated"}
                         sharedMonthlyBurn={acct.sharedMonthlyBurn}
                         onEndDateChange={(d) =>
-                          onAssumedEndDateChange(acct.fundingSourceId, d)
+                          onAssumedEndDateChange(acct.chartstring, d)
                         }
                       />
                     ) : (

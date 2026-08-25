@@ -13,15 +13,6 @@ export function isEmployeeFundHidden(
   return (settings.hiddenEmployeeFunds ?? []).includes(key);
 }
 
-export function isRunwayFundAssumedOk(
-  settings: AppSettings,
-  employeeId: string,
-  fundingSourceId: string
-): boolean {
-  const key = hiddenFundKey(employeeId, fundingSourceId);
-  return (settings.runwayAssumedOkFunds ?? []).includes(key);
-}
-
 export function getEffectiveExpectedPercent(employee: Employee, settings: AppSettings): number {
   const scope = settings.employeePlanningScope?.[employee.id];
   return scope !== undefined ? scope : employee.appointmentPercent;

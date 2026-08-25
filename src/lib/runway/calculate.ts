@@ -17,7 +17,8 @@ import {
   normalizeChartstring,
 } from "@/lib/funding/chartstring";
 import { getRunwayFundingSources, isAccountActiveInMonth } from "@/lib/funding/employeeSources";
-import { isEmployeeFundHidden, isRunwayFundAssumedOk } from "@/lib/funding/visibility";
+import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
   estimateBalanceFromAssumedEnd,
   getRunwayAssumedEndDate,
@@ -468,8 +469,10 @@ export function computeEmployeeRunway(
     const shared = sharedBurnIndex.get(root);
     const sharedMonthlyBurn = shared?.combinedMonthlyBurn ?? burn.monthlyBurn;
     const sharedContributorCount = shared?.contributors.length ?? (burn.monthlyBurn > 0 ? 1 : 0);
-    const isAssumedOk = isRunwayFundAssumedOk(settings, employee.id, fs.id);
-    const assumedEndDate = getRunwayAssumedEndDate(settings, employee.id, fs.id);
+    // Both read the account, not this person's slice of it: "not my money" and
+    // "the account ends here" are facts about the account itself.
+    const isAssumedOk = isNotMyAccountKey(settings, root);
+    const assumedEndDate = getRunwayAssumedEndDate(settings, root);
 
     let balance = bal.balance;
     let balanceSource = bal.balanceSource;

@@ -7,6 +7,7 @@ import {
   type RibbonBand,
 } from "@/lib/dashboard/runwayRibbon";
 import { DEFAULT_SETTINGS } from "@/types";
+import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
 import type {
   AppSettings,
   Employee,
@@ -343,7 +344,11 @@ describe("label collisions", () => {
 });
 
 describe("a band for an account marked not-my-account", () => {
-  const key = "e1|f1";
+  const ACCOUNT_KEY = "7000-1-7030720";
+  const markedNotMine = (endDate: string) => ({
+    accountGroupByBalanceKey: { [ACCOUNT_KEY]: NOT_MY_ACCOUNTS_GROUP_ID },
+    runwayAssumedEndDates: { [ACCOUNT_KEY]: endDate },
+  });
   const MONTHS = ["2026-06", "2026-07", "2026-08"];
 
   function ribbonWith(patch: Partial<AppSettings>) {
@@ -359,10 +364,7 @@ describe("a band for an account marked not-my-account", () => {
   }
 
   it("opens at the estimate its end date implies, not the balance on file", () => {
-    const ribbon = ribbonWith({
-      runwayAssumedOkFunds: [key],
-      runwayAssumedEndDates: { [key]: "2026-12-31" },
-    });
+    const ribbon = ribbonWith(markedNotMine("2026-12-31"));
     const band = ribbon.bands[0]!;
     expect(band.values[0]!).toBeGreaterThan(0);
     expect(band.values[0]!).toBeLessThan(900_000);
@@ -371,10 +373,7 @@ describe("a band for an account marked not-my-account", () => {
   it("draws down and runs out, rather than sitting flat forever", () => {
     // The old behaviour opened at the real balance and skipped the burn, so
     // the band never declined — infinite runway on the chart.
-    const ribbon = ribbonWith({
-      runwayAssumedOkFunds: [key],
-      runwayAssumedEndDates: { [key]: "2026-12-31" },
-    });
+    const ribbon = ribbonWith(markedNotMine("2026-12-31"));
     const band = ribbon.bands[0]!;
     expect(band.values[band.values.length - 1]!).toBeLessThan(band.values[0]!);
     expect(band.depletionMonthIndex).not.toBeNull();

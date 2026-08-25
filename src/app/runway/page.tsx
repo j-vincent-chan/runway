@@ -37,7 +37,7 @@ export default function RunwayPage() {
     setRunwayBurnOverride,
     clearRunwayBurnOverride,
     toggleHiddenEmployeeFund,
-    toggleRunwayAssumedOkFund,
+    toggleNotMyAccount,
     setRunwayAssumedEndDate,
   } = useApp();
 
@@ -239,11 +239,9 @@ export default function RunwayPage() {
                     onToggleHidden={(fundingSourceId) =>
                       toggleHiddenEmployeeFund(summary.employee.id, fundingSourceId)
                     }
-                    onToggleAssumedOk={(fundingSourceId) =>
-                      toggleRunwayAssumedOkFund(summary.employee.id, fundingSourceId)
-                    }
-                    onAssumedEndDateChange={(fundingSourceId, endDate) =>
-                      setRunwayAssumedEndDate(summary.employee.id, fundingSourceId, endDate)
+                    onToggleAssumedOk={(chartstring) => toggleNotMyAccount(chartstring)}
+                    onAssumedEndDateChange={(chartstring, endDate) =>
+                      setRunwayAssumedEndDate(chartstring, endDate)
                     }
                     onBalanceChange={(chartstring, value) =>
                       setRunwayBalanceOverride(summary.employee.id, chartstring, value)

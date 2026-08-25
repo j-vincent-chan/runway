@@ -69,6 +69,10 @@ import {
   parseOfferLetterFile,
 } from "@/lib/employees/offerLetterParse";
 import { migrateCategoryKeys } from "@/lib/funding/accountCategory";
+import {
+  migrateAssumedOkToAccountGroups,
+} from "@/lib/net-position/accountGroup";
+import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
 import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/assumedEndDate";
 import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import {
@@ -137,12 +141,9 @@ interface AppContextValue {
   updateFundingSourceAlias: (fundingSourceId: string, aliasBase: string) => void;
   setFundingSourceCategory: (fundingSourceId: string, category: AccountCategory | null) => void;
   toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
-  toggleRunwayAssumedOkFund: (employeeId: string, fundingSourceId: string) => void;
-  setRunwayAssumedEndDate: (
-    employeeId: string,
-    fundingSourceId: string,
-    endDate: string | null
-  ) => void;
+  /** Mark or unmark an account as one you don't control, by chartstring. */
+  toggleNotMyAccount: (chartstring: string) => void;
+  setRunwayAssumedEndDate: (accountKey: string, endDate: string | null) => void;
   unhideEmployeeFunds: (employeeId: string) => void;
   unhideAllEmployeeFunds: () => void;
   setEmployeePlanningScope: (employeeId: string, percent: number | null) => void;
@@ -262,18 +263,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ...s.settings,
         fundingSourceAliases: normalizedAliases,
         fundingSourceCategories: normalizedCategories,
+        employeeProfiles: s.snapshot
+          ? rematchEmployeeProfiles(s.settings.employeeProfiles, s.snapshot.employees)
+          : { ...(s.settings.employeeProfiles ?? {}) },
+      };
+
+      // Order matters: lift any old per-person "not my account" marks onto
+      // their account first, then give every marked account a horizon. Running
+      // the backfill first would key dates against a store about to be retired.
+      settingsLocal = migrateAssumedOkToAccountGroups(settingsLocal, (fundingSourceId) => {
+        const fs = s.snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+        if (!fs) return null;
+        return chartstringFundDeptProject(fs.accountString ?? fs.rawName);
+      });
+      settingsLocal = {
+        ...settingsLocal,
         // Workspaces saved before the end date became required can hold
         // accounts marked "not my account" with no horizon; those would keep
         // reading as infinite runway until touched by hand.
         runwayAssumedEndDates: backfillAssumedEndDates(
-          s.settings.runwayAssumedOkFunds,
-          s.settings.runwayAssumedEndDates,
-          s.settings.fiscalYearStartMonth,
+          Object.entries(settingsLocal.accountGroupByBalanceKey ?? {})
+            .filter(([, groupId]) => groupId === NOT_MY_ACCOUNTS_GROUP_ID)
+            .map(([key]) => key),
+          settingsLocal.runwayAssumedEndDates,
+          settingsLocal.fiscalYearStartMonth,
           getProjectionOriginMonth()
         ),
-        employeeProfiles: s.snapshot
-          ? rematchEmployeeProfiles(s.settings.employeeProfiles, s.snapshot.employees)
-          : { ...(s.settings.employeeProfiles ?? {}) },
       };
 
       if (cancelled) return;
@@ -675,16 +690,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const toggleRunwayAssumedOkFund = useCallback((employeeId: string, fundingSourceId: string) => {
-    const key = hiddenFundKey(employeeId, fundingSourceId);
+  /**
+   * "Not my account" is a property of the account, so the shield writes the
+   * account group — the single place it is stored. Marking from Runway or the
+   * timeline and assigning the group in Settings are the same action.
+   */
+  const toggleNotMyAccount = useCallback((chartstring: string) => {
     setSettings((prev) => {
-      const assumed = new Set(prev.runwayAssumedOkFunds ?? []);
+      const root = chartstringFundDeptProject(chartstring) ?? chartstring;
+      const key = normalizeAccountBalanceKey(root);
+
+      const groups = { ...(prev.accountGroupByBalanceKey ?? {}) };
       const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
-      if (assumed.has(key)) {
-        assumed.delete(key);
+
+      if (groups[key] === NOT_MY_ACCOUNTS_GROUP_ID) {
+        delete groups[key];
         delete endDates[key];
       } else {
-        assumed.add(key);
+        groups[key] = NOT_MY_ACCOUNTS_GROUP_ID;
         // Marking an account always gives it a horizon. Without one it would
         // read as never running out, and there is no such thing as infinite
         // runway — fiscal year end is editable, but it is never absent.
@@ -695,23 +718,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
         }
       }
-      return {
-        ...prev,
-        runwayAssumedOkFunds: [...assumed],
-        runwayAssumedEndDates: endDates,
-      };
+      return { ...prev, accountGroupByBalanceKey: groups, runwayAssumedEndDates: endDates };
     });
   }, []);
 
   const setRunwayAssumedEndDate = useCallback(
-    (employeeId: string, fundingSourceId: string, endDate: string | null) => {
-      const key = hiddenFundKey(employeeId, fundingSourceId);
+    (accountKey: string, endDate: string | null) => {
+      const key = normalizeAccountBalanceKey(
+        chartstringFundDeptProject(accountKey) ?? accountKey
+      );
       setSettings((prev) => {
         const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
-        const stillAssumedOk = (prev.runwayAssumedOkFunds ?? []).includes(key);
+        const stillNotMine =
+          (prev.accountGroupByBalanceKey ?? {})[key] === NOT_MY_ACCOUNTS_GROUP_ID;
         if (endDate) {
           endDates[key] = endDate;
-        } else if (stillAssumedOk) {
+        } else if (stillNotMine) {
           // Clearing the field falls back to the default rather than emptying
           // it. The requirement is held here, not defended in the input.
           endDates[key] = defaultAssumedEndDate(
@@ -1440,7 +1462,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateFundingSourceAlias,
     setFundingSourceCategory,
     toggleHiddenEmployeeFund,
-    toggleRunwayAssumedOkFund,
+    toggleNotMyAccount,
     setRunwayAssumedEndDate,
     unhideEmployeeFunds,
     unhideAllEmployeeFunds,

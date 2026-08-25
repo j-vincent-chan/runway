@@ -25,6 +25,7 @@ import {
 } from "@/lib/funding/visibility";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { buildSharedAccountBurnIndex } from "@/lib/runway/calculate";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
   estimateBalanceFromAssumedEnd,
   getRunwayAssumedEndDate,
@@ -380,27 +381,21 @@ function assumedOkOpeningEstimates(
   settings: AppSettings,
   estimateOriginMonth: string
 ): Map<string, number> {
-  const marked = settings.runwayAssumedOkFunds ?? [];
-  if (marked.length === 0) return new Map();
-
   const burnIndex = buildSharedAccountBurnIndex(snapshot, workingPlan, sources, settings);
-  const byId = new Map(sources.map((fs) => [fs.id, fs]));
   const monthsByRoot = new Map<string, number>();
 
-  for (const markKey of marked) {
-    const [employeeId, fundingSourceId] = markKey.split("|");
-    if (!employeeId || !fundingSourceId) continue;
-    const fs = byId.get(fundingSourceId);
-    if (!fs) continue;
-    const endDate = getRunwayAssumedEndDate(settings, employeeId, fundingSourceId);
+  for (const fs of sources) {
+    const root = chartRoot(chartstringKeyForFundingSource(fs));
+    if (monthsByRoot.has(root)) continue;
+    if (!isNotMyAccountKey(settings, root)) continue;
+    const endDate = getRunwayAssumedEndDate(settings, root);
     if (!endDate) continue;
     // From today, matching computeEmployeeRunway's estimate origin. These two
     // must use the same month or the chart and the Runway page report
     // different balances for the same account.
     const months = monthsUntilAssumedEnd(estimateOriginMonth, endDate);
     if (months === null) continue;
-    const root = chartRoot(chartstringKeyForFundingSource(fs));
-    monthsByRoot.set(root, Math.max(monthsByRoot.get(root) ?? 0, months));
+    monthsByRoot.set(root, months);
   }
 
   const estimates = new Map<string, number>();

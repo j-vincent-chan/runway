@@ -5,6 +5,7 @@ import {
 } from "@/lib/runway/calculate";
 import { monthsUntilAssumedEnd } from "@/lib/runway/assumedEndDate";
 import { hiddenFundKey } from "@/lib/funding/visibility";
+import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
   AppSettings,
@@ -69,15 +70,17 @@ function runFor(settings: AppSettings, estimateOriginMonth = TODAY) {
 }
 
 describe("an account marked not-my-account", () => {
+  /** Hiding is still per person and fund; the not-mine mark is per account. */
   const key = hiddenFundKey("e1", "f1");
+  const ACCOUNT_KEY = "7000-1-7030720";
+  const markedNotMine = (endDate: string) => ({
+    accountGroupByBalanceKey: { [ACCOUNT_KEY]: NOT_MY_ACCOUNTS_GROUP_ID },
+    runwayAssumedEndDates: { [ACCOUNT_KEY]: endDate },
+  });
 
   it("counts at the estimate its end date implies, not its real balance", () => {
     const endDate = "2026-12-31";
-    const summary = runFor({
-      ...DEFAULT_SETTINGS,
-      runwayAssumedOkFunds: [key],
-      runwayAssumedEndDates: { [key]: endDate },
-    });
+    const summary = runFor({ ...DEFAULT_SETTINGS, ...markedNotMine(endDate) });
 
     const months = monthsUntilAssumedEnd(TODAY, endDate)!;
     // burn x months remaining — deliberately not the $900,000 on file, which
@@ -92,11 +95,7 @@ describe("an account marked not-my-account", () => {
     // Previously the only account being assumed-OK left this person with no
     // runway at all, so marking an account erased their funding rather than
     // valuing it differently.
-    const summary = runFor({
-      ...DEFAULT_SETTINGS,
-      runwayAssumedOkFunds: [key],
-      runwayAssumedEndDates: { [key]: "2026-12-31" },
-    });
+    const summary = runFor({ ...DEFAULT_SETTINGS, ...markedNotMine("2026-12-31") });
     expect(summary.totalMonthlyBurn).toBeGreaterThan(0);
     expect(summary.blendedMonthsRunway).not.toBeNull();
   });
@@ -105,11 +104,7 @@ describe("an account marked not-my-account", () => {
     // The payroll month can be well behind today. Measuring from it would
     // count money already spent as still available — here two extra months
     // of burn, on an account whose whole point is that it is not ours.
-    const patch = {
-      ...DEFAULT_SETTINGS,
-      runwayAssumedOkFunds: [key],
-      runwayAssumedEndDates: { [key]: "2026-12-31" },
-    };
+    const patch = { ...DEFAULT_SETTINGS, ...markedNotMine("2026-12-31") };
     const fromToday = runFor(patch, TODAY);
     const fromPayrollMonth = runFor(patch, MONTH);
 

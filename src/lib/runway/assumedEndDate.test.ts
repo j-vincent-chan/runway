@@ -32,23 +32,36 @@ describe("defaultAssumedEndDate", () => {
 });
 
 describe("backfillAssumedEndDates", () => {
+  const ACCOUNT = "4301-142062-136092l";
+
   it("fills a date for an account marked without one", () => {
-    const out = backfillAssumedEndDates(["e1|f1"], {}, 7, "2026-08");
-    expect(out["e1|f1"]).toBe("2027-06-30");
+    const out = backfillAssumedEndDates([ACCOUNT], {}, 7, "2026-08");
+    expect(out[ACCOUNT]).toBe("2027-06-30");
   });
 
   it("leaves a date the user already chose alone", () => {
-    const out = backfillAssumedEndDates(["e1|f1"], { "e1|f1": "2026-09-30" }, 7, "2026-08");
-    expect(out["e1|f1"]).toBe("2026-09-30");
+    const out = backfillAssumedEndDates([ACCOUNT], { [ACCOUNT]: "2026-09-30" }, 7, "2026-08");
+    expect(out[ACCOUNT]).toBe("2026-09-30");
+  });
+
+  it("normalizes the account key before looking it up", () => {
+    // Callers pass chartstrings in whatever casing the report used.
+    const out = backfillAssumedEndDates(
+      ["4301-142062-136092L"],
+      { [ACCOUNT]: "2026-09-30" },
+      7,
+      "2026-08"
+    );
+    expect(Object.keys(out)).toEqual([ACCOUNT]);
   });
 
   it("returns the same object when nothing is missing, so no pointless write", () => {
-    const existing = { "e1|f1": "2026-09-30" };
-    expect(backfillAssumedEndDates(["e1|f1"], existing, 7, "2026-08")).toBe(existing);
+    const existing = { [ACCOUNT]: "2026-09-30" };
+    expect(backfillAssumedEndDates([ACCOUNT], existing, 7, "2026-08")).toBe(existing);
   });
 
   it("ignores dates for accounts that are no longer marked", () => {
-    const out = backfillAssumedEndDates([], { "stale|key": "2026-09-30" }, 7, "2026-08");
-    expect(out).toEqual({ "stale|key": "2026-09-30" });
+    const out = backfillAssumedEndDates([], { "7000-1-2": "2026-09-30" }, 7, "2026-08");
+    expect(out).toEqual({ "7000-1-2": "2026-09-30" });
   });
 });
