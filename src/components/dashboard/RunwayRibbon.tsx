@@ -562,16 +562,35 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         </p>
       )}
 
+      {/*
+        "Funded through the full window" was true of the summed pool and false
+        of most accounts in it — the last thing in the section, in the colour
+        reserved for confirmed-good, directly beneath a header naming how many
+        accounts run dry. Total capacity not running out doesn't mean nothing
+        in it does, so the exception is stated in the same breath rather than
+        left for the header above to quietly contradict.
+      */}
       <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
-        <p
-          className={cn(
-            "type-mono",
-            terminalIndex !== null ? "text-critical" : "text-healthy"
+        <p className={cn("type-mono", terminalIndex === null && nothingDepletes ? "text-healthy" : "text-ink")}>
+          {terminalIndex !== null ? (
+            <span className="text-critical">
+              Runs out {monthLabelLong(ribbon.months[terminalIndex]!)}
+            </span>
+          ) : (
+            <>
+              Total funds stay above zero through{" "}
+              {monthLabelLong(ribbon.months[ribbon.months.length - 1]!)}
+              {!nothingDepletes && (
+                <>
+                  {" — but "}
+                  <span className="text-critical">
+                    {depletingCount} of {scopedBands.length}{" "}
+                    {scopedBands.length === 1 ? "account runs" : "accounts run"} dry first
+                  </span>
+                </>
+              )}
+            </>
           )}
-        >
-          {terminalIndex !== null
-            ? `Runs out ${monthLabelLong(ribbon.months[terminalIndex]!)}`
-            : `Funded through the full ${horizonMonths}-month window`}
         </p>
       </div>
     </section>
