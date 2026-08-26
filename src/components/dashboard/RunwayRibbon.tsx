@@ -38,10 +38,7 @@ const MIN_BAND_OPACITY = 0.65;
  * Depletion dots scale by area, not radius — four accounts emptying in one
  * month must not read as sixteen times one. Capped so a heavy month stays a
  * dot rather than a blob, and floored so a single account is still findable.
- */
-/** Named rows under the chart before the tail becomes a count. */
-const DRY_ROW_CAP = 6;
-/** Roster-date pins: tick height above the axis, then the circle on top. */
+ *//** Roster-date pins: tick height above the axis, then the circle on top. */
 const MARKER_TICK = 10;
 /** Big enough that a face is recognisable at a glance, not just a coloured dot. */
 const MARKER_R = 13;
@@ -115,8 +112,8 @@ function RibbonTooltip({
   payload?: { value?: number; dataKey?: string }[];
   label?: string;
   stackOrder: StackedBand[];
-  /** Month label → accounts emptying that month. */
-  dryByLabel: Map<string, string[]>;
+  /** Month label → accounts emptying at that point, and whether they were already dry going in. */
+  dryByLabel: Map<string, { already: boolean; labels: string[] }>;
 }) {
   if (!active || !payload?.length) return null;
   const byBand = new Map<string, number>();
@@ -125,18 +122,24 @@ function RibbonTooltip({
     if (value > 0) byBand.set(band.label, value);
   }
   const total = [...byBand.values()].reduce((sum, v) => sum + v, 0);
-  const dry = label ? (dryByLabel.get(label) ?? []) : [];
+  const dry = label ? dryByLabel.get(label) : undefined;
 
   return (
     <div className="max-w-sm rounded-md border border-rule bg-surface px-3 py-2 shadow-sm">
       <p className="type-mono text-muted">{label}</p>
-      {dry.length > 0 && (
+      {dry && dry.labels.length > 0 && (
         <>
           <p className="type-row mt-1 font-medium text-critical">
-            {dry.length === 1 ? "Runs dry this month" : `${dry.length} run dry this month`}
+            {dry.already
+              ? dry.labels.length === 1
+                ? "Already dry"
+                : `${dry.labels.length} already dry`
+              : dry.labels.length === 1
+                ? "Runs dry this month"
+                : `${dry.labels.length} run dry this month`}
           </p>
           <ul className="mt-0.5 space-y-0.5">
-            {dry.map((name) => (
+            {dry.labels.map((name) => (
               <li key={name} className="type-mono truncate text-critical">
                 {name}
               </li>
@@ -197,27 +200,27 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
    * the header counts.
    */
   const dryEvents = depletionEvents(scopedBands, ribbon.months);
-  const dryByLabel = new Map(
-    dryEvents.map((e) => [monthLabelShort(e.month), e.labels] as const)
-  );
   const alreadyDry = alreadyDryLabels(scopedBands);
 
   /**
-   * Named rows, soonest first, capped at the same count the attention queue
-   * uses. Past that the tail is a number — every one of them is on the Runway
-   * page, and a legend that runs to twenty-three rows stops being scannable.
+   * Every zero-crossing the chart can name, keyed by month label so both the
+   * dot and the whole-row tooltip read off the same map. Already-dry accounts
+   * are folded in under the chart's first month: they hold nothing at that
+   * point too, just not because of anything that happened during the window —
+   * "already" is preserved in the label so the wording never claims a
+   * transition that happened before the chart began.
    */
-  const dryRows = dryEvents
-    .flatMap((event) =>
-      event.labels.map((label) => ({
-        key: `${event.month}-${label}`,
-        label,
-        when: monthLabelLong(event.month),
-      }))
-    )
-    .slice(0, DRY_ROW_CAP);
-  const totalDry = dryEvents.reduce((sum, e) => sum + e.labels.length, 0);
-  const hiddenDryCount = Math.max(0, totalDry - dryRows.length);
+  const dryByLabel = new Map<string, { already: boolean; labels: string[] }>(
+    dryEvents.map((e) => [monthLabelShort(e.month), { already: false, labels: e.labels }])
+  );
+  if (alreadyDry.length > 0 && ribbon.months.length > 0) {
+    const firstLabel = monthLabelShort(ribbon.months[0]!);
+    const existing = dryByLabel.get(firstLabel)?.labels ?? [];
+    dryByLabel.set(firstLabel, {
+      already: true,
+      labels: [...new Set([...alreadyDry, ...existing])].sort((a, b) => a.localeCompare(b)),
+    });
+  }
 
   const chartData = buildChartData(drawnBands, ribbon.months, stackOrder);
   const maxTotal = Math.max(...totalByMonth, 1);
@@ -348,22 +351,36 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                   }}
                 />
               )}
-            {/* One dot per month, sized by how many accounts empty in it, and
-                riding the top edge of the area so month-level events sit on
-                the outline the eye is already following. Size alone cannot
-                carry meaning, so each dot names its accounts on hover and the
-                same list is written out below the chart. */}
-            {dryEvents.map((event) => {
-              const count = event.labels.length;
+            {/*
+              One dot per zero-crossing month, sized by how many accounts empty
+              there, riding the top edge of the area so a month-level event
+              sits on the outline the eye is already following. Size alone
+              cannot carry meaning, so every dot's hover names its accounts —
+              the legend below explains what the dot means, the hover supplies
+              the specifics, and nothing is duplicated in static text.
+
+              Already-dry accounts get the same treatment at the chart's first
+              month: they hold nothing there too, just not because of anything
+              that happened during the window.
+            */}
+            {[...dryByLabel.entries()].map(([monthLabel, entry]) => {
+              const count = entry.labels.length;
               const radius = dryDotRadius(count);
-              const title = `${monthLabelLong(event.month)} · ${
-                count === 1 ? "1 account runs dry" : `${count} accounts run dry`
-              }: ${event.labels.join(", ")}`;
+              const monthIndex = ribbon.months.findIndex(
+                (m) => monthLabelShort(m) === monthLabel
+              );
+              const title = entry.already
+                ? `Already dry as of ${monthLabel} · ${
+                    count === 1 ? "1 account" : `${count} accounts`
+                  }: ${entry.labels.join(", ")}`
+                : `${monthLabelLong(ribbon.months[monthIndex] ?? monthLabel)} · ${
+                    count === 1 ? "1 account runs dry" : `${count} accounts run dry`
+                  }: ${entry.labels.join(", ")}`;
               return (
                 <ReferenceDot
-                  key={`dry-${event.month}`}
-                  x={monthLabelShort(event.month)}
-                  y={totalByMonth[event.monthIndex] ?? 0}
+                  key={`dry-${monthLabel}`}
+                  x={monthLabel}
+                  y={totalByMonth[monthIndex] ?? 0}
                   r={radius}
                   fill="var(--critical)"
                   stroke="var(--surface)"
@@ -487,73 +504,62 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         dry and when, which is also the text equivalent of the dots above: the
         same facts, reachable without a pointer.
       */}
-      {/* A key, because the two pin shapes carry meaning and a shape with no
-          name is only decoration. hiddenMarkerCount was computed and never
-          shown, so a chart capped at five pins claimed to be showing them all. */}
-      {ribbon.markers.length > 0 && (
+      {/*
+        One key for every mark on the chart, because a shape or a size with no
+        name is only decoration. This used to be a written schedule under the
+        chart, naming every account and when it empties — which repeated the
+        dot's own hover almost verbatim, in a much larger footprint, and still
+        had to truncate past a handful of rows. The dot already says everything
+        the list said; the key just explains what the dot means, once.
+
+        hiddenMarkerCount was computed and never shown, so a chart capped at
+        five roster pins was claiming to display all of them.
+      */}
+      {(dryByLabel.size > 0 || ribbon.markers.length > 0) && (
         <p className="type-mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted">
-          <span className="inline-flex items-center gap-1.5">
-            <svg width="12" height="12" aria-hidden>
-              <circle
-                cx="6"
-                cy="6"
-                r="4.5"
-                fill="var(--inset)"
-                stroke="var(--ink-2)"
-                strokeWidth="2"
-              />
-            </svg>
-            employment or funding ends
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <svg width="12" height="12" aria-hidden>
-              <circle
-                cx="6"
-                cy="6"
-                r="4.5"
-                fill="var(--inset)"
-                stroke="var(--ink-2)"
-                strokeWidth="2"
-                strokeDasharray="2 2"
-              />
-            </svg>
-            employment starts
-          </span>
-          {ribbon.hiddenMarkerCount > 0 && (
-            <span>+ {ribbon.hiddenMarkerCount} more not pinned</span>
+          {dryByLabel.size > 0 && (
+            <span className="inline-flex items-center gap-1.5">
+              <svg width="12" height="12" aria-hidden>
+                <circle cx="6" cy="6" r="4.5" fill="var(--critical)" />
+              </svg>
+              account runs dry (size = how many)
+            </span>
+          )}
+          {ribbon.markers.length > 0 && (
+            <>
+              <span className="inline-flex items-center gap-1.5">
+                <svg width="12" height="12" aria-hidden>
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r="4.5"
+                    fill="var(--inset)"
+                    stroke="var(--ink-2)"
+                    strokeWidth="2"
+                  />
+                </svg>
+                employment or funding ends
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <svg width="12" height="12" aria-hidden>
+                  <circle
+                    cx="6"
+                    cy="6"
+                    r="4.5"
+                    fill="var(--inset)"
+                    stroke="var(--ink-2)"
+                    strokeWidth="2"
+                    strokeDasharray="2 2"
+                  />
+                </svg>
+                employment starts
+              </span>
+              {ribbon.hiddenMarkerCount > 0 && (
+                <span>+ {ribbon.hiddenMarkerCount} more not pinned</span>
+              )}
+            </>
           )}
         </p>
-      )}
-
-      {(dryEvents.length > 0 || alreadyDry.length > 0) && (
-        <div className="mt-3">
-          <h3 className="type-caption text-muted">Runs dry</h3>
-          {alreadyDry.length > 0 && (
-            /* Not a month: these hold nothing at the chart's opening month, so
-               dating them "runs dry {first month}" claimed a transition that
-               had already happened before the window began. */
-            <p className="type-row mt-1 text-critical">
-              <span className="type-mono">already dry</span>{" "}
-              {alreadyDry.slice(0, 2).join(", ")}
-              {alreadyDry.length > 2 && ` + ${alreadyDry.length - 2} more`}
-            </p>
-          )}
-          <ul className="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-            {dryRows.map((row) => (
-              <li key={row.key} className="type-row flex items-baseline gap-3 text-ink-2">
-                <span className="type-mono shrink-0 text-critical">{row.when}</span>
-                <span className="min-w-0 flex-1 truncate text-ink" title={row.label}>
-                  {row.label}
-                </span>
-              </li>
-            ))}
-          </ul>
-          {hiddenDryCount > 0 && (
-            <p className="type-mono mt-1 text-muted">
-              + {hiddenDryCount} more inside this window
-            </p>
-          )}
-        </div>
       )}
 
       <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
