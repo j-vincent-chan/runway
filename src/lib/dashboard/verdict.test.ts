@@ -47,7 +47,7 @@ const base = {
 };
 
 describe("buildVerdict", () => {
-  it("states the position before what threatens it", () => {
+  it("counts what needs attention rather than naming one of several", () => {
     const verdict = buildVerdict({
       ...base,
       teamRows: [team("Community management", 1.5), team("Data management", 20.2), rollup(14.9)],
@@ -56,7 +56,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is broadly healthy, funded about 14.9 months out, but 2 people and 1 account are already critical — Community Manager · 7032261 soonest. They need funding or a burn cut now."
+      "Critical: Payroll is broadly healthy, funded about 14.9 months out, but 2 people and 1 account are already critical. They need funding or a burn cut now."
     );
   });
 
@@ -72,6 +72,8 @@ describe("buildVerdict", () => {
     expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toContain("Payroll is broadly healthy");
     expect(verdictText(verdict)).toContain("3 accounts are already critical");
+    // The attention queue below names all three; the hero states the scale.
+    expect(verdictText(verdict)).not.toContain("Fund 4000");
   });
 
   it("says the portfolio is short when the roll-up itself is", () => {

@@ -272,10 +272,12 @@ export function buildVerdict({
    *
    * The sentence used to name the single worst item and compare it to the
    * weakest team. That answered "what is wrong" without ever answering "how am
-   * I doing", and naming one of several problems read as arbitrary. A count
-   * carries the scale; the queue directly beneath carries every name, so
-   * nothing is hidden by summarising here — and the soonest one is still named,
-   * because a count alone cannot say where to start.
+   * I doing", and naming one of several problems read as arbitrary.
+   *
+   * A count carries the scale, and the attention queue sits directly beneath
+   * naming every one of them. That is what keeps this inside the count/name
+   * rule rather than in breach of it: the rule exists to stop a count standing
+   * where a name is unavailable, and here every name is one line below.
    */
   const segments: VerdictSegment[] = [...positionClause(overallRunwayMonths, rollupStatus)];
 
@@ -296,11 +298,7 @@ export function buildVerdict({
             : ` need attention within ${CAUTION_MONTHS} months`
       )
     );
-    if (worstItem) {
-      segments.push(connective(" — "), data(worstItem.label, "/runway"), connective(" soonest."));
-    } else {
-      segments.push(connective("."));
-    }
+    segments.push(connective("."));
   }
 
   return {
