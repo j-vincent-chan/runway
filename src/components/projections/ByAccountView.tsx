@@ -15,6 +15,8 @@ import { isEmployeeFundHidden } from "@/lib/funding/visibility";
 import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { AliasEditor } from "@/components/funding/AliasEditor";
+import { depletionMonthIndexForRoot } from "@/lib/projections/depletion";
+import { formatMonthLabel } from "@/lib/projections/horizon";
 import {
   mergeByPercent,
   isProjectedMonth,
@@ -202,6 +204,13 @@ function AccountBlock({
   );
   const hiddenCount = contributors.length - visibleContributors.length;
   const notMine = isNotMyAccountKey(settings, rootOf(key));
+  /**
+   * Same selector the Dashboard's depletion chart reads, so the month named
+   * here and the month marked there can never disagree — and both move
+   * together when a distribution changes on this page.
+   */
+  const dryIndex = depletionMonthIndexForRoot(result, rootOf(key));
+  const dryMonth = dryIndex === null ? null : months[dryIndex] ?? null;
   return (
     <>
       <tr className="bg-[#0c2340] text-white">
@@ -260,6 +269,14 @@ function AccountBlock({
             {isPlanned && (
               <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-teal-100">
                 PLANNED
+              </span>
+            )}
+            {dryMonth && (
+              <span
+                className="shrink-0 rounded bg-red-500/25 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-red-50"
+                title={`Projected to run dry in ${formatMonthLabel(dryMonth)} at the distributions below. Change an allocation and this moves with it.`}
+              >
+                ~DRY {formatMonthLabel(dryMonth).toUpperCase()}
               </span>
             )}
             {hiddenCount > 0 && !revealHidden && (

@@ -17,6 +17,8 @@ import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { AliasEditor } from "@/components/funding/AliasEditor";
+import { depletionMonthIndexForRoot, depletionRootOf } from "@/lib/projections/depletion";
+import { formatMonthLabel } from "@/lib/projections/horizon";
 import {
   mergeByPercent,
   isProjectedMonth,
@@ -295,6 +297,14 @@ function EmployeeBlock({
             chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
               (fs.accountString ?? fs.rawName)
           );
+          /**
+           * The account's own depletion, shown on the person's row because
+           * that is where the distribution driving it is edited: change this
+           * person from 35% to 20% and the date moves out here, on the same
+           * selector the Dashboard's depletion chart reads.
+           */
+          const dryIndex = depletionMonthIndexForRoot(result, depletionRootOf(key));
+          const dryMonth = dryIndex === null ? null : months[dryIndex] ?? null;
           const chips = rulesForPair(settings, personKey, key).map((r) =>
             ruleChipLabel(r, aliasFor)
           );
@@ -393,11 +403,21 @@ function EmployeeBlock({
                     className={cn("shrink-0", hidden && "opacity-50")}
                   />
                 </div>
-                {chips[0] && (
-                  <p className="truncate pl-1 text-[9px] text-slate-500" title={chips.join(" · ")}>
-                    {chips[0]}
-                  </p>
-                )}
+                <div className="flex items-center gap-1.5 overflow-hidden pl-1">
+                  {dryMonth && (
+                    <span
+                      className="shrink-0 text-[9px] font-medium text-red-700"
+                      title={`This account is projected to run dry in ${formatMonthLabel(dryMonth)} at the distributions shown. Change an allocation and this moves with it.`}
+                    >
+                      ~dry {formatMonthLabel(dryMonth)}
+                    </span>
+                  )}
+                  {chips[0] && (
+                    <p className="truncate text-[9px] text-slate-500" title={chips.join(" · ")}>
+                      {chips[0]}
+                    </p>
+                  )}
+                </div>
               </td>
               <td
                 className="sticky z-10 bg-white"

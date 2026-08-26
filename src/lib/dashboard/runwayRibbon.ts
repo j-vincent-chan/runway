@@ -1,6 +1,7 @@
 import { simulateProjections } from "@/lib/projections/simulate";
 import { chartstringKeyForFundingSource, projectionSourceLabel } from "@/lib/projections/sources";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
+import { depletionMonthIndexForRoot } from "@/lib/projections/depletion";
 import { getEmployeeEndDate, getEmployeeStartDate } from "@/lib/employees/profile";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
@@ -365,17 +366,15 @@ export function buildRunwayRibbon({
 
   const currentRoots = currentPersonnelRoots(snapshot, workingPlan, settings);
 
-  const bands: RibbonBand[] = [...roots].map((chartRoot) => {
-    const values = result.states.map((s) => s.remainingByRoot[chartRoot] ?? 0);
-    const depletionIdx = values.findIndex((v) => v <= 0);
-    return {
-      chartRoot,
-      label: labelByRoot.get(chartRoot) ?? chartRoot,
-      values,
-      depletionMonthIndex: depletionIdx === -1 ? null : depletionIdx,
-      hasCurrentPersonnel: currentRoots.has(chartRoot),
-    };
-  });
+  const bands: RibbonBand[] = [...roots].map((chartRoot) => ({
+    chartRoot,
+    label: labelByRoot.get(chartRoot) ?? chartRoot,
+    values: result.states.map((s) => s.remainingByRoot[chartRoot] ?? 0),
+    // Shared with the Projections grid, so a distribution changed there moves
+    // this chart's runs-dry month by the same arithmetic, not a parallel one.
+    depletionMonthIndex: depletionMonthIndexForRoot(result, chartRoot),
+    hasCurrentPersonnel: currentRoots.has(chartRoot),
+  }));
   bands.sort((a, b) => (b.values[0] ?? 0) - (a.values[0] ?? 0));
 
   const { totalByMonth, terminalIndex } = ribbonTotals(bands, months.length);

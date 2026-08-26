@@ -1,0 +1,187 @@
+import { describe, expect, it } from "vitest";
+import type {
+  AppSettings,
+  Employee,
+  FundingSource,
+  MonthlyAllocation,
+  MonthlyCostRecord,
+  PayrollReportSnapshot,
+  ProjectionRule,
+} from "@/types";
+import { DEFAULT_SETTINGS } from "@/types";
+import { simulateProjections } from "@/lib/projections/simulate";
+import {
+  depletionMonthByRoot,
+  depletionMonthIndexForRoot,
+  depletionRootOf,
+} from "@/lib/projections/depletion";
+
+const ACCOUNT = "7000-1-7030720-45";
+const ROOT = "7000-1-7030720";
+const now = new Date(2026, 7, 15); // Aug 2026
+
+function emp(): Employee {
+  return { id: "e1", name: "Ada Lovelace", appointmentPercent: 100, employeeId: "1001" };
+}
+
+function fs(): FundingSource {
+  return {
+    id: "f1",
+    rawName: ACCOUNT,
+    alias: "Grant A",
+    accountString: ACCOUNT,
+    fund: "7000",
+    color: "#ccc",
+  };
+}
+
+function alloc(month: string, pct: number): MonthlyAllocation {
+  return {
+    id: `e1|f1|${month}`,
+    employeeId: "e1",
+    fundingSourceId: "f1",
+    month,
+    percentEffort: pct,
+    sourceType: month >= "2026-08" ? "future" : "actual",
+    status: "imported",
+  };
+}
+
+/** $10k/month of total comp at 100% effort, so effort maps to burn linearly. */
+function costs(month: string, amount = 10_000): MonthlyCostRecord[] {
+  return [
+    {
+      id: `s-${month}`,
+      employeeId: "e1",
+      fundingSourceId: "f1",
+      month,
+      rowType: "baseSalary",
+      amount: amount * 0.75,
+      sourceType: "actual",
+    },
+    {
+      id: `b-${month}`,
+      employeeId: "e1",
+      month,
+      rowType: "benefits",
+      amount: amount * 0.25,
+      sourceType: "actual",
+    },
+    {
+      id: `t-${month}`,
+      employeeId: "e1",
+      month,
+      rowType: "totalCompBenefits",
+      amount,
+      sourceType: "actual",
+    },
+  ];
+}
+
+function snapshot(months: string[], pct: number): PayrollReportSnapshot {
+  return {
+    id: "snap",
+    sourceFileName: "test.xlsx",
+    uploadedAt: "2026-07-01T00:00:00.000Z",
+    reportName: "test",
+    sheetName: "Sheet1",
+    parserVersion: "1",
+    parseStatus: "success",
+    parseWarnings: [],
+    employees: [emp()],
+    fundingSources: [fs()],
+    monthlyAllocations: months.map((m) => alloc(m, pct)),
+    monthlyCosts: months.flatMap((m) => costs(m)),
+    rawRows: [],
+    monthRange: { start: months[0]!, end: months[months.length - 1]! },
+    actualMonths: months.filter((m) => m < "2026-08"),
+    futureMonths: months.filter((m) => m >= "2026-08"),
+  };
+}
+
+/**
+ * One imported payroll — 100% effort, $10k/mo charged to the account — with an
+ * optional forward change to the distribution, which is how a PI actually
+ * reduces effort on this page. The simulation anchors burn on the dollars the
+ * payroll actually charged and scales by the new effort against the imported
+ * one, so the rule is what makes burn differ, not a different import.
+ */
+function project(balance: number, newEffort?: number) {
+  const rules: ProjectionRule[] =
+    newEffort === undefined
+      ? []
+      : [
+          {
+            id: "r1",
+            personKey: "hr:1001",
+            chartstringKey: ACCOUNT,
+            trigger: { type: "setEffort", fromMonth: "2026-09", percentEffort: newEffort },
+            remainder: { kind: "uncovered" },
+            applyOverPayroll: true,
+          },
+        ];
+  const settings: AppSettings = {
+    ...DEFAULT_SETTINGS,
+    projectionHorizon: { preset: "24" },
+    projectionRules: rules,
+  };
+  return simulateProjections({
+    snapshot: snapshot(["2026-06", "2026-07", "2026-08"], 100),
+    workingPlan: null,
+    settings,
+    balances: new Map([
+      [
+        ROOT,
+        {
+          chartstring: ROOT,
+          balance,
+          reportRunDate: "2026-08-01",
+          sourceFileName: "np.xlsx",
+        },
+      ],
+    ]),
+    now,
+  });
+}
+
+describe("depletionRootOf", () => {
+  it("reduces a chartstring to the fund-dept-project a balance lives at", () => {
+    expect(depletionRootOf(ACCOUNT)).toBe(ROOT);
+  });
+});
+
+describe("depletionMonthIndexForRoot", () => {
+  it("moves the runs-dry month out when the distribution is cut", () => {
+    // $60k at $10k/mo empties in six months. Halving effort from September
+    // halves the burn from then on, so the same balance lasts longer — the
+    // whole reason for putting this date on the page where effort is edited.
+    const asImported = depletionMonthIndexForRoot(project(60_000), ROOT);
+    const cutToHalf = depletionMonthIndexForRoot(project(60_000, 50), ROOT);
+
+    expect(asImported).not.toBeNull();
+    expect(cutToHalf).not.toBeNull();
+    expect(cutToHalf!).toBeGreaterThan(asImported!);
+  });
+
+  it("reports null when the account holds through the whole window", () => {
+    expect(depletionMonthIndexForRoot(project(100_000_000), ROOT)).toBeNull();
+  });
+
+  it("reports an already-empty account at the opening month", () => {
+    expect(depletionMonthIndexForRoot(project(0), ROOT)).toBe(0);
+  });
+
+  it("treats an account absent from the projection as never depleting", () => {
+    // Absence is not depletion: a root the projection never tracked must not
+    // read as empty in month zero.
+    expect(depletionMonthIndexForRoot(project(60_000), "9999-9-9999999")).toBeNull();
+  });
+});
+
+describe("depletionMonthByRoot", () => {
+  it("covers every account the projection tracks", () => {
+    const map = depletionMonthByRoot(project(60_000));
+    expect(map.has(ROOT)).toBe(true);
+    expect(map.get(ROOT)).toBe(depletionMonthIndexForRoot(project(60_000), ROOT));
+  });
+});
