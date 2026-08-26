@@ -15,7 +15,10 @@ import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
 import { UNATTRIBUTED_THRESHOLD } from "@/lib/dashboard/attention";
 import { UNATTRIBUTED_MIX_KEY } from "@/lib/dashboard/metrics";
 import { formatCurrency } from "@/lib/utils/parse";
-import type { FundingExposureTimeline } from "@/lib/dashboard/fundingExposure";
+import {
+  EXPOSURE_HISTORY_WINDOW_MONTHS,
+  type FundingExposureTimeline,
+} from "@/lib/dashboard/fundingExposure";
 
 const CHART_HEIGHT = 260;
 
@@ -148,8 +151,11 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
           block reads as a category rather than a gap. */}
       {timeline.uncategorizedShare > UNATTRIBUTED_THRESHOLD && (
         <p className="type-row mt-1 text-caution">
-          {Math.round(timeline.uncategorizedShare * 100)}% of personnel cost has no funding type,
-          so only{" "}
+          {/* Names its window: the matrix below carries the same measure for a
+              single month, and two unlabelled percentages 400px apart read as
+              a contradiction rather than as two windows. */}
+          {Math.round(timeline.uncategorizedShare * 100)}% of the last{" "}
+          {EXPOSURE_HISTORY_WINDOW_MONTHS} months&rsquo; cost has no funding type, so only{" "}
           {Math.round((1 - timeline.uncategorizedShare) * 100)}% of this chart is a real mix — the
           rest is the grey Uncategorized band.{" "}
           <Link
