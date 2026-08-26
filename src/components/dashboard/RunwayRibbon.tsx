@@ -18,8 +18,8 @@ import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import {
   collapseBands,
+  depletionEvents,
   ribbonTotals,
-  RIBBON_OTHER_ROOT,
   type RibbonBand,
   type RunwayRibbon as RunwayRibbonData,
 } from "@/lib/dashboard/runwayRibbon";
@@ -33,6 +33,18 @@ const CHART_HEIGHT = 260;
  * ramp still steps ~0.07 apiece, which stays distinguishable.
  */
 const MIN_BAND_OPACITY = 0.65;
+/**
+ * Depletion dots scale by area, not radius — four accounts emptying in one
+ * month must not read as sixteen times one. Capped so a heavy month stays a
+ * dot rather than a blob, and floored so a single account is still findable.
+ */
+/** Named rows under the chart before the tail becomes a count. */
+const DRY_ROW_CAP = 6;
+const DRY_DOT_MIN_R = 3.5;
+const DRY_DOT_MAX_R = 9;
+function dryDotRadius(count: number): number {
+  return Math.min(DRY_DOT_MAX_R, DRY_DOT_MIN_R * Math.sqrt(Math.max(count, 1)));
+}
 const MAX_BAND_OPACITY = 1;
 /** $2.8M above a million, $950k below — never "$2777k". */
 function formatAxisMoney(value: number): string {
@@ -74,82 +86,6 @@ function buildChartData(
       row[band.key] = byRoot.get(band.chartRoot)?.values[i] ?? 0;
     }
     return row;
-  });
-}
-
-/**
- * One entry per band: the account, when it runs dry, and — only for the ones
- * that do — the point on the chart to mark it.
- *
- * The text was in-chart first, which is what the design system asks for. On
- * real data five of six bands deplete within a few months of each other, so
- * the labels landed on top of one another: ten overlapping pairs at every
- * scope. Direct labelling is genuinely impossible here, which is the condition
- * under which an ordered list is the sanctioned fallback.
- *
- * What stays on the chart is the mark, not the name — a dot at each zero
- * crossing, so "when" is still read directly off the axis. A band that never
- * runs dry has no crossing to mark, hence `dryPoint: null`.
- */
-function bandCallouts(
-  months: string[],
-  stackOrder: StackedBand[],
-  byRoot: Map<string, RibbonBand>
-): {
-  key: string;
-  label: string;
-  when: string;
-  depleted: boolean;
-  dryPoint: { x: string; y: number } | null;
-}[] {
-  const lastIndex = months.length - 1;
-
-  return stackOrder.flatMap((band) => {
-    const source = byRoot.get(band.chartRoot);
-    if (!source) return [];
-
-    const depletionIdx = source.depletionMonthIndex;
-    const depleted = depletionIdx !== null && depletionIdx <= lastIndex;
-    const many = band.chartRoot === RIBBON_OTHER_ROOT;
-
-    let dryPoint: { x: string; y: number } | null = null;
-    if (depleted) {
-      // The band's own top edge at that month: everything stacked beneath it.
-      // Its own value is zero there, which is what "runs dry" means.
-      let below = 0;
-      for (const other of stackOrder) {
-        if (other.chartRoot === band.chartRoot) break;
-        below += byRoot.get(other.chartRoot)?.values[depletionIdx!] ?? 0;
-      }
-      dryPoint = { x: monthLabelShort(months[depletionIdx!]!), y: below };
-    }
-
-    /**
-     * The aggregate's own depletion date describes the summed balance, which
-     * stays positive while accounts inside it run dry — so reporting only that
-     * date said "30 other accounts hold past July 2027" beneath a header
-     * saying 23 of 35 run dry. When some but not all of its members deplete,
-     * say how many rather than speaking for the sum.
-     */
-    const partial =
-      many &&
-      !depleted &&
-      (source.depletedMemberCount ?? 0) > 0 &&
-      (source.memberCount ?? 0) > 0;
-
-    return [{
-      key: band.chartRoot,
-      label: band.label,
-      // The aggregate names many accounts, so the verb has to agree with it as
-      // well as with a single account.
-      when: partial
-        ? `${source.depletedMemberCount} of ${source.memberCount} run dry by ${monthLabelLong(months[lastIndex]!)}`
-        : depleted
-          ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[depletionIdx!]!)}`
-          : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`,
-      depleted: depleted || partial,
-      dryPoint,
-    }];
   });
 }
 
@@ -221,10 +157,33 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         : MAX_BAND_OPACITY,
   }));
 
-  const byRoot = new Map(drawnBands.map((b) => [b.chartRoot, b]));
+  /**
+   * Computed from the scoped bands, not the drawn ones: collapsing caps the
+   * drawn list at five plus an aggregate, and the aggregate never reports a
+   * depletion date, so the dots would have covered a fraction of the accounts
+   * the header counts.
+   */
+  const dryEvents = depletionEvents(scopedBands, ribbon.months);
+
+  /**
+   * Named rows, soonest first, capped at the same count the attention queue
+   * uses. Past that the tail is a number — every one of them is on the Runway
+   * page, and a legend that runs to twenty-three rows stops being scannable.
+   */
+  const dryRows = dryEvents
+    .flatMap((event) =>
+      event.labels.map((label) => ({
+        key: `${event.month}-${label}`,
+        label,
+        when: monthLabelLong(event.month),
+      }))
+    )
+    .slice(0, DRY_ROW_CAP);
+  const totalDry = dryEvents.reduce((sum, e) => sum + e.labels.length, 0);
+  const hiddenDryCount = Math.max(0, totalDry - dryRows.length);
+
   const chartData = buildChartData(drawnBands, ribbon.months, stackOrder);
   const maxTotal = Math.max(...totalByMonth, 1);
-  const callouts = bandCallouts(ribbon.months, stackOrder, byRoot);
 
   const scopeCaption = noCurrentPersonnel
     ? "No account currently has active personnel funding, so all accounts are shown."
@@ -348,19 +307,41 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                   }}
                 />
               )}
-            {callouts
-              .filter((entry) => entry.dryPoint !== null)
-              .map((entry) => (
+            {/* One dot per month, sized by how many accounts empty in it, and
+                riding the top edge of the area so month-level events sit on
+                the outline the eye is already following. Size alone cannot
+                carry meaning, so each dot names its accounts on hover and the
+                same list is written out below the chart. */}
+            {dryEvents.map((event) => {
+              const count = event.labels.length;
+              const radius = dryDotRadius(count);
+              const title = `${monthLabelLong(event.month)} · ${
+                count === 1 ? "1 account runs dry" : `${count} accounts run dry`
+              }: ${event.labels.join(", ")}`;
+              return (
                 <ReferenceDot
-                  key={`dry-${entry.key}`}
-                  x={entry.dryPoint!.x}
-                  y={entry.dryPoint!.y}
-                  r={3.5}
+                  key={`dry-${event.month}`}
+                  x={monthLabelShort(event.month)}
+                  y={totalByMonth[event.monthIndex] ?? 0}
+                  r={radius}
                   fill="var(--critical)"
                   stroke="var(--surface)"
                   strokeWidth={1.5}
+                  shape={(props: { cx?: number; cy?: number }) => (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={radius}
+                      fill="var(--critical)"
+                      stroke="var(--surface)"
+                      strokeWidth={1.5}
+                    >
+                      <title>{title}</title>
+                    </circle>
+                  )}
                 />
-              ))}
+              );
+            })}
             {ribbon.markers.map((marker) => (
               <ReferenceDot
                 key={`${marker.month}-${marker.employeeName}`}
@@ -383,30 +364,35 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         </ChartResponsive>
       </div>
 
-      {/* Stack order, top band first, so a row maps onto the band above it.
-          The swatch carries the same opacity the band is drawn at. */}
-      <ul className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-        {[...callouts].reverse().map((entry) => {
-          const band = stackOrder.find((b) => b.chartRoot === entry.key);
-          return (
-            <li key={entry.key} className="type-row flex items-baseline gap-2 text-ink-2">
-              <span
-                aria-hidden
-                className="mt-1 inline-block h-2 w-2 shrink-0 rounded-xs bg-accent"
-                style={{ opacity: band?.opacity ?? 1 }}
-              />
-              <span className="min-w-0 flex-1 truncate text-ink" title={entry.label}>
-                {entry.label}
-              </span>
-              <span
-                className={cn("type-mono shrink-0", entry.depleted ? "text-critical" : "text-muted")}
-              >
-                {entry.when}
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {/*
+        A dry-date schedule, not a band legend.
+        This carried a color swatch per row, which asked the reader to match
+        shades against bands drawn in one hue — unreadable, and the swatch
+        opacity was assigned by stack position rather than by anything about
+        the account. What the rows are actually good for is naming what runs
+        dry and when, which is also the text equivalent of the dots above: the
+        same facts, reachable without a pointer.
+      */}
+      {dryEvents.length > 0 && (
+        <div className="mt-3">
+          <h3 className="type-caption text-muted">Runs dry</h3>
+          <ul className="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
+            {dryRows.map((row) => (
+              <li key={row.key} className="type-row flex items-baseline gap-3 text-ink-2">
+                <span className="type-mono shrink-0 text-critical">{row.when}</span>
+                <span className="min-w-0 flex-1 truncate text-ink" title={row.label}>
+                  {row.label}
+                </span>
+              </li>
+            ))}
+          </ul>
+          {hiddenDryCount > 0 && (
+            <p className="type-mono mt-1 text-muted">
+              + {hiddenDryCount} more inside this window
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="mt-2 flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
         <p

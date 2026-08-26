@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildRunwayRibbon,
   collapseBands,
+  depletionEvents,
   ribbonTotals,
   RIBBON_OTHER_ROOT,
   type RibbonBand,
@@ -388,38 +389,46 @@ describe("a band for an account marked not-my-account", () => {
   });
 });
 
-describe("collapseBands member counts", () => {
-  function band(
-    chartRoot: string,
-    values: number[],
-    depletionMonthIndex: number | null
-  ): RibbonBand {
-    return { chartRoot, label: chartRoot, values, depletionMonthIndex, hasCurrentPersonnel: true };
+describe("depletionEvents", () => {
+  const months = ["2026-08", "2026-09", "2026-10"];
+  function band(label: string, depletionMonthIndex: number | null): RibbonBand {
+    return {
+      chartRoot: label,
+      label,
+      values: [1, 1, 1],
+      depletionMonthIndex,
+      hasCurrentPersonnel: true,
+    };
   }
 
-  it("reports how many of the aggregated accounts run dry, not just the sum", () => {
-    // Two deplete, one never does — so the summed band never reaches zero and
-    // its own depletionMonthIndex stays null. The legend must not read that as
-    // "all of these hold".
-    const bands = [
-      band("a", [10, 0, 0], 1),
-      band("b", [10, 5, 0], 2),
-      band("c", [10, 5, 0], 2),
-      band("d", [10, 0, 0], 1),
-      band("e", [10, 10, 10], null),
-      band("f", [10, 10, 10], null),
-      band("g", [10, 0, 0], 1),
-    ];
-    const out = collapseBands(bands, 3);
-    const other = out.at(-1)!;
-
-    expect(other.depletionMonthIndex).toBeNull();
-    expect(other.memberCount).toBe(4);
-    expect(other.depletedMemberCount).toBe(2);
+  it("groups every account emptying in the same month", () => {
+    const events = depletionEvents(
+      [band("Zebra", 0), band("Apple", 0), band("Cherry", 2), band("Never", null)],
+      months
+    );
+    expect(events).toHaveLength(2);
+    expect(events[0]).toEqual({
+      monthIndex: 0,
+      month: "2026-08",
+      labels: ["Apple", "Zebra"],
+    });
+    expect(events[1]!.labels).toEqual(["Cherry"]);
   });
 
-  it("leaves the counts off a band that is a real account", () => {
-    const out = collapseBands([band("a", [10, 0], 1), band("b", [10, 10], null)], 3);
-    expect(out.every((b) => b.memberCount === undefined)).toBe(true);
+  it("counts accounts the drawn bands would have hidden inside the aggregate", () => {
+    // Ten accounts empty in one month. Collapsing caps the drawn list at five
+    // plus an aggregate that reports no date at all, so reading depletion off
+    // the drawn bands would have marked none of these.
+    const many = Array.from({ length: 10 }, (_, i) => band(`acct-${i}`, 1));
+    const events = depletionEvents(many, months);
+    expect(events).toHaveLength(1);
+    expect(events[0]!.labels).toHaveLength(10);
+
+    const collapsed = collapseBands(many, 5);
+    expect(collapsed.at(-1)!.depletionMonthIndex).not.toBeNull();
+  });
+
+  it("ignores a depletion index outside the window", () => {
+    expect(depletionEvents([band("a", 9)], months)).toEqual([]);
   });
 });

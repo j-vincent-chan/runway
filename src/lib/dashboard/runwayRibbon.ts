@@ -29,10 +29,6 @@ export interface RibbonBand {
   depletionMonthIndex: number | null;
   /** True when a currently active employee has non-zero effort charged here this planning month. */
   hasCurrentPersonnel: boolean;
-  /** Accounts summed into this band — set only on the "other accounts" aggregate. */
-  memberCount?: number;
-  /** How many of those run dry inside the window. */
-  depletedMemberCount?: number;
 }
 
 export interface RibbonMarker {
@@ -142,6 +138,40 @@ function currentPersonnelRoots(
 }
 
 /** Sum of the given bands per month, and the first index the sum crosses zero. Plain aggregation, not a new derivation. */
+/** One month in which at least one account's balance reaches zero. */
+export interface DepletionEvent {
+  monthIndex: number;
+  month: string;
+  /** Every account emptying that month, alphabetical so the list is stable. */
+  labels: string[];
+}
+
+/**
+ * Depletion grouped by month, across every band passed in.
+ *
+ * Takes the uncollapsed list on purpose. The drawn bands cap at five plus an
+ * aggregate, and the aggregate reports a depletion date only when all of its
+ * members have emptied — so marking depletion from the drawn bands showed
+ * three dots on a chart whose own header said twenty-three accounts run dry.
+ */
+export function depletionEvents(bands: RibbonBand[], months: string[]): DepletionEvent[] {
+  const byMonth = new Map<number, string[]>();
+  for (const band of bands) {
+    const idx = band.depletionMonthIndex;
+    if (idx === null || idx < 0 || idx >= months.length) continue;
+    const list = byMonth.get(idx) ?? [];
+    list.push(band.label);
+    byMonth.set(idx, list);
+  }
+  return [...byMonth.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([monthIndex, labels]) => ({
+      monthIndex,
+      month: months[monthIndex]!,
+      labels: [...labels].sort((a, b) => a.localeCompare(b)),
+    }));
+}
+
 export function ribbonTotals(
   bands: RibbonBand[],
   monthCount: number
@@ -221,14 +251,6 @@ export function collapseBands(bands: RibbonBand[], cap = RIBBON_BAND_CAP): Ribbo
       ? Math.max(...rest.map((b) => b.depletionMonthIndex!))
       : null,
     hasCurrentPersonnel: rest.some((b) => b.hasCurrentPersonnel),
-    /**
-     * Which is why the counts travel with it. Reporting only the summed band's
-     * date let the legend say "30 other accounts hold past July 2027" directly
-     * beneath a header saying 23 of 35 accounts run dry — both drawn from this
-     * same list, and irreconcilable to a reader.
-     */
-    memberCount: rest.length,
-    depletedMemberCount: rest.filter((b) => b.depletionMonthIndex !== null).length,
   };
 
   return [...named, other];
