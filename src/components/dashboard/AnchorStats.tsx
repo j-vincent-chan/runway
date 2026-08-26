@@ -106,11 +106,19 @@ function BarSpark({ points, label }: { points: SparkPoint[]; label: string }) {
   );
 }
 
+/**
+ * Same footprint as a real spark, so a stat missing history doesn't shrink
+ * relative to its neighbours — the design system bans a flat line standing in
+ * for absent data, so this keeps the shape without drawing one. A faint
+ * baseline gives it a chart-like silhouette; the words above it keep the
+ * honesty a fabricated flat line would have given up.
+ */
 function SparkPlaceholder() {
   return (
-    <p className="type-mono mt-2 flex h-[34px] items-end text-muted">
-      Not enough history yet
-    </p>
+    <div className="relative mt-2 h-[34px]">
+      <p className="type-mono absolute inset-x-0 top-0 text-muted">Not enough history yet</p>
+      <span aria-hidden className="absolute inset-x-0 bottom-1 border-t border-dashed border-rule" />
+    </div>
   );
 }
 
