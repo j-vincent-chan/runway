@@ -66,7 +66,7 @@ import {
   OFFER_LETTER_MAX_BYTES,
   parseOfferLetterFile,
 } from "@/lib/employees/offerLetterParse";
-import { migrateCategoryKeys } from "@/lib/funding/accountCategory";
+import { migrateCategoryKeys, setCategoryForAccountKey } from "@/lib/funding/accountCategory";
 import {
   migrateAssumedOkToAccountGroups,
 } from "@/lib/net-position/accountGroup";
@@ -141,6 +141,10 @@ interface AppContextValue {
   updateSettings: (s: Partial<AppSettings>) => void;
   updateFundingSourceAlias: (fundingSourceId: string, aliasBase: string) => void;
   setFundingSourceCategory: (fundingSourceId: string, category: AccountCategory | null) => void;
+  setFundingSourceCategoryForAccountKey: (
+    accountKey: string,
+    category: AccountCategory | null
+  ) => void;
   toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
   /** Mark or unmark an account as one you don't control, by chartstring. */
   toggleNotMyAccount: (chartstring: string) => void;
@@ -1093,6 +1097,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot]
   );
 
+  /**
+   * Settings → Accounts assigns the type per account, which is the unit the
+   * Net Position Report reports on. Writing the account key and dropping the
+   * chartstrings beneath it keeps one account from ever showing two types.
+   */
+  const setFundingSourceCategoryForAccountKey = useCallback(
+    (accountKey: string, category: AccountCategory | null) => {
+      setSettings((prev) => ({
+        ...prev,
+        fundingSourceCategories: setCategoryForAccountKey(
+          prev.fundingSourceCategories,
+          accountKey,
+          category
+        ),
+      }));
+    },
+    []
+  );
+
   const saveScenario = useCallback(
     (name: string) => {
       if (!snapshot || !workingPlan) return;
@@ -1445,6 +1468,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateSettings,
     updateFundingSourceAlias,
     setFundingSourceCategory,
+    setFundingSourceCategoryForAccountKey,
     toggleHiddenEmployeeFund,
     toggleNotMyAccount,
     setRunwayAssumedEndDate,

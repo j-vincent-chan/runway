@@ -20,7 +20,7 @@ Open [http://localhost:3000](http://localhost:3000).
 When configured, planning data syncs to Supabase (this browser’s localStorage / IndexedDB remain a cache):
 
 - Payroll Funding Report snapshot and Timeline edits
-- MyPortfolio balances
+- Net Position Report balances
 - Runway overrides and Projections rules / planned accounts
 - Chartstring aliases and account types
 - Employee photos, roster extras (personnel type, dates, scope, hidden/alumni)
@@ -50,9 +50,9 @@ From sheets like **Payroll Funding Report**:
 |-------|---------|
 | `/timeline` | Interactive funding grid + KPIs |
 | `/runway` | Months of payroll remaining by account |
-| `/accounts` | Per-funding-source payroll burden |
+| `/accounts` | Redirects to Settings → Accounts |
 | `/employees` | Roster, coverage, org structure |
-| `/upload` | Import payroll + MyPortfolio files |
+| `/upload` | Import payroll, Net Position, and salary reports |
 | `/settings` | Fiscal year, cliffs, aliases |
 
 Planning and interpretation layer only — not the official payroll system of record. Confirm allowability with your finance/post-award analyst.

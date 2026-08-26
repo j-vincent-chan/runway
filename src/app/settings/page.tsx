@@ -4,11 +4,10 @@ import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { useApp } from "@/context/AppContext";
 import { PARSER_VERSION } from "@/types";
-import { AccountsPanel } from "@/components/settings/AccountsPanel";
 import {
   AccountGroupsSettings,
+  AccountsSettings,
   FundingSourceTypesSettings,
-  NetPositionAccountsSettings,
   PersonnelGroupsSettings,
 } from "@/components/settings/CatalogSettings";
 import { CloudPrivacyPanel } from "@/components/settings/CloudPrivacyPanel";
@@ -21,8 +20,7 @@ const TABS = [
   { id: "personnel", label: "Teams" },
   { id: "funding", label: "Funding source types" },
   { id: "account-groups", label: "Account groups" },
-  { id: "accounts", label: "MyPortfolio Accounts" },
-  { id: "net-position-accounts", label: "Net Position Report Accounts" },
+  { id: "accounts", label: "Accounts" },
   { id: "data", label: "Data & about" },
 ] as const;
 
@@ -124,19 +122,7 @@ export default function SettingsPage() {
             {tab === "funding" && <FundingSourceTypesSettings />}
             {tab === "account-groups" && <AccountGroupsSettings />}
 
-            {tab === "accounts" && (
-              <section id="accounts" className="scroll-mt-6 space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-[#0c2340]">MyPortfolio Accounts</h3>
-                  <p className="text-sm text-slate-600">
-                    Funding sources, balances, and payroll burden from your imported reports.
-                  </p>
-                </div>
-                <AccountsPanel />
-              </section>
-            )}
-
-            {tab === "net-position-accounts" && <NetPositionAccountsSettings />}
+            {tab === "accounts" && <AccountsSettings />}
 
             {tab === "data" && (
               <section className="rounded-xl border bg-white p-5 text-sm text-slate-600">

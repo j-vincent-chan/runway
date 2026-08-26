@@ -34,7 +34,7 @@ export function PositionSalaryFilesCard() {
       <div className="border-b border-slate-100 px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[#0c2340]">
-            4. Employee and Position Salary Report
+            3. Employee and Position Salary Report
           </span>
           <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
             Optional

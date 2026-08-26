@@ -7,11 +7,7 @@ const RULES = [
   },
   {
     icon: Layers,
-    text: "Net Position Reports supply every account balance Runway spends against.",
-  },
-  {
-    icon: Layers,
-    text: "Net Position reports power Account Balances for PI-tracked accounts over time.",
+    text: "Net Position Reports are the ground truth for payroll accounts — every balance Runway spends against, tracked over time.",
   },
   {
     icon: Layers,

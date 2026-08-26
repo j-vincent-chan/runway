@@ -1,6 +1,6 @@
 # Privacy checklist for Runway
 
-Keep real payroll / MyPortfolio exports **out of git** and **out of public cloud URLs**. Use the app’s Upload flow; sync only authenticated, private Supabase data when you choose.
+Keep real payroll / Net Position exports **out of git** and **out of public cloud URLs**. Use the app’s Upload flow; sync only authenticated, private Supabase data when you choose.
 
 ## Per-user datasets
 

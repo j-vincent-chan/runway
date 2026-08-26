@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this app is
 
-Runway ("Academic Finance Copilot") is a Next.js app that ingests a **Payroll Funding Report** Excel file (plus optional MyPortfolio, Net Position, and Position Salary reports) and turns it into an interactive personnel funding timeline, runway projections, and a dashboard. It's a planning/interpretation layer, not a system of record. See [README.md](README.md) for the route list and product framing, and [PRIVACY.md](PRIVACY.md) for the per-user data model before touching auth, storage, or Supabase sync code.
+Runway ("Academic Finance Copilot") is a Next.js app that ingests a **Payroll Funding Report** Excel file (plus optional Net Position and Position Salary reports) and turns it into an interactive personnel funding timeline, runway projections, and a dashboard. It's a planning/interpretation layer, not a system of record. See [README.md](README.md) for the route list and product framing, and [PRIVACY.md](PRIVACY.md) for the per-user data model before touching auth, storage, or Supabase sync code.
 
 ## Commands
 
@@ -26,7 +26,7 @@ There is no separate typecheck script — `next build` (and the editor's TS serv
 ### Data flow: parse → snapshot → working plan → derived views
 
 1. **Parsers** (`src/lib/parsers/`) read uploaded files (xlsx via `xlsx`, docx via `mammoth`, PDF via `pdfjs-dist`) into typed import records defined in [src/types/index.ts](src/types/index.ts): `PayrollReportSnapshot`, `PortfolioReportImport`, `NetPositionReportImport`, `PositionSalaryReportImport`.
-2. Multiple payroll uploads are **folded together** (`src/lib/import/foldPayrollImports.ts`, `mergeSnapshots.ts`) into one working `PayrollReportSnapshot`; removing an import re-folds the rest. Portfolio/net-position/position-salary imports are simply merged/overlaid (`src/lib/portfolio/mergeBalances.ts`, `src/lib/employees/positionSalary.ts`).
+2. Multiple payroll uploads are **folded together** (`src/lib/import/foldPayrollImports.ts`, `mergeSnapshots.ts`) into one working `PayrollReportSnapshot`; removing an import re-folds the rest. Net Position imports collapse into per-account balances (`src/lib/funding/accountBalances.ts`) and position-salary imports are overlaid (`src/lib/employees/positionSalary.ts`). Net Position Reports are the only balance source — they can be run against a chosen set of accounts, so what arrives is the payroll accounts and nothing else.
 3. A `WorkingPlan` holds user edits to monthly allocations on top of the imported snapshot (`snapshot.monthlyAllocations` is the imported baseline; `workingPlan.allocations` overlays edits). `getAllocations()` in `src/lib/calculations/index.ts` reconciles the two.
 4. Everything else (coverage, funding cliffs, runway, projections, dashboard insights) is **derived** from snapshot + workingPlan + settings via pure functions in `src/lib/calculations/`, `src/lib/runway/`, `src/lib/projections/`, `src/lib/dashboard/`, `src/lib/net-position/` — not stored.
 

@@ -1,6 +1,7 @@
 import type { AccountCategory, AppSettings, FundingSource, FundingSourceTypeDef } from "@/types";
 export type { AccountCategory };
 import { fundingSourceKey } from "@/lib/funding/sourceKey";
+import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
 import { DEFAULT_FUNDING_SOURCE_TYPES } from "@/lib/catalog/defaults";
 
 /** @deprecated Prefer getFundingSourceTypes(settings) */
@@ -38,12 +39,74 @@ export function getAccountCategoryMeta(value: AccountCategory, settings?: AppSet
   };
 }
 
+/**
+ * The funding source type for one payroll account.
+ *
+ * Types are assigned per account on Settings → Accounts, where a row is a
+ * fund-dept-project. A payroll chartstring may carry an activity segment the
+ * account key does not, so the root lookup is what makes an account-level
+ * assignment reach every chartstring under it. Exact keys still win, so an
+ * assignment saved before accounts became the unit of classification is kept.
+ */
 export function getFundingSourceCategory(
   settings: AppSettings,
   fs: FundingSource
 ): AccountCategory | undefined {
+  const categories = settings.fundingSourceCategories;
+  if (!categories) return undefined;
   const key = fundingSourceKey(fs);
-  return settings.fundingSourceCategories?.[key] ?? settings.fundingSourceCategories?.[fs.id];
+  const root = chartstringFundDeptProject(fs.accountString ?? fs.rawName);
+  return (
+    categories[key] ??
+    (root ? categories[root] : undefined) ??
+    categories[fs.id]
+  );
+}
+
+/**
+ * The type shown for an Accounts row. Falls back to whatever the payroll
+ * chartstrings under this account carry, so an assignment made before
+ * accounts became the unit of classification does not read as unset.
+ */
+export function getFundingSourceCategoryForAccountKey(
+  settings: AppSettings,
+  accountKey: string,
+  fundingSources: FundingSource[]
+): AccountCategory | undefined {
+  const categories = settings.fundingSourceCategories;
+  if (!categories) return undefined;
+  const root = normalizeChartstring(accountKey);
+  if (categories[root]) return categories[root];
+  for (const fs of fundingSources) {
+    const chart = fs.accountString ?? fs.rawName;
+    if (chartstringFundDeptProject(chart) !== root && normalizeChartstring(chart) !== root) {
+      continue;
+    }
+    const found = categories[fundingSourceKey(fs)] ?? categories[fs.id];
+    if (found) return found;
+  }
+  return undefined;
+}
+
+/**
+ * Assign a type to an account, clearing any per-chartstring entries beneath
+ * it. One account can never show two funding types — which is the only way
+ * the Accounts column can be honest about what it is telling you.
+ */
+export function setCategoryForAccountKey(
+  categories: Record<string, AccountCategory> | undefined,
+  accountKey: string,
+  category: AccountCategory | null
+): Record<string, AccountCategory> {
+  const root = normalizeChartstring(accountKey);
+  const next: Record<string, AccountCategory> = {};
+  for (const [key, value] of Object.entries(categories ?? {})) {
+    if (normalizeChartstring(key) === root) continue;
+    if (chartstringFundDeptProject(key) === root) continue;
+    next[key] = value;
+  }
+  if (category !== null) next[root] = category;
+  return next;
 }
 
 /** Re-key categories from legacy per-import IDs to chartstring keys. */
