@@ -40,6 +40,9 @@ const MIN_BAND_OPACITY = 0.65;
  */
 /** Named rows under the chart before the tail becomes a count. */
 const DRY_ROW_CAP = 6;
+/** Roster-date pins: tick height above the axis, then the circle on top. */
+const MARKER_TICK = 9;
+const MARKER_R = 3.5;
 const DRY_DOT_MIN_R = 3.5;
 const DRY_DOT_MAX_R = 9;
 function dryDotRadius(count: number): number {
@@ -342,24 +345,54 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                 />
               );
             })}
-            {ribbon.markers.map((marker) => (
-              <ReferenceDot
-                key={`${marker.month}-${marker.employeeName}`}
-                x={monthLabelShort(marker.month)}
-                y={maxTotal}
-                r={3}
-                fill="var(--rule-strong)"
-                stroke="var(--surface)"
-                strokeWidth={1}
-                shape={(props: { cx?: number; cy?: number }) => (
-                  <circle cx={props.cx} cy={props.cy} r={3} fill="var(--rule-strong)" stroke="var(--surface)" strokeWidth={1}>
-                    <title>
-                      {marker.employeeName} · {marker.description} · {monthLabelLong(marker.month)}
-                    </title>
-                  </circle>
-                )}
-              />
-            ))}
+            {/*
+              Roster dates stand on the axis rather than floating at the top of
+              the plot: they are facts about a date, not about a balance, and a
+              dot at maxTotal implied a height it never had.
+
+              Start and end are told apart by fill as well as tone — filled for
+              an ending, hollow for a start — so the pair survives greyscale and
+              a color-vision deficiency. Neither wears --critical, --caution or
+              --healthy: those three mean severity here, and a roster date is
+              not a severity.
+            */}
+            {ribbon.markers.map((marker) => {
+              const ending = marker.kind === "end";
+              return (
+                <ReferenceDot
+                  key={`${marker.month}-${marker.kind}-${marker.employeeName}`}
+                  x={monthLabelShort(marker.month)}
+                  y={0}
+                  r={MARKER_R}
+                  fill="var(--ink-2)"
+                  shape={(props: { cx?: number; cy?: number }) => (
+                    <g>
+                      <line
+                        x1={props.cx}
+                        y1={props.cy}
+                        x2={props.cx}
+                        y2={(props.cy ?? 0) - MARKER_TICK}
+                        stroke="var(--ink-2)"
+                        strokeWidth={1.5}
+                      />
+                      <circle
+                        cx={props.cx}
+                        cy={(props.cy ?? 0) - MARKER_TICK - MARKER_R}
+                        r={MARKER_R}
+                        fill={ending ? "var(--ink-2)" : "var(--surface)"}
+                        stroke="var(--ink-2)"
+                        strokeWidth={1.5}
+                      >
+                        <title>
+                          {marker.employeeName} · {marker.description} ·{" "}
+                          {monthLabelLong(marker.month)}
+                        </title>
+                      </circle>
+                    </g>
+                  )}
+                />
+              );
+            })}
           </AreaChart>
         </ChartResponsive>
       </div>
@@ -373,6 +406,36 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         dry and when, which is also the text equivalent of the dots above: the
         same facts, reachable without a pointer.
       */}
+      {/* A key, because the two pin shapes carry meaning and a shape with no
+          name is only decoration. hiddenMarkerCount was computed and never
+          shown, so a chart capped at five pins claimed to be showing them all. */}
+      {ribbon.markers.length > 0 && (
+        <p className="type-mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted">
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="9" height="9" aria-hidden>
+              <circle cx="4.5" cy="4.5" r="3.5" fill="var(--ink-2)" />
+            </svg>
+            employment or funding ends
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <svg width="9" height="9" aria-hidden>
+              <circle
+                cx="4.5"
+                cy="4.5"
+                r="3.5"
+                fill="var(--surface)"
+                stroke="var(--ink-2)"
+                strokeWidth="1.5"
+              />
+            </svg>
+            employment starts
+          </span>
+          {ribbon.hiddenMarkerCount > 0 && (
+            <span>+ {ribbon.hiddenMarkerCount} more not pinned</span>
+          )}
+        </p>
+      )}
+
       {dryEvents.length > 0 && (
         <div className="mt-3">
           <h3 className="type-caption text-muted">Runs dry</h3>

@@ -1,7 +1,7 @@
 import { simulateProjections } from "@/lib/projections/simulate";
 import { chartstringKeyForFundingSource, projectionSourceLabel } from "@/lib/projections/sources";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
-import { getEmployeeEndDate } from "@/lib/employees/profile";
+import { getEmployeeEndDate, getEmployeeStartDate } from "@/lib/employees/profile";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import { getAllocations, getCurrentMonth } from "@/lib/calculations";
@@ -36,6 +36,8 @@ export interface RibbonMarker {
   month: string;
   employeeName: string;
   description: string;
+  /** Someone joining the payroll, or funding leaving it. */
+  kind: "start" | "end";
 }
 
 export interface RunwayRibbon {
@@ -84,7 +86,31 @@ export function buildMarkers(
     }
     const idx = month ? monthIndex.get(month) : undefined;
     if (month && idx !== undefined) {
-      all.push({ monthIndex: idx, month, employeeName: emp.name, description: "Employment ends" });
+      all.push({
+        monthIndex: idx,
+        month,
+        employeeName: emp.name,
+        description: "Employment ends",
+        kind: "end",
+      });
+    }
+
+    /**
+     * Only starts that fall inside the window land here — the chart begins at
+     * today, so a hire already on payroll has no month to mark. What survives
+     * is the useful case: someone arriving, and the burn arriving with them.
+     */
+    const start = getEmployeeStartDate(settings, emp.id, emp);
+    const startMonth = start ? start.slice(0, 7) : undefined;
+    const startIdx = startMonth ? monthIndex.get(startMonth) : undefined;
+    if (startMonth && startIdx !== undefined) {
+      all.push({
+        monthIndex: startIdx,
+        month: startMonth,
+        employeeName: emp.name,
+        description: "Employment starts",
+        kind: "start",
+      });
     }
 
     for (const rule of rules) {
@@ -97,6 +123,7 @@ export function buildMarkers(
         month: rule.trigger.month,
         employeeName: emp.name,
         description: "Funding ends",
+        kind: "end",
       });
     }
   }
