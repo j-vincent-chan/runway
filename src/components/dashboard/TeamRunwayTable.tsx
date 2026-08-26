@@ -114,8 +114,14 @@ export function TeamRunwayTable({ rows }: { rows: TeamRunwayRow[] | null }) {
                         <RunwayBar months={row.months} />
                       </span>
                       <span
+                        title={
+                          row.months === null
+                            ? "No burn on this team's accounts, so there is nothing to divide into."
+                            : `${formatCurrency(row.funds)} on this team's accounts over ${formatCurrency(row.monthlyBurn)} of monthly burn. A projection, and an average across those accounts — a member can run dry sooner.`
+                        }
                         className={cn(
-                          "type-row w-[6.5rem] shrink-0 text-right tabular",
+                          "type-row w-[6.5rem] shrink-0 text-right tabular decoration-dotted underline-offset-4",
+                          row.months !== null && "underline",
                           tone === "critical"
                             ? "text-critical"
                             : tone === "caution"
