@@ -59,7 +59,7 @@ export interface DashboardOverview {
   hasBurn: boolean;
 
   /**
-   * Portfolio runway: availableFunds ÷ the combined burn on those same
+   * Avg payroll runway: availableFunds ÷ the combined burn on those same
    * accounts. Scoped to accounts with current payroll, so it is not a blend
    * across money that can't reach these people. The soonest *single* person or
    * account to run dry is a different, more urgent measure — it belongs in the
