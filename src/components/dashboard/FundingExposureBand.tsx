@@ -2,11 +2,10 @@
 
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Area, AreaChart, ReferenceDot, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, ReferenceArea, ReferenceDot, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import {
   HatchPattern,
-  PROJECTED_STROKE_DASHARRAY,
   UnattributedPattern,
   UNATTRIBUTED_PATTERN_ID,
   projectedFill,
@@ -28,15 +27,23 @@ interface StackedBand {
   key: string;
   label: string;
   color: string;
-  nearKey: string;
-  farKey: string;
-  patternId: string;
 }
 
-function patternIdFor(key: string): string {
-  return `hatch-exposure-${key.replace(/[^a-zA-Z0-9]/g, "")}`;
-}
+const PROJECTED_VEIL_PATTERN_ID = "hatch-exposure-projected";
 
+/**
+ * One continuous row per month, per band — the whole timeline, actual and
+ * projected alike. This used to hold two zero-padded series per band (one
+ * live before the projection seam, one live after), which forced the curve
+ * for every band to interpolate through zero at the boundary: a band that
+ * was 30% of cost the month before the seam and 28% the month after was drawn
+ * collapsing to nothing and climbing back, because Recharts had no way to
+ * know the "after" series held any value until its first real point. The
+ * total was continuous throughout; only the split misrepresented it as a
+ * cliff. One series per band removes the seam from the data entirely — what
+ * marks the projected region is a single overlay drawn on top, not a second
+ * copy of every band's numbers.
+ */
 function buildChartData(timeline: FundingExposureTimeline, stackOrder: StackedBand[]): ChartRow[] {
   return timeline.months.map((month, i) => {
     const row: ChartRow = { label: monthLabelShort(month) };
@@ -44,9 +51,7 @@ function buildChartData(timeline: FundingExposureTimeline, stackOrder: StackedBa
     for (const band of stackOrder) {
       const source = timeline.bands.find((b) => b.key === band.key)!;
       const value = source.values[i] ?? 0;
-      const pct = total > 0 ? (value / total) * 100 : 0;
-      row[band.nearKey] = i < timeline.uncertaintyStartIndex ? pct : 0;
-      row[band.farKey] = i >= timeline.uncertaintyStartIndex ? pct : 0;
+      row[band.key] = total > 0 ? (value / total) * 100 : 0;
     }
     return row;
   });
@@ -133,9 +138,6 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
     key: band.key,
     label: band.label,
     color: band.color,
-    nearKey: `${band.key}__near`,
-    farKey: `${band.key}__far`,
-    patternId: patternIdFor(band.key),
   }));
 
   const chartData = buildChartData(timeline, stackOrder);
@@ -172,11 +174,12 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
           <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <UnattributedPattern id={UNATTRIBUTED_PATTERN_ID} />
-              {stackOrder
-                .filter((b) => b.key !== UNATTRIBUTED_MIX_KEY)
-                .map((band) => (
-                  <HatchPattern key={band.patternId} id={band.patternId} color={band.color} />
-                ))}
+              {/* One shared veil for the whole projected region, not one per
+                  band: each band keeps its own hue underneath, continuous and
+                  solid, and this neutral hatch sits on top of all of them at
+                  once — the same "less certain beyond here" language the
+                  depletion chart uses, so the two charts read as one system. */}
+              <HatchPattern id={PROJECTED_VEIL_PATTERN_ID} color="var(--rule-strong)" />
             </defs>
             <XAxis
               dataKey="label"
@@ -203,9 +206,9 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
               const isUnattributed = band.key === UNATTRIBUTED_MIX_KEY;
               return (
                 <Area
-                  key={band.nearKey}
+                  key={band.key}
                   type="monotone"
-                  dataKey={band.nearKey}
+                  dataKey={band.key}
                   stackId="exposure"
                   stroke={isUnattributed ? "var(--rule-strong)" : "var(--paper)"}
                   strokeWidth={1}
@@ -214,22 +217,36 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
                 />
               );
             })}
-            {stackOrder.map((band) => {
-              const isUnattributed = band.key === UNATTRIBUTED_MIX_KEY;
-              return (
-                <Area
-                  key={band.farKey}
-                  type="monotone"
-                  dataKey={band.farKey}
-                  stackId="exposure"
-                  stroke={isUnattributed ? "var(--rule-strong)" : band.color}
-                  strokeWidth={1}
-                  strokeDasharray={PROJECTED_STROKE_DASHARRAY}
-                  fill={isUnattributed ? projectedFill(UNATTRIBUTED_PATTERN_ID) : projectedFill(band.patternId)}
-                  isAnimationActive={false}
-                />
-              );
-            })}
+            {/* The seam is marked once, on top of every band at once, rather
+                than inside each band's own data — the same technique the
+                depletion chart uses for the same reason: a boundary drawn
+                into the fill can't create a false zero-crossing. */}
+            {timeline.uncertaintyStartIndex > 0 &&
+              timeline.uncertaintyStartIndex < timeline.months.length && (
+                <>
+                  <ReferenceArea
+                    x1={monthLabelShort(timeline.months[timeline.uncertaintyStartIndex]!)}
+                    x2={monthLabelShort(timeline.months[timeline.months.length - 1]!)}
+                    y1={0}
+                    y2={100}
+                    fill={projectedFill(PROJECTED_VEIL_PATTERN_ID)}
+                    fillOpacity={1}
+                    stroke="none"
+                    ifOverflow="extendDomain"
+                  />
+                  <ReferenceLine
+                    x={monthLabelShort(timeline.months[timeline.uncertaintyStartIndex]!)}
+                    stroke="var(--rule-strong)"
+                    strokeDasharray="2 2"
+                    label={{
+                      value: "less certain beyond here",
+                      position: "insideTopRight",
+                      fill: "var(--muted)",
+                      fontSize: 11,
+                    }}
+                  />
+                </>
+              )}
             {timeline.markers.map((marker) => (
               <ReferenceDot
                 key={`${marker.month}-${marker.employeeName}`}
