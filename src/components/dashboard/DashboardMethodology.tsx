@@ -25,7 +25,7 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
       <div className="mt-4 space-y-5">
         <Entry title="Available payroll and monthly payroll burn">
           Available payroll covers only the accounts that currently have payroll charged to them,
-          at the balance Runway resolves for each — your MyPortfolio figure, or the amount you
+          at the balance Runway resolves for each — your Net Position figure, or the amount you
           entered there by hand. Accounts nobody is paid from are left out, along with any
           you&rsquo;ve hidden, so the figure will not match the Account Balances total, which
           lists everything. An account you&rsquo;ve marked as not yours counts the balance its

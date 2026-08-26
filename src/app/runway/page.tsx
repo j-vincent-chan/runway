@@ -31,7 +31,7 @@ export default function RunwayPage() {
     fundingSources,
     settings,
     accountBalances,
-    portfolioImports,
+    netPositionImports,
     updateSettings,
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
@@ -55,12 +55,12 @@ export default function RunwayPage() {
   };
 
   const totalHiddenFunds = countAllHiddenFunds(settings);
-  const latestPortfolioRunDate = [...portfolioImports]
+  const latestReportRunDate = [...netPositionImports]
     .map((imp) => imp.reportRunDate)
     .filter(Boolean)
     .sort()
     .at(-1);
-  const latestPortfolioAsOf = formatIsoDateDisplay(latestPortfolioRunDate);
+  const latestReportAsOf = formatIsoDateDisplay(latestReportRunDate);
 
   const sharedBurnIndex = useMemo(() => {
     if (!snapshot) return new Map();
@@ -149,7 +149,7 @@ export default function RunwayPage() {
       <Header
         ledgerTitle
         title="Runway"
-        subtitle="Months of payroll remaining by active account · balances from MyPortfolio or manual entry"
+        subtitle="Months of payroll remaining by active account · balances from your Net Position Report or manual entry"
       />
       <main className="flex-1 overflow-auto p-6">
         <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -162,19 +162,19 @@ export default function RunwayPage() {
             />
           ) : (
             <div className="space-y-4">
-              {portfolioImports.length === 0 ? (
+              {netPositionImports.length === 0 ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  No MyPortfolio files uploaded yet.{" "}
+                  No Net Position Reports uploaded yet.{" "}
                   <Link href="/upload" className="font-medium underline hover:text-amber-950">
                     Upload balances on the Upload page
                   </Link>{" "}
                   or enter balances manually on each account row.
                 </p>
               ) : (
-                latestPortfolioAsOf && (
+                latestReportAsOf && (
                   <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                    MyPortfolio balances as of{" "}
-                    <span className="font-medium text-slate-800">{latestPortfolioAsOf}</span>
+                    Net Position balances as of{" "}
+                    <span className="font-medium text-slate-800">{latestReportAsOf}</span>
                     .{" "}
                     <Link href="/upload" className="font-medium underline hover:text-slate-900">
                       Upload a newer file

@@ -13,7 +13,6 @@ function local(partial: Partial<StoredAppState> = {}): StoredAppState {
     workingPlan: null,
     scenarios: [],
     settings: DEFAULT_SETTINGS,
-    portfolioImports: [],
     ...partial,
   };
 }
@@ -26,7 +25,6 @@ function cloud(partial: Partial<CloudWorkspacePayload> = {}): CloudWorkspacePayl
     workingPlan: null,
     scenarios: [],
     settings: DEFAULT_SETTINGS,
-    portfolioImports: [],
     ...partial,
   };
 }

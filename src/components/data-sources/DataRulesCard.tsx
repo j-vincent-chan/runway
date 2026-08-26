@@ -7,7 +7,7 @@ const RULES = [
   },
   {
     icon: Layers,
-    text: "MyPortfolio files are used only for balance context on Runway.",
+    text: "Net Position Reports supply every account balance Runway spends against.",
   },
   {
     icon: Layers,

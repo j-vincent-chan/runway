@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
 import { calculateAccountBurden, getCurrentMonth } from "@/lib/calculations";
@@ -31,7 +30,6 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
     allocations,
     fundingSources,
     settings,
-    portfolioImports,
     accountBalances,
     accountTitlesByChartstring,
     updateFundingSourceAlias,
@@ -54,8 +52,6 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
       )
     )
   );
-
-  const hasPortfolio = portfolioImports.length > 0;
 
   const employeesByFund = useMemo(() => {
     if (!snapshot) return new Map<string, ReturnType<typeof getEmployeesOnFundingSource>>();
@@ -81,19 +77,10 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
         <p className="text-sm text-slate-600">
           Edit the <span className="font-medium">account alias</span> to a name you recognize.
           Chartstring is the payroll account ID. Classify each fund by funding source; balances come
-          from MyPortfolio when uploaded.
+          from your Net Position Report.
         </p>
       )}
       <AccountCategoryLegend />
-      {!hasPortfolio && (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          No MyPortfolio files yet.{" "}
-          <Link href="/upload" className="font-medium underline hover:text-amber-950">
-            Upload balances
-          </Link>{" "}
-          to populate net balance.
-        </p>
-      )}
       <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-[#0c2340] text-xs text-white">

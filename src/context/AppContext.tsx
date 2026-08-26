@@ -14,7 +14,6 @@ import type {
   PayrollReportImport,
   PayrollReportSnapshot,
   PersonnelGroupDef,
-  PortfolioReportImport,
   NetPositionReportImport,
   Scenario,
   WorkingPlan,
@@ -45,7 +44,6 @@ import {
   payrollImportFromSnapshot,
 } from "@/lib/import/foldPayrollImports";
 import { migrateSnapshotIfNeeded } from "@/lib/import/migrateSnapshot";
-import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
@@ -173,16 +171,12 @@ interface AppContextValue {
   clearAll: () => void;
   fundingSources: ReturnType<typeof applyAliases>;
   accountTitlesByChartstring: Map<string, string>;
-  portfolioImports: PortfolioReportImport[];
   payrollImports: PayrollReportImport[];
   netPositionImports: NetPositionReportImport[];
   positionSalaryImports: PositionSalaryReportImport[];
   accountBalances: Map<string, AccountBalance>;
   /** Explicit hides + accounts hidden on Runway for everyone, minus explicit reveals. */
   hiddenAccountKeys: string[];
-  parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
-  importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
-  removePortfolioImport: (id: string) => void;
   importNetPositionFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removeNetPositionImport: (id: string) => void;
   importPositionSalaryFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
@@ -225,7 +219,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isMerge: boolean;
   } | null>(null);
   const [dataMigrated, setDataMigrated] = useState(false);
-  const [portfolioImports, setPortfolioImports] = useState<PortfolioReportImport[]>([]);
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
   const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
   const [positionSalaryImports, setPositionSalaryImports] = useState<PositionSalaryReportImport[]>([]);
@@ -244,7 +237,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
 
     async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
-      setPortfolioImports(s.portfolioImports ?? []);
       setNetPositionImports(s.netPositionImports ?? []);
       setPositionSalaryImports(s.positionSalaryImports ?? []);
       let normalizedAliases = s.snapshot
@@ -391,7 +383,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDataMigrated(migrated.migrated);
       }
       if (cancelled) return;
-      setPortfolioImports(workspace.portfolioImports ?? []);
       setNetPositionImports(workspace.netPositionImports ?? []);
       setPositionSalaryImports(workspace.positionSalaryImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
@@ -417,7 +408,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       workingPlan,
       scenarios,
       settings,
-      portfolioImports,
       payrollImports,
       netPositionImports,
       positionSalaryImports,
@@ -438,7 +428,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     workingPlan,
     scenarios,
     settings,
-    portfolioImports,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
@@ -1127,40 +1116,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, workingPlan]
   );
 
-  const importPortfolioFiles = useCallback(async (files: File[]) => {
-    const warnings: ParseWarning[] = [];
-    const imports: PortfolioReportImport[] = [];
-
-    for (const file of files) {
-      try {
-        const result = await parseMyPortfolioFile(file);
-        imports.push(result.import);
-        warnings.push(...result.warnings);
-      } catch (err) {
-        warnings.push({
-          id: generateId(),
-          severity: "error",
-          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
-        });
-      }
-    }
-
-    if (imports.length > 0) {
-      setPortfolioImports((prev) => [...prev, ...imports]);
-    }
-
-    return { warnings };
-  }, []);
-
-  const parsePortfolioFile = useCallback(
-    async (file: File) => importPortfolioFiles([file]),
-    [importPortfolioFiles]
-  );
-
-  const removePortfolioImport = useCallback((id: string) => {
-    setPortfolioImports((prev) => prev.filter((p) => p.id !== id));
-  }, []);
-
   const importNetPositionFiles = useCallback(async (files: File[]) => {
     const warnings: ParseWarning[] = [];
     const imports: NetPositionReportImport[] = [];
@@ -1368,11 +1323,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (balance === null || Number.isNaN(balance)) {
           delete overrides[key];
         } else {
-          const portfolioBalances = new Map<string, number>();
+          const balanceByKey = new Map<string, number>();
           for (const [k, v] of accountBalances) {
-            portfolioBalances.set(k, v.balance);
+            balanceByKey.set(k, v.balance);
           }
-          const match = findBalanceForChartstring(chartstring, portfolioBalances);
+          const match = findBalanceForChartstring(chartstring, balanceByKey);
           if (match !== undefined && runwayBalanceValuesMatch(balance, match.balance)) {
             delete overrides[key];
           } else {
@@ -1443,7 +1398,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         accountGroups: prev.accountGroups,
         accountGroupByBalanceKey: prev.accountGroupByBalanceKey,
         hiddenAccountBalanceKeys: prev.hiddenAccountBalanceKeys,
-        watchedPortfolioAccountKeys: prev.watchedPortfolioAccountKeys,
       };
       void saveState(
         {
@@ -1451,7 +1405,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           workingPlan: null,
           scenarios: [],
           settings: keptSettings,
-          portfolioImports,
           payrollImports: [],
           netPositionImports,
           positionSalaryImports,
@@ -1469,7 +1422,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
     setDataMigrated(false);
-  }, [portfolioImports, netPositionImports, positionSalaryImports]);
+  }, [netPositionImports, positionSalaryImports]);
 
   const value: AppContextValue = {
     snapshot: snapshotForUi,
@@ -1514,15 +1467,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     clearAll,
     fundingSources,
     accountTitlesByChartstring,
-    portfolioImports,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
     accountBalances,
     hiddenAccountKeys,
-    parsePortfolioFile,
-    importPortfolioFiles,
-    removePortfolioImport,
     importNetPositionFiles,
     removeNetPositionImport,
     importPositionSalaryFiles,

@@ -3,7 +3,6 @@
 import { useApp } from "@/context/AppContext";
 import { ActiveDatasetBanner } from "@/components/data-sources/ActiveDatasetBanner";
 import { PayrollReportCard } from "@/components/data-sources/PayrollReportCard";
-import { PortfolioFilesCard } from "@/components/data-sources/PortfolioFilesCard";
 import { NetPositionFilesCard } from "@/components/data-sources/NetPositionFilesCard";
 import { PositionSalaryFilesCard } from "@/components/data-sources/PositionSalaryFilesCard";
 import { ImportHealthCard } from "@/components/data-sources/ImportHealthCard";
@@ -16,7 +15,6 @@ export default function DataSourcesPage() {
   const {
     snapshot,
     pendingPreview,
-    portfolioImports,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
@@ -27,7 +25,6 @@ export default function DataSourcesPage() {
   const hasStoredData =
     !!snapshot ||
     !!pendingPreview ||
-    portfolioImports.length > 0 ||
     payrollImports.length > 0 ||
     netPositionImports.length > 0 ||
     positionSalaryImports.length > 0;
@@ -35,7 +32,7 @@ export default function DataSourcesPage() {
   const handleClearAll = () => {
     if (
       !confirm(
-        "Clear all data from this browser?\n\nThis removes imported payroll data, timeline edits, scenarios, hidden funds, and planning scope. MyPortfolio files, Net Position reports, Employee and Position Salary reports, account aliases, and funding sources are kept."
+        "Clear all data from this browser?\n\nThis removes imported payroll data, timeline edits, scenarios, hidden funds, and planning scope. Net Position reports, Employee and Position Salary reports, account aliases, and funding sources are kept."
       )
     ) {
       return;
@@ -61,7 +58,6 @@ export default function DataSourcesPage() {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="space-y-6">
               <PayrollReportCard />
-              <PortfolioFilesCard />
               <NetPositionFilesCard />
               <PositionSalaryFilesCard />
             </div>
@@ -69,7 +65,6 @@ export default function DataSourcesPage() {
             <aside className="space-y-4">
               <ImportHealthCard
                 snapshot={snapshot}
-                portfolioImports={portfolioImports}
                 netPositionImports={netPositionImports}
                 positionSalaryImports={positionSalaryImports}
                 payrollImportCount={payrollImports.length}
@@ -77,7 +72,6 @@ export default function DataSourcesPage() {
               />
               <WhatThisPowersCard
                 hasPayroll={hasPayroll}
-                hasPortfolio={portfolioImports.length > 0}
                 hasNetPosition={netPositionImports.length > 0}
                 hasPositionSalary={positionSalaryImports.length > 0}
               />

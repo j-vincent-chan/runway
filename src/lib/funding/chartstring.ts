@@ -10,19 +10,6 @@ export function chartstringFundDeptProject(chart: string): string | null {
   return `${parts[0]}-${parts[1]}-${parts[2]}`;
 }
 
-/** Build fund-dept-project-activity chartstring from MyPortfolio columns. */
-export function buildPortfolioChartstring(
-  fund: string,
-  dept: string,
-  project: string,
-  activity: string
-): string {
-  const parts = [fund, dept, project, activity]
-    .map((p) => String(p ?? "").trim())
-    .filter((p) => p.length > 0);
-  return parts.join("-");
-}
-
 /**
  * Match payroll chartstrings to balance rows.
  * Payroll effort accounts (e.g. …-136092L-44) carry an activity segment that

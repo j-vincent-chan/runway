@@ -177,7 +177,7 @@ export function buildVerdict({
             message:
               "No account balances have been imported, so there is nothing to measure runway against.",
             href: "/upload",
-            hrefLabel: "Upload a Net Position or MyPortfolio file",
+            hrefLabel: "Upload a Net Position Report",
           }
         : {
             message:

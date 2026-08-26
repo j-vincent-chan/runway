@@ -31,7 +31,6 @@ describe("coerceCloudWorkspacePayload", () => {
       workingPlan: null,
       scenarios: [],
       settings: DEFAULT_SETTINGS,
-      portfolioImports: [],
     });
     expect(payload?.snapshot?.id).toBe("s1");
   });
@@ -42,6 +41,8 @@ describe("coerceCloudWorkspacePayload", () => {
       workingPlan: null,
       scenarios: [],
       settings: DEFAULT_SETTINGS,
+      // A workspace saved back when MyPortfolio existed: still recognized,
+      // its portfolio rows simply not read back.
       portfolioImports: [],
       savedAt: "2026-08-01T00:00:00.000Z",
     });
@@ -152,7 +153,6 @@ describe("loadStateForAccount", () => {
         workingPlan: null,
         scenarios: [],
         settings: DEFAULT_SETTINGS,
-        portfolioImports: [],
       },
       null
     );
@@ -183,7 +183,6 @@ describe("loadStateForAccount", () => {
         workingPlan: null,
         scenarios: [],
         settings: DEFAULT_SETTINGS,
-        portfolioImports: [],
       })
     );
     expect(listLocalStoragePlanningWorkspaces()[0]?.state.snapshot?.id).toBe("x");

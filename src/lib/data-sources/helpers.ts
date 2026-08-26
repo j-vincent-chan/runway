@@ -1,29 +1,10 @@
-import type { PortfolioReportImport, NetPositionReportImport, PositionSalaryReportImport, PayrollReportSnapshot } from "@/types";
+import type { NetPositionReportImport, PositionSalaryReportImport, PayrollReportSnapshot } from "@/types";
 import { formatMonthDisplay } from "@/lib/utils/parse";
 
 export function formatMonthRange(snapshot: PayrollReportSnapshot): string {
   const { start, end } = snapshot.monthRange;
   if (!start || !end) return "—";
   return `${formatMonthDisplay(start)} – ${formatMonthDisplay(end)}`;
-}
-
-export function portfolioDisplayName(fileName: string): string {
-  const base = fileName.replace(/\.(xlsx|xls|csv)$/i, "").trim();
-  const dashParts = base.split(/\s+-\s+/);
-  if (dashParts.length >= 2) {
-    return dashParts[0].replace(/-/g, " ").trim();
-  }
-  return base;
-}
-
-export function getLatestPortfolioImportId(imports: PortfolioReportImport[]): string | null {
-  if (imports.length === 0) return null;
-  const sorted = [...imports].sort((a, b) => {
-    const byRun = b.reportRunDate.localeCompare(a.reportRunDate);
-    if (byRun !== 0) return byRun;
-    return b.uploadedAt.localeCompare(a.uploadedAt);
-  });
-  return sorted[0]?.id ?? null;
 }
 
 export function getLatestNetPositionImportId(

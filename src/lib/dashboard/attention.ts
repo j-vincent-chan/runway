@@ -84,7 +84,7 @@ export interface FundedRoot {
   /** Combined burn of everyone charging this account, not just one person's share. */
   sharedMonthlyBurn: number;
   /**
-   * How the balance was arrived at. `"none"` means no MyPortfolio row, manual
+   * How the balance was arrived at. `"none"` means no reported balance, manual
    * override, or end-date estimate matched this chartstring — the account is
    * charged but unpriced, which is a data gap, not a zero balance.
    */

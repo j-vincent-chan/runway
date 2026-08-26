@@ -193,26 +193,6 @@ export interface Scenario {
   impactSummary?: string[];
 }
 
-export interface PortfolioBalanceRow {
-  chartstring: string;
-  balance: number;
-  projectTitle?: string;
-  fund: string;
-  dept: string;
-  project: string;
-  activity?: string;
-}
-
-export interface PortfolioReportImport {
-  id: string;
-  sourceFileName: string;
-  uploadedAt: string;
-  /** From Parameters → Report Run Date (used for duplicate chartstrings) */
-  reportRunDate: string;
-  sheetName: string;
-  rows: PortfolioBalanceRow[];
-}
-
 /** One account row from a Net Position Report (PI-tracked accounts over time). */
 export interface NetPositionAccountRow {
   /** fund-dept-project (codes only) */
@@ -293,7 +273,7 @@ export interface PositionSalaryReportImport {
   people: PositionSalaryPerson[];
 }
 
-/** One uploaded Payroll Funding Report (merged like MyPortfolio files). */
+/** One uploaded Payroll Funding Report (several fold into one snapshot). */
 export interface PayrollReportImport {
   id: string;
   sourceFileName: string;
@@ -469,11 +449,6 @@ export interface AppSettings {
    * Settings, since the hide is derived rather than stored.
    */
   unhiddenAccountBalanceKeys?: string[];
-  /**
-   * Account Balances page: MyPortfolio accounts opted in for watching
-   * (fund-dept-project keys). Net Position accounts appear by default.
-   */
-  watchedPortfolioAccountKeys?: string[];
 }
 export interface WorkingPlan {
   snapshotId: string;
@@ -529,7 +504,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   freezeGridHeader: true,
   hiddenAccountBalanceKeys: [],
   unhiddenAccountBalanceKeys: [],
-  watchedPortfolioAccountKeys: [],
 };
 
 /** Soft bar fills — pair with dark text in timeline cells */

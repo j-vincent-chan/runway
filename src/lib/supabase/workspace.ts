@@ -5,7 +5,6 @@ import type {
   NetPositionReportImport,
   PayrollReportImport,
   PayrollReportSnapshot,
-  PortfolioReportImport,
   PositionSalaryReportImport,
   Scenario,
   WorkingPlan,
@@ -33,7 +32,6 @@ export type CloudWorkspacePayload = {
   workingPlan: WorkingPlan | null;
   scenarios: Scenario[];
   settings: AppSettings;
-  portfolioImports: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];
   positionSalaryImports?: PositionSalaryReportImport[];
@@ -42,7 +40,6 @@ export type CloudWorkspacePayload = {
 export function workspaceHasPlanningData(state: {
   snapshot?: PayrollReportSnapshot | null;
   workingPlan?: WorkingPlan | null;
-  portfolioImports?: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];
   positionSalaryImports?: PositionSalaryReportImport[];
@@ -50,7 +47,6 @@ export function workspaceHasPlanningData(state: {
   return Boolean(
     state.snapshot ||
       state.workingPlan ||
-      (state.portfolioImports && state.portfolioImports.length > 0) ||
       (state.payrollImports && state.payrollImports.length > 0) ||
       (state.netPositionImports && state.netPositionImports.length > 0) ||
       (state.positionSalaryImports && state.positionSalaryImports.length > 0)
@@ -68,7 +64,6 @@ export function toCloudWorkspacePayload(
     workingPlan: state.workingPlan,
     scenarios: state.scenarios ?? [],
     settings: state.settings,
-    portfolioImports: state.portfolioImports ?? [],
     payrollImports: ensurePayrollImports(state.snapshot, state.payrollImports),
     netPositionImports: state.netPositionImports ?? [],
     positionSalaryImports: state.positionSalaryImports ?? [],
@@ -84,7 +79,6 @@ export function cloudWorkspaceToStored(
     workingPlan: cloud.workingPlan ?? null,
     scenarios: cloud.scenarios ?? [],
     settings: ensureCatalogDefaults({ ...DEFAULT_SETTINGS, ...cloud.settings }),
-    portfolioImports: cloud.portfolioImports ?? [],
     payrollImports: ensurePayrollImports(snapshot, cloud.payrollImports),
     netPositionImports: cloud.netPositionImports ?? [],
     positionSalaryImports: cloud.positionSalaryImports ?? [],
@@ -130,6 +124,8 @@ export function coerceCloudWorkspacePayload(
     "snapshot" in raw ||
     "workingPlan" in raw ||
     "settings" in raw ||
+    // Older payloads carried MyPortfolio imports; still recognizable as a
+    // workspace, but the rows themselves are no longer read back.
     "portfolioImports" in raw ||
     "payrollImports" in raw ||
     "netPositionImports" in raw ||
@@ -144,7 +140,6 @@ export function coerceCloudWorkspacePayload(
       ...DEFAULT_SETTINGS,
       ...((raw.settings as AppSettings | undefined) ?? {}),
     }),
-    portfolioImports: (raw.portfolioImports as PortfolioReportImport[] | undefined) ?? [],
     payrollImports: raw.payrollImports as PayrollReportImport[] | undefined,
     netPositionImports:
       (raw.netPositionImports as NetPositionReportImport[] | undefined) ?? [],

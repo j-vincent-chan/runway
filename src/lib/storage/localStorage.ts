@@ -3,7 +3,6 @@ import type {
   NetPositionReportImport,
   PayrollReportImport,
   PayrollReportSnapshot,
-  PortfolioReportImport,
   Scenario,
   WorkingPlan,
   PositionSalaryReportImport,
@@ -27,7 +26,6 @@ export interface StoredAppState {
   workingPlan: WorkingPlan | null;
   scenarios: Scenario[];
   settings: AppSettings;
-  portfolioImports: PortfolioReportImport[];
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];
   positionSalaryImports?: PositionSalaryReportImport[];
@@ -43,7 +41,6 @@ function emptyState(): StoredAppState {
     workingPlan: null,
     scenarios: [],
     settings: ensureCatalogDefaults(DEFAULT_SETTINGS),
-    portfolioImports: [],
     payrollImports: [],
     netPositionImports: [],
     positionSalaryImports: [],
@@ -57,7 +54,6 @@ function normalizeState(parsed: Partial<StoredAppState> | null | undefined): Sto
     workingPlan: parsed.workingPlan ?? null,
     scenarios: parsed.scenarios ?? [],
     settings: ensureCatalogDefaults({ ...DEFAULT_SETTINGS, ...parsed.settings }),
-    portfolioImports: parsed.portfolioImports ?? [],
     payrollImports: parsed.payrollImports ?? [],
     netPositionImports: parsed.netPositionImports ?? [],
     positionSalaryImports: parsed.positionSalaryImports ?? [],
@@ -78,7 +74,6 @@ export function hasPlanningData(state: StoredAppState): boolean {
   return Boolean(
     state.snapshot ||
       state.workingPlan ||
-      (state.portfolioImports && state.portfolioImports.length > 0) ||
       (state.payrollImports && state.payrollImports.length > 0) ||
       (state.netPositionImports && state.netPositionImports.length > 0) ||
       (state.positionSalaryImports && state.positionSalaryImports.length > 0)
@@ -295,7 +290,6 @@ function pickRichest(candidates: StoredAppState[]): StoredAppState | null {
     const score =
       (state.snapshot?.employees?.length ?? 0) * 1000 +
       (state.payrollImports?.length ?? 0) * 10 +
-      (state.portfolioImports?.length ?? 0) +
       (state.netPositionImports?.length ?? 0) +
       (state.positionSalaryImports?.length ?? 0) +
       (state.savedAt ? Date.parse(state.savedAt) / 1e13 : 0);

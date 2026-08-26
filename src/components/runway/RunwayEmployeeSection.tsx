@@ -298,7 +298,7 @@ export function RunwayEmployeeSection({
                         value={acct.balance}
                         source={acct.balanceSource}
                         asOfDate={acct.balanceAsOf}
-                        portfolioHint={
+                        reportHint={
                           acct.balanceSource === "report"
                             ? [acct.balanceFile, formatIsoDateDisplay(acct.balanceAsOf)]
                                 .filter(Boolean)
@@ -568,14 +568,14 @@ function BalanceInput({
   value,
   source,
   asOfDate,
-  portfolioHint,
+  reportHint,
   disabled,
   onCommit,
 }: {
   value: number;
   source: "report" | "manual" | "estimated" | "none";
   asOfDate?: string;
-  portfolioHint?: string;
+  reportHint?: string;
   disabled?: boolean;
   onCommit: (value: number | null) => void;
 }) {
@@ -603,11 +603,11 @@ function BalanceInput({
           source === "none" && disabled && "border-slate-200 bg-slate-50"
         )}
         title={
-          portfolioHint ??
+          reportHint ??
           (source === "manual"
             ? "Manual balance"
             : source === "none"
-              ? "Enter balance or upload MyPortfolio report"
+              ? "Enter balance or upload a Net Position Report"
               : undefined)
         }
         value={editing ? draft : displayValue}
@@ -637,7 +637,7 @@ function BalanceInput({
         }}
       />
       {!disabled && source !== "none" && (
-        <p className="text-[10px] text-slate-500" title={portfolioHint}>
+        <p className="text-[10px] text-slate-500" title={reportHint}>
           {source === "manual"
             ? "Manual entry"
             : asOfLabel
@@ -646,7 +646,7 @@ function BalanceInput({
         </p>
       )}
       {!disabled && source === "none" && (
-        <p className="text-[10px] text-amber-700">Upload MyPortfolio or enter amount</p>
+        <p className="text-[10px] text-amber-700">Upload a Net Position Report or enter amount</p>
       )}
     </div>
   );

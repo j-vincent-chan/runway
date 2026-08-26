@@ -210,7 +210,7 @@ export function RuleEditor({
         )}
         {mode === "fundsDepleted" && (
           <p className="mt-3 text-xs text-slate-600">
-            Uses MyPortfolio remaining cash minus personnel in this report only.
+            Uses remaining cash from the Net Position Report minus personnel in this report only.
             {shared > 1 ? ` ${shared} people currently draw on this account.` : ""}
             {depletedMonth
               ? ` At current burn this pool hits $0 around ${formatMonthLabel(depletedMonth)}.`
