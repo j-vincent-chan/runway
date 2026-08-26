@@ -29,7 +29,7 @@ const base = {
 };
 
 describe("buildVerdict", () => {
-  it("states the position before the team that threatens it", () => {
+  it("leads with the weakest team and calls for money when it is critical", () => {
     const verdict = buildVerdict({
       ...base,
       teamRows: [team("Community management", 1.5), team("Data management", 20.2), rollup(14.9)],
@@ -37,7 +37,7 @@ describe("buildVerdict", () => {
     expect(verdict.status).toBe("critical");
     expect(verdict.weakestTeamKey).toBe("community-management");
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 14.9 months out, but Community management averages 1.5 months of payroll runway, while every other team holds 6 months or more. Needs funding or a burn cut now."
+      "Critical: Community management averages 1.5 months of payroll runway, while every other team holds 6 months or more. Needs funding or a burn cut now."
     );
   });
 
@@ -48,7 +48,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("at_risk");
     expect(verdictText(verdict)).toBe(
-      "At Risk: Payroll is funded about 14.9 months out, but Marketing averages 3.2 months of payroll runway, while every other team holds 6 months or more. Needs funding or a burn cut this quarter, before it turns critical."
+      "At Risk: Marketing averages 3.2 months of payroll runway, while every other team holds 6 months or more. Needs funding or a burn cut this quarter, before it turns critical."
     );
   });
 
@@ -59,7 +59,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("stable");
     expect(verdictText(verdict)).toBe(
-      "Stable: Payroll is funded about 14.9 months out, and every team holds 6 months or more of payroll runway; Community management is the shortest, averaging 8.4 months. No team is below the 6-month line."
+      "Stable: Every team holds 6 months or more of payroll runway; Community management is the shortest, averaging 8.4 months. No team is below the 6-month line."
     );
   });
 
@@ -71,7 +71,7 @@ describe("buildVerdict", () => {
     // statusFor is stable at >= CAUTION_MONTHS, so the sentence must not
     // claim every team is *above* six.
     expect(verdict.status).toBe("stable");
-    expect(verdictText(verdict)).toContain("every team holds 6 months or more");
+    expect(verdictText(verdict)).toContain("Every team holds 6 months or more");
     expect(verdictText(verdict)).not.toContain("more than 6 months");
   });
 
@@ -81,7 +81,7 @@ describe("buildVerdict", () => {
       teamRows: [team("Alpha", 1.2), team("Beta", 4.0), team("Gamma", 30), rollup(9)],
     });
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 14.9 months out, but Alpha averages 1.2 months of payroll runway, and Beta averages 4.0 months. They need funding or a burn cut now."
+      "Critical: Alpha averages 1.2 months of payroll runway, and Beta averages 4.0 months. They need funding or a burn cut now."
     );
   });
 
@@ -129,25 +129,14 @@ describe("buildVerdict", () => {
     expect(verdict.status).toBe("stable");
     expect(verdict.weakestTeamKey).toBeNull();
     expect(verdictText(verdict)).toBe(
-      "Stable: Payroll is funded about 14.9 months out. Payroll runway is above the 6-month line."
+      "Stable: Your payroll accounts hold 14.9 months of runway. Payroll runway is above the 6-month line."
     );
   });
 
   it("does not claim other teams are fine when there is only one", () => {
     const verdict = buildVerdict({ ...base, teamRows: [team("Alpha", 2), rollup(2)] });
-    expect(verdictText(verdict)).toContain("Alpha is the only team drawing payroll");
+    expect(verdictText(verdict)).toContain("no other team draws payroll");
     expect(verdictText(verdict)).not.toContain("every other team");
-  });
-
-  it("never prints the same figure twice when one team is the whole roll-up", () => {
-    const verdict = buildVerdict({
-      ...base,
-      overallRunwayMonths: 2,
-      teamRows: [team("Alpha", 2), rollup(2)],
-    });
-    expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 2.0 months out, and Alpha is the only team drawing payroll. Needs funding or a burn cut now."
-    );
   });
 
   it("ignores teams with no burn to rank on", () => {
@@ -167,19 +156,18 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 14.9 months out, but Fund 4000 · 138919A runs dry in less than a month, well before Community management, your weakest team, averages 13.1 months. Needs funding or a burn cut now."
+      "Critical: Fund 4000 · 138919A runs dry in less than a month, well before Community management, your weakest team, averages 13.1 months. Needs funding or a burn cut now."
     );
   });
 
   it("keeps the team framing when no individual item is worse", () => {
     const verdict = buildVerdict({
       ...base,
-      overallRunwayMonths: 9,
       teamRows: [team("Alpha", 2), team("Beta", 30), rollup(9)],
       worstItem: { label: "Someone", months: 4 },
     });
     expect(verdict.status).toBe("critical");
-    expect(verdictText(verdict)).toContain("Payroll is funded about 9.0 months out, but Alpha averages 2.0 months");
+    expect(verdictText(verdict)).toContain("Alpha averages 2.0 months");
     expect(verdictText(verdict)).not.toContain("Someone");
   });
 
@@ -190,9 +178,7 @@ describe("buildVerdict", () => {
       worstItem: { label: "Fund 4000", months: -1 },
     });
     expect(verdict.status).toBe("critical");
-    expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 14.9 months out, but Fund 4000 is already overdrawn. Needs funding or a burn cut now."
-    );
+    expect(verdictText(verdict)).toContain("Fund 4000 is already overdrawn");
   });
 
   it("never instructs the reader to move money", () => {

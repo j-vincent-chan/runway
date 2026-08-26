@@ -144,25 +144,12 @@ function teamState(row: TeamRunwayRow, { trailing = true }: { trailing?: boolean
 }
 
 /**
- * Where the program stands, stated before anything that threatens it.
+ * "runs dry in 1.5 months" / "is already overdrawn" for a queue item.
  *
- * The hero's whole job is that a reader who reads only this sentence learns
- * whether the program is solvent. Leading with the sharpest fact answered
- * "what is wrong" while never answering "how am I doing" — so the position
- * leads even when a sharper fact is what sets the severity.
+ * Kept from the reverted position-first sentence: the overdrawn connective fix
+ * that follows it branches on the same two shapes, and inlining them again
+ * would put that decision back in two places.
  */
-function positionClause(overallRunwayMonths: number): VerdictSegment[] {
-  if (overallRunwayMonths < 0) {
-    return [connective("Your payroll accounts are "), data("already overdrawn")];
-  }
-  return [
-    connective("Payroll is funded about "),
-    data(monthsPhrase(overallRunwayMonths)),
-    connective(" out"),
-  ];
-}
-
-/** "runs dry in 1.5 months" / "is already overdrawn" for a queue item. */
 function itemState(item: WorstItem): VerdictSegment[] {
   if (item.months < 0) {
     return [data(item.label, "/runway"), connective(" is already overdrawn")];
@@ -251,9 +238,11 @@ export function buildVerdict({
         statusLabel: STATUS_LABEL[itemStatus],
         finding: {
           segments: [
-            ...positionClause(overallRunwayMonths),
-            connective(", but "),
-            ...itemState(worstItem),
+            data(worstItem.label, "/runway"),
+            connective(worstItem.months < 0 ? " is already overdrawn" : " runs dry in "),
+            ...(worstItem.months < 0 ? [] : [data(monthsPhrase(worstItem.months))]),
+            connective(", well before your accounts average of "),
+            data(monthsPhrase(overallRunwayMonths)),
             connective("."),
           ],
         },
@@ -263,10 +252,14 @@ export function buildVerdict({
       };
     }
 
-    const segments: VerdictSegment[] = [
-      ...positionClause(overallRunwayMonths),
-      connective("."),
-    ];
+    const segments: VerdictSegment[] =
+      overallRunwayMonths < 0
+        ? [connective("Your payroll accounts are "), data("already overdrawn"), connective(".")]
+        : [
+            connective("Your payroll accounts hold "),
+            data(monthsPhrase(overallRunwayMonths)),
+            connective(" of runway."),
+          ];
     return {
       status: rollupStatus,
       statusLabel: STATUS_LABEL[rollupStatus],
@@ -289,8 +282,6 @@ export function buildVerdict({
    */
   if (SEVERITY_RANK[itemStatus] > SEVERITY_RANK[teamStatus] && worstItem) {
     const segments: VerdictSegment[] = [
-      ...positionClause(overallRunwayMonths),
-      connective(", but "),
       ...itemState(worstItem),
       /**
        * "well before" was written for the duration comparison, where both
@@ -316,29 +307,6 @@ export function buildVerdict({
 
   const status = teamStatus;
 
-  /**
-   * One team means the roll-up *is* that team, so naming both would print the
-   * same figure twice in one sentence. The position carries the number; the
-   * team clause only has to say who it belongs to.
-   */
-  if (ranked.length === 1) {
-    return {
-      status,
-      statusLabel: STATUS_LABEL[status],
-      finding: {
-        segments: [
-          ...positionClause(overallRunwayMonths),
-          connective(", and "),
-          data(weakest.shortLabel, "/runway"),
-          connective(" is the only team drawing payroll."),
-        ],
-      },
-      action: actionFor(status, 1, true),
-      weakestTeamKey: weakest.key,
-      missing: null,
-    };
-  }
-
   if (status === "stable") {
     // Every team clears the caution line — say so about all of them rather
     // than singling one out, since none is a problem.
@@ -346,20 +314,23 @@ export function buildVerdict({
       status,
       statusLabel: STATUS_LABEL[status],
       finding: {
-        segments: [
-          ...positionClause(overallRunwayMonths),
-          // statusFor is stable at >= CAUTION_MONTHS, so "more than 6 months"
-          // was false for a team sitting exactly on the line. The copy moves,
-          // never the threshold: CAUTION_MONTHS is shared with the attention
-          // queue, and shifting it would reclassify severity page-wide.
-          connective(", and every team holds "),
-          data(`${CAUTION_MONTHS} months or more`),
-          connective(" of payroll runway; "),
-          data(weakest.shortLabel, "/runway"),
-          connective(" is the shortest, averaging "),
-          data(monthsPhrase(weakest.months!)),
-          connective("."),
-        ],
+        segments:
+          ranked.length === 1
+            ? [...teamState(weakest), connective(", and no other team draws payroll.")]
+            : [
+                // statusFor is stable at >= CAUTION_MONTHS, so "more than 6
+                // months" was false for a team sitting exactly on the line. The
+                // copy moves, never the threshold: CAUTION_MONTHS is shared with
+                // the attention queue, and shifting it would reclassify severity
+                // page-wide.
+                connective("Every team holds "),
+                data(`${CAUTION_MONTHS} months or more`),
+                connective(" of payroll runway; "),
+                data(weakest.shortLabel, "/runway"),
+                connective(" is the shortest, averaging "),
+                data(monthsPhrase(weakest.months!)),
+                connective("."),
+              ],
       },
       action: actionFor(status, 0, true),
       weakestTeamKey: weakest.key,
@@ -370,15 +341,15 @@ export function buildVerdict({
   // Name every team under the caution line rather than counting them, up to a
   // second one; past that the queue below carries the full list.
   const alsoShort = ranked.slice(1).filter((r) => r.months! < CAUTION_MONTHS);
-  const segments: VerdictSegment[] = [
-    ...positionClause(overallRunwayMonths),
-    connective(", but "),
-    ...teamState(weakest),
-  ];
+  const segments: VerdictSegment[] = [...teamState(weakest)];
 
   if (alsoShort.length === 0) {
     segments.push(
-      connective(`, while every other team holds ${CAUTION_MONTHS} months or more.`)
+      connective(
+        ranked.length === 1
+          ? ", and no other team draws payroll."
+          : `, while every other team holds ${CAUTION_MONTHS} months or more.`
+      )
     );
   } else if (alsoShort.length === 1) {
     segments.push(
