@@ -143,9 +143,13 @@ export function TeamRunwayCarousel({
                 <>runs out {monthLabelLong(row.targetMonth)}</>
               ) : null}
               {priorRunwayMonths !== null && priorReportLabel ? (
-                <> · was {priorRunwayMonths.toFixed(1)} mo at the {priorReportLabel} report</>
+                <>
+                  {" "}
+                  · was ~{priorRunwayMonths.toFixed(1)} mo under the {priorReportLabel} payroll
+                  report
+                </>
               ) : (
-                <> · no prior report to compare</>
+                <> · no prior payroll report to compare</>
               )}
             </>
           ) : (

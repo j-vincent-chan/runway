@@ -263,10 +263,14 @@ export function AnchorStats({
               </Link>
             ) : fundsDelta !== null && fundsPriorLabel ? (
               <>
-                {signed(fundsDelta)} since the {fundsPriorLabel} report
+                {signed(fundsDelta)} since the {fundsPriorLabel} Net Position report
               </>
             ) : (
-              <>no prior report to compare</>
+              /* Names the report type: this compares Net Position periods,
+                 while the runway stat beside it compares payroll imports. One
+                 can have a prior report while the other does not, and calling
+                 both "the report" made the row contradict itself. */
+              <>no prior Net Position report to compare</>
             )}
           </>
         }
@@ -345,9 +349,16 @@ export function AnchorStats({
                 <>runs out {monthLabelLong(runwayTargetMonth)}</>
               ) : null}
               {priorRunwayMonths !== null && priorReportLabel ? (
-                <> · was {priorRunwayMonths.toFixed(1)} mo at the {priorReportLabel} report</>
+                /* "under", not "at": this re-runs today's balances against the
+                   previous payroll's burn. No runway was measured in that
+                   month — the balances behind it are the current ones. */
+                <>
+                  {" "}
+                  · was ~{priorRunwayMonths.toFixed(1)} mo under the {priorReportLabel} payroll
+                  report
+                </>
               ) : (
-                <> · no prior report to compare</>
+                <> · no prior payroll report to compare</>
               )}
             </>
           )
