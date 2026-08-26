@@ -29,6 +29,10 @@ export interface RibbonBand {
   depletionMonthIndex: number | null;
   /** True when a currently active employee has non-zero effort charged here this planning month. */
   hasCurrentPersonnel: boolean;
+  /** Accounts summed into this band — set only on the "other accounts" aggregate. */
+  memberCount?: number;
+  /** How many of those run dry inside the window. */
+  depletedMemberCount?: number;
 }
 
 export interface RibbonMarker {
@@ -211,11 +215,20 @@ export function collapseBands(bands: RibbonBand[], cap = RIBBON_BAND_CAP): Ribbo
     values: Array.from({ length: monthCount }, (_, i) =>
       rest.reduce((sum, b) => sum + (b.values[i] ?? 0), 0)
     ),
-    // The aggregate depletes only when every account inside it has.
+    // The aggregate depletes only when every account inside it has: a summed
+    // balance stays positive while individual accounts inside it run dry.
     depletionMonthIndex: rest.every((b) => b.depletionMonthIndex !== null)
       ? Math.max(...rest.map((b) => b.depletionMonthIndex!))
       : null,
     hasCurrentPersonnel: rest.some((b) => b.hasCurrentPersonnel),
+    /**
+     * Which is why the counts travel with it. Reporting only the summed band's
+     * date let the legend say "30 other accounts hold past July 2027" directly
+     * beneath a header saying 23 of 35 accounts run dry — both drawn from this
+     * same list, and irreconcilable to a reader.
+     */
+    memberCount: rest.length,
+    depletedMemberCount: rest.filter((b) => b.depletionMonthIndex !== null).length,
   };
 
   return [...named, other];

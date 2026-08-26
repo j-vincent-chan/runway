@@ -387,3 +387,39 @@ describe("a band for an account marked not-my-account", () => {
     expect(ribbon.bands[0]!.values[0]!).toBeCloseTo(890_000, 0);
   });
 });
+
+describe("collapseBands member counts", () => {
+  function band(
+    chartRoot: string,
+    values: number[],
+    depletionMonthIndex: number | null
+  ): RibbonBand {
+    return { chartRoot, label: chartRoot, values, depletionMonthIndex, hasCurrentPersonnel: true };
+  }
+
+  it("reports how many of the aggregated accounts run dry, not just the sum", () => {
+    // Two deplete, one never does — so the summed band never reaches zero and
+    // its own depletionMonthIndex stays null. The legend must not read that as
+    // "all of these hold".
+    const bands = [
+      band("a", [10, 0, 0], 1),
+      band("b", [10, 5, 0], 2),
+      band("c", [10, 5, 0], 2),
+      band("d", [10, 0, 0], 1),
+      band("e", [10, 10, 10], null),
+      band("f", [10, 10, 10], null),
+      band("g", [10, 0, 0], 1),
+    ];
+    const out = collapseBands(bands, 3);
+    const other = out.at(-1)!;
+
+    expect(other.depletionMonthIndex).toBeNull();
+    expect(other.memberCount).toBe(4);
+    expect(other.depletedMemberCount).toBe(2);
+  });
+
+  it("leaves the counts off a band that is a real account", () => {
+    const out = collapseBands([band("a", [10, 0], 1), band("b", [10, 10], null)], 3);
+    expect(out.every((b) => b.memberCount === undefined)).toBe(true);
+  });
+});
