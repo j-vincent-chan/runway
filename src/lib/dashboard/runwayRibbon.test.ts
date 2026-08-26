@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildRunwayRibbon,
+  alreadyDryLabels,
   collapseBands,
   depletionEvents,
   ribbonTotals,
@@ -403,16 +404,25 @@ describe("depletionEvents", () => {
 
   it("groups every account emptying in the same month", () => {
     const events = depletionEvents(
-      [band("Zebra", 0), band("Apple", 0), band("Cherry", 2), band("Never", null)],
+      [band("Zebra", 1), band("Apple", 1), band("Cherry", 2), band("Never", null)],
       months
     );
     expect(events).toHaveLength(2);
     expect(events[0]).toEqual({
-      monthIndex: 0,
-      month: "2026-08",
+      monthIndex: 1,
+      month: "2026-09",
       labels: ["Apple", "Zebra"],
     });
     expect(events[1]!.labels).toEqual(["Cherry"]);
+  });
+
+  it("does not mark the opening month, where nothing has happened yet", () => {
+    // The chart floors at zero, so an account already overdrawn today reads as
+    // depleting at index 0. Dotting it put a mark on a month in which nothing
+    // changed, and dated it "runs dry {first month}".
+    const bands = [band("Overdrawn", 0), band("Later", 2)];
+    expect(depletionEvents(bands, months).map((e) => e.monthIndex)).toEqual([2]);
+    expect(alreadyDryLabels(bands)).toEqual(["Overdrawn"]);
   });
 
   it("counts accounts the drawn bands would have hidden inside the aggregate", () => {

@@ -17,6 +17,7 @@ import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import {
+  alreadyDryLabels,
   collapseBands,
   depletionEvents,
   ribbonTotals,
@@ -41,8 +42,9 @@ const MIN_BAND_OPACITY = 0.65;
 /** Named rows under the chart before the tail becomes a count. */
 const DRY_ROW_CAP = 6;
 /** Roster-date pins: tick height above the axis, then the circle on top. */
-const MARKER_TICK = 9;
-const MARKER_R = 3.5;
+const MARKER_TICK = 10;
+const MARKER_R = 9;
+const MARKER_CLIP_ID = "ribbon-marker-clip";
 const DRY_DOT_MIN_R = 3.5;
 const DRY_DOT_MAX_R = 9;
 function dryDotRadius(count: number): number {
@@ -92,16 +94,28 @@ function buildChartData(
   });
 }
 
+/**
+ * What ran out this month, then what is left.
+ *
+ * The remaining-balance list filters to bands still holding money — which is
+ * every band *except* the ones that just emptied, since a depleted band's
+ * value is zero. So the one account the red dot was marking was the one
+ * account the tooltip could never name. The dry list is sourced from the same
+ * events the dots are, and leads, because it is the reason the dot is there.
+ */
 function RibbonTooltip({
   active,
   payload,
   label,
   stackOrder,
+  dryByLabel,
 }: {
   active?: boolean;
   payload?: { value?: number; dataKey?: string }[];
   label?: string;
   stackOrder: StackedBand[];
+  /** Month label → accounts emptying that month. */
+  dryByLabel: Map<string, string[]>;
 }) {
   if (!active || !payload?.length) return null;
   const byBand = new Map<string, number>();
@@ -110,12 +124,27 @@ function RibbonTooltip({
     if (value > 0) byBand.set(band.label, value);
   }
   const total = [...byBand.values()].reduce((sum, v) => sum + v, 0);
+  const dry = label ? (dryByLabel.get(label) ?? []) : [];
 
   return (
-    <div className="rounded-md border border-rule bg-surface px-3 py-2 shadow-sm">
+    <div className="max-w-sm rounded-md border border-rule bg-surface px-3 py-2 shadow-sm">
       <p className="type-mono text-muted">{label}</p>
-      <p className="type-row mt-1 font-medium text-ink">{formatCurrency(total)} total</p>
-      <ul className="mt-1 space-y-0.5">
+      {dry.length > 0 && (
+        <>
+          <p className="type-row mt-1 font-medium text-critical">
+            {dry.length === 1 ? "Runs dry this month" : `${dry.length} run dry this month`}
+          </p>
+          <ul className="mt-0.5 space-y-0.5">
+            {dry.map((name) => (
+              <li key={name} className="type-mono truncate text-critical">
+                {name}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <p className="type-row mt-2 font-medium text-ink">{formatCurrency(total)} still funded</p>
+      <ul className="mt-0.5 space-y-0.5">
         {[...byBand.entries()].map(([name, value]) => (
           <li key={name} className="type-mono flex justify-between gap-3 text-ink-2">
             <span className="truncate">{name}</span>
@@ -167,6 +196,10 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
    * the header counts.
    */
   const dryEvents = depletionEvents(scopedBands, ribbon.months);
+  const dryByLabel = new Map(
+    dryEvents.map((e) => [monthLabelShort(e.month), e.labels] as const)
+  );
+  const alreadyDry = alreadyDryLabels(scopedBands);
 
   /**
    * Named rows, soonest first, capped at the same count the attention queue
@@ -248,6 +281,10 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
           <AreaChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <HatchPattern id={PROJECTED_PATTERN_ID} color="var(--accent)" />
+              {/* objectBoundingBox so one clip serves every pin, wherever it sits. */}
+              <clipPath id={MARKER_CLIP_ID} clipPathUnits="objectBoundingBox">
+                <circle cx="0.5" cy="0.5" r="0.5" />
+              </clipPath>
             </defs>
             <XAxis
               dataKey="label"
@@ -265,7 +302,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
               tickLine={false}
               axisLine={false}
             />
-            <Tooltip content={<RibbonTooltip stackOrder={stackOrder} />} />
+            <Tooltip content={<RibbonTooltip stackOrder={stackOrder} dryByLabel={dryByLabel} />} />
             {stackOrder.map((band) => (
               <Area
                 key={band.key}
@@ -358,6 +395,12 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
             */}
             {ribbon.markers.map((marker) => {
               const ending = marker.kind === "end";
+              const initials = marker.employeeName
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part[0] ?? "")
+                .join("")
+                .toUpperCase();
               return (
                 <ReferenceDot
                   key={`${marker.month}-${marker.kind}-${marker.employeeName}`}
@@ -365,31 +408,67 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                   y={0}
                   r={MARKER_R}
                   fill="var(--ink-2)"
-                  shape={(props: { cx?: number; cy?: number }) => (
-                    <g>
-                      <line
-                        x1={props.cx}
-                        y1={props.cy}
-                        x2={props.cx}
-                        y2={(props.cy ?? 0) - MARKER_TICK}
-                        stroke="var(--ink-2)"
-                        strokeWidth={1.5}
-                      />
-                      <circle
-                        cx={props.cx}
-                        cy={(props.cy ?? 0) - MARKER_TICK - MARKER_R}
-                        r={MARKER_R}
-                        fill={ending ? "var(--ink-2)" : "var(--surface)"}
-                        stroke="var(--ink-2)"
-                        strokeWidth={1.5}
-                      >
-                        <title>
-                          {marker.employeeName} · {marker.description} ·{" "}
-                          {monthLabelLong(marker.month)}
-                        </title>
-                      </circle>
-                    </g>
-                  )}
+                  shape={(props: { cx?: number; cy?: number }) => {
+                    const cx = props.cx ?? 0;
+                    const cy = (props.cy ?? 0) - MARKER_TICK - MARKER_R;
+                    return (
+                      <g>
+                        <line
+                          x1={cx}
+                          y1={props.cy}
+                          x2={cx}
+                          y2={cy}
+                          stroke="var(--ink-2)"
+                          strokeWidth={1.5}
+                        />
+                        {marker.photoUrl ? (
+                          <image
+                            href={marker.photoUrl}
+                            x={cx - MARKER_R}
+                            y={cy - MARKER_R}
+                            width={MARKER_R * 2}
+                            height={MARKER_R * 2}
+                            clipPath={`url(#${MARKER_CLIP_ID})`}
+                            preserveAspectRatio="xMidYMid slice"
+                          />
+                        ) : (
+                          <>
+                            <circle cx={cx} cy={cy} r={MARKER_R} fill="var(--inset)" />
+                            <text
+                              x={cx}
+                              y={cy}
+                              textAnchor="middle"
+                              dominantBaseline="central"
+                              fontSize={8}
+                              fill="var(--ink-2)"
+                            >
+                              {initials}
+                            </text>
+                          </>
+                        )}
+                        {/* The ring, not the photo, says which kind this is:
+                            solid for an ending, dashed for a start. Shape
+                            rather than hue, because --critical, --caution and
+                            --healthy mean severity here and a roster date is
+                            not a severity. */}
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={MARKER_R}
+                          fill="none"
+                          stroke="var(--ink-2)"
+                          strokeWidth={2}
+                          strokeDasharray={ending ? undefined : "2 2"}
+                        />
+                        <circle cx={cx} cy={cy} r={MARKER_R} fill="transparent">
+                          <title>
+                            {marker.employeeName} · {marker.description} ·{" "}
+                            {monthLabelLong(marker.month)}
+                          </title>
+                        </circle>
+                      </g>
+                    );
+                  }}
                 />
               );
             })}
@@ -412,20 +491,28 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
       {ribbon.markers.length > 0 && (
         <p className="type-mono mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-muted">
           <span className="inline-flex items-center gap-1.5">
-            <svg width="9" height="9" aria-hidden>
-              <circle cx="4.5" cy="4.5" r="3.5" fill="var(--ink-2)" />
+            <svg width="12" height="12" aria-hidden>
+              <circle
+                cx="6"
+                cy="6"
+                r="4.5"
+                fill="var(--inset)"
+                stroke="var(--ink-2)"
+                strokeWidth="2"
+              />
             </svg>
             employment or funding ends
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <svg width="9" height="9" aria-hidden>
+            <svg width="12" height="12" aria-hidden>
               <circle
-                cx="4.5"
-                cy="4.5"
-                r="3.5"
-                fill="var(--surface)"
+                cx="6"
+                cy="6"
+                r="4.5"
+                fill="var(--inset)"
                 stroke="var(--ink-2)"
-                strokeWidth="1.5"
+                strokeWidth="2"
+                strokeDasharray="2 2"
               />
             </svg>
             employment starts
@@ -436,9 +523,19 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
         </p>
       )}
 
-      {dryEvents.length > 0 && (
+      {(dryEvents.length > 0 || alreadyDry.length > 0) && (
         <div className="mt-3">
           <h3 className="type-caption text-muted">Runs dry</h3>
+          {alreadyDry.length > 0 && (
+            /* Not a month: these hold nothing at the chart's opening month, so
+               dating them "runs dry {first month}" claimed a transition that
+               had already happened before the window began. */
+            <p className="type-row mt-1 text-critical">
+              <span className="type-mono">already dry</span>{" "}
+              {alreadyDry.slice(0, 2).join(", ")}
+              {alreadyDry.length > 2 && ` + ${alreadyDry.length - 2} more`}
+            </p>
+          )}
           <ul className="mt-1 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
             {dryRows.map((row) => (
               <li key={row.key} className="type-row flex items-baseline gap-3 text-ink-2">

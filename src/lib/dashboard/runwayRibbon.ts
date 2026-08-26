@@ -2,7 +2,7 @@ import { simulateProjections } from "@/lib/projections/simulate";
 import { chartstringKeyForFundingSource, projectionSourceLabel } from "@/lib/projections/sources";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
 import { getEmployeeEndDate, getEmployeeStartDate } from "@/lib/employees/profile";
-import { employeePersonKey } from "@/lib/employees/stableKey";
+import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import { getAllocations, getCurrentMonth } from "@/lib/calculations";
 import { addMonthsYm, getProjectionOriginMonth } from "@/lib/projections/horizon";
@@ -38,6 +38,7 @@ export interface RibbonMarker {
   description: string;
   /** Someone joining the payroll, or funding leaving it. */
   kind: "start" | "end";
+  photoUrl: string | null;
 }
 
 export interface RunwayRibbon {
@@ -73,6 +74,7 @@ export function buildMarkers(
 
   for (const emp of employees) {
     const personKey = employeePersonKey(emp);
+    const photoUrl = resolveEmployeeProfile(settings, emp)?.photoUrl ?? null;
 
     const explicit = rules.find(
       (r) => r.personKey === personKey && !r.chartstringKey && r.trigger.type === "onDate"
@@ -91,6 +93,7 @@ export function buildMarkers(
         month,
         employeeName: emp.name,
         description: "Employment ends",
+        photoUrl,
         kind: "end",
       });
     }
@@ -109,6 +112,7 @@ export function buildMarkers(
         month: startMonth,
         employeeName: emp.name,
         description: "Employment starts",
+        photoUrl,
         kind: "start",
       });
     }
@@ -123,6 +127,7 @@ export function buildMarkers(
         month: rule.trigger.month,
         employeeName: emp.name,
         description: "Funding ends",
+        photoUrl,
         kind: "end",
       });
     }
@@ -165,6 +170,14 @@ function currentPersonnelRoots(
 }
 
 /** Sum of the given bands per month, and the first index the sum crosses zero. Plain aggregation, not a new derivation. */
+/** Accounts with no money left at the chart's opening month. */
+export function alreadyDryLabels(bands: RibbonBand[]): string[] {
+  return bands
+    .filter((b) => b.depletionMonthIndex === 0)
+    .map((b) => b.label)
+    .sort((a, b) => a.localeCompare(b));
+}
+
 /** One month in which at least one account's balance reaches zero. */
 export interface DepletionEvent {
   monthIndex: number;
@@ -185,7 +198,14 @@ export function depletionEvents(bands: RibbonBand[], months: string[]): Depletio
   const byMonth = new Map<number, string[]>();
   for (const band of bands) {
     const idx = band.depletionMonthIndex;
-    if (idx === null || idx < 0 || idx >= months.length) continue;
+    /**
+     * Index 0 is the chart's opening month, so a band depleting there was
+     * already empty before the window began — the chart floors at zero, which
+     * is why it reads as a depletion at all. Marking it put a dot on a month
+     * in which nothing happened, and called an account overdrawn today "runs
+     * dry August 2026". Those are listed as already dry instead.
+     */
+    if (idx === null || idx < 1 || idx >= months.length) continue;
     const list = byMonth.get(idx) ?? [];
     list.push(band.label);
     byMonth.set(idx, list);
