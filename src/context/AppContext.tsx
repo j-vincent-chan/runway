@@ -1420,22 +1420,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearAll = useCallback(() => {
     setSettings((prev) => {
+      /**
+       * Clear what the confirmation promises to clear, and nothing else.
+       *
+       * This used to rebuild settings from DEFAULT_SETTINGS plus a list of
+       * fields to carry over, which silently dropped anything absent from that
+       * list — including the "fund ends" dates, whose accounts stayed marked
+       * "not my account" and were quietly refilled with fiscal year end on the
+       * next load, and the planning defaults that date is derived from.
+       *
+       * Starting from `prev` inverts it: a setting added later survives a
+       * clear unless someone deliberately adds it here.
+       */
       const keptSettings: AppSettings = {
-        ...DEFAULT_SETTINGS,
-        fundingSourceAliases: prev.fundingSourceAliases,
-        fundingSourceCategories: prev.fundingSourceCategories ?? {},
-        employeeProfiles: prev.employeeProfiles ?? {},
-        runwayBalanceOverrides: prev.runwayBalanceOverrides,
-        runwayBurnOverrides: prev.runwayBurnOverrides,
-        projectionHorizon: prev.projectionHorizon,
-        plannedFundingSources: prev.plannedFundingSources,
-        projectionRules: prev.projectionRules,
-        projectionIgnoreRosterEndDates: prev.projectionIgnoreRosterEndDates,
-        personnelGroups: prev.personnelGroups,
-        fundingSourceTypes: prev.fundingSourceTypes,
-        accountGroups: prev.accountGroups,
-        accountGroupByBalanceKey: prev.accountGroupByBalanceKey,
-        hiddenAccountBalanceKeys: prev.hiddenAccountBalanceKeys,
+        ...prev,
+        hiddenEmployeeFunds: DEFAULT_SETTINGS.hiddenEmployeeFunds,
+        employeePlanningScope: DEFAULT_SETTINGS.employeePlanningScope,
       };
       void saveState(
         {
