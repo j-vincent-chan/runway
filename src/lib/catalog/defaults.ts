@@ -58,9 +58,12 @@ export const DEFAULT_FUNDING_SOURCE_TYPES: FundingSourceTypeDef[] = [
   {
     id: "endowment",
     label: "Endowment",
-    pillClass: "bg-[#9ee0c4] text-[#134d32] ring-1 ring-[#9ee0c4]/50",
-    dotClass: "bg-[#047857]",
-    chartColor: "#047857",
+    // Not green. Categorical color is permitted in the exposure band, so this
+    // was not a rule break — but spending the reserved --healthy hue on a
+    // funding type weakens green's one meaning everywhere else it appears.
+    pillClass: "bg-[#f2d4ef] text-[#6b1566] ring-1 ring-[#f2d4ef]/50",
+    dotClass: "bg-[#a21caf]",
+    chartColor: "#a21caf",
     sortOrder: 2,
   },
   {
