@@ -5,7 +5,7 @@ import { useApp } from "@/context/AppContext";
 import { buildPersonnelCostTrend } from "@/lib/dashboard/metrics";
 import { buildAttentionQueue, buildRunwayContext } from "@/lib/dashboard/attention";
 import { buildDashboardOverview } from "@/lib/dashboard/overview";
-import { buildVerdict, pickWorstItem } from "@/lib/dashboard/verdict";
+import { buildVerdict, pickWorstItem, tallyAttention } from "@/lib/dashboard/verdict";
 import { buildRunwayRibbon } from "@/lib/dashboard/runwayRibbon";
 import { buildSinceLastReport } from "@/lib/dashboard/sinceLastReport";
 import { buildTeamRunway } from "@/lib/dashboard/teamRunway";
@@ -141,6 +141,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       teamRows: teamRunway,
       overallRunwayMonths: overview.runwayMonths,
       worstItem: pickWorstItem(attentionQueue),
+      tally: tallyAttention(attentionQueue),
       hasFunds: overview.hasFunds,
       hasBurn: overview.hasBurn,
     });

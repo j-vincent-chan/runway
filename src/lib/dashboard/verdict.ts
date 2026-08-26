@@ -121,44 +121,28 @@ function rankTeams(teamRows: TeamRunwayRow[]): TeamRunwayRow[] {
 }
 
 /**
- * "{Team} is already overdrawn" / "{Team} averages 1.5 months of payroll runway".
+ * Where the program stands, before anything that threatens it.
  *
- * "averages", never "at": a team's runway is a mean across its accounts, so
- * one of its people can be funded through December while the team reads 11.3
- * months. Both are true, and the qualifier makes that caveat travel with the
- * number instead of waiting in the method section at the bottom of the page.
- * `trailing: false` drops "of payroll runway" for a second team in the same
- * sentence, where repeating the unit reads as a stutter.
+ * The adjective reads the *roll-up's* own severity, not the verdict's. Those
+ * differ on purpose: the portfolio can be broadly healthy while three
+ * individual accounts are critical, and that gap is the single most useful
+ * thing this sentence says. An adjective driven by the chip would flatten it
+ * into "Payroll is short … but 3 are critical", which says one thing twice.
  */
-function teamState(row: TeamRunwayRow, { trailing = true }: { trailing?: boolean } = {}): VerdictSegment[] {
-  const name = data(row.shortLabel, "/runway");
-  if (row.months! < 0) {
-    return [name, connective(" is already overdrawn")];
+function positionClause(
+  months: number,
+  rollupStatus: Exclude<VerdictStatus, "insufficient_data">
+): VerdictSegment[] {
+  if (months < 0) {
+    return [connective("Your payroll accounts are "), data("already overdrawn")];
   }
-  return [
-    name,
-    connective(" averages "),
-    data(monthsPhrase(row.months!)),
-    ...(trailing ? [connective(" of payroll runway")] : []),
-  ];
-}
-
-/**
- * "runs dry in 1.5 months" / "is already overdrawn" for a queue item.
- *
- * Kept from the reverted position-first sentence: the overdrawn connective fix
- * that follows it branches on the same two shapes, and inlining them again
- * would put that decision back in two places.
- */
-function itemState(item: WorstItem): VerdictSegment[] {
-  if (item.months < 0) {
-    return [data(item.label, "/runway"), connective(" is already overdrawn")];
-  }
-  return [
-    data(item.label, "/runway"),
-    connective(" runs dry in "),
-    data(monthsPhrase(item.months)),
-  ];
+  const lead =
+    rollupStatus === "stable"
+      ? "Payroll is broadly healthy, funded about "
+      : rollupStatus === "at_risk"
+        ? "Payroll is tight, funded about "
+        : "Payroll is short, funded only about ";
+  return [connective(lead), data(monthsPhrase(months)), connective(" out")];
 }
 
 /** The soonest single account or person to run dry, from the attention queue. */
@@ -173,6 +157,46 @@ export interface WorstItem {
  * re-deriving the worst here would break those ties differently. Data-quality
  * rows are skipped: an uncategorized charge is not a funding cliff.
  */
+/**
+ * How much needs attention, and of what kind.
+ *
+ * Reports the governing severity only — critical when anything is critical,
+ * else caution — because a hero that lists both counts stops being a
+ * ten-second read. Data-quality rows are excluded on the same grounds
+ * `pickWorstItem` excludes them: an uncategorized charge is not a funding
+ * problem.
+ */
+export interface AttentionTally {
+  severity: "critical" | "caution" | null;
+  people: number;
+  accounts: number;
+  total: number;
+}
+
+export function tallyAttention(queue: AttentionQueue): AttentionTally {
+  const funding = queue.rows.filter((r) => r.severity !== "data");
+  const critical = funding.filter((r) => r.severity === "critical");
+  const governing = critical.length > 0 ? critical : funding;
+  if (governing.length === 0) return { severity: null, people: 0, accounts: 0, total: 0 };
+  return {
+    severity: critical.length > 0 ? "critical" : "caution",
+    people: governing.filter((r) => r.kind === "person").length,
+    accounts: governing.filter((r) => r.kind === "account").length,
+    total: governing.length,
+  };
+}
+
+/** "2 people and 1 account" — every count that reaches here is at least one. */
+function tallyPhrase(tally: AttentionTally): string {
+  const people = tally.people === 1 ? "1 person" : `${tally.people} people`;
+  const accounts = tally.accounts === 1 ? "1 account" : `${tally.accounts} accounts`;
+  if (tally.people > 0 && tally.accounts > 0) return `${people} and ${accounts}`;
+  if (tally.people > 0) return people;
+  if (tally.accounts > 0) return accounts;
+  // Neither kind counted but rows exist: never expected, and still has to read.
+  return tally.total === 1 ? "1 item" : `${tally.total} items`;
+}
+
 export function pickWorstItem(queue: AttentionQueue): WorstItem | null {
   const row = queue.rows.find((r) => r.severity !== "data");
   return row ? { label: row.entity, months: row.months } : null;
@@ -182,6 +206,7 @@ export function buildVerdict({
   teamRows,
   overallRunwayMonths,
   worstItem,
+  tally,
   hasFunds,
   hasBurn,
 }: {
@@ -195,6 +220,8 @@ export function buildVerdict({
    * from ever declaring safety above a critical row.
    */
   worstItem: WorstItem | null;
+  /** How much needs attention, from tallyAttention over the same queue. */
+  tally: AttentionTally;
   hasFunds: boolean;
   hasBurn: boolean;
 }): Verdict {
@@ -224,153 +251,64 @@ export function buildVerdict({
   }
 
   const ranked = rankTeams(teamRows);
+  const weakest = ranked[0] ?? null;
 
-  // No teams set up (or none with burn): the roll-up is the only honest subject.
-  if (ranked.length === 0) {
-    const rollupStatus = statusFor(overallRunwayMonths);
-    const itemStatus = worstItem ? statusFor(worstItem.months) : "stable";
-
-    // Same averaging trap as the team path: the roll-up can look fine while one
-    // account is nearly dry, so the sharper fact leads when there is one.
-    if (SEVERITY_RANK[itemStatus] > SEVERITY_RANK[rollupStatus] && worstItem) {
-      return {
-        status: itemStatus,
-        statusLabel: STATUS_LABEL[itemStatus],
-        finding: {
-          segments: [
-            data(worstItem.label, "/runway"),
-            connective(worstItem.months < 0 ? " is already overdrawn" : " runs dry in "),
-            ...(worstItem.months < 0 ? [] : [data(monthsPhrase(worstItem.months))]),
-            connective(", well before your accounts average of "),
-            data(monthsPhrase(overallRunwayMonths)),
-            connective("."),
-          ],
-        },
-        action: actionFor(itemStatus, 1, false),
-        weakestTeamKey: null,
-        missing: null,
-      };
-    }
-
-    const segments: VerdictSegment[] =
-      overallRunwayMonths < 0
-        ? [connective("Your payroll accounts are "), data("already overdrawn"), connective(".")]
-        : [
-            connective("Your payroll accounts hold "),
-            data(monthsPhrase(overallRunwayMonths)),
-            connective(" of runway."),
-          ];
-    return {
-      status: rollupStatus,
-      statusLabel: STATUS_LABEL[rollupStatus],
-      finding: { segments },
-      action: actionFor(rollupStatus, 0, false),
-      weakestTeamKey: null,
-      missing: null,
-    };
-  }
-
-  const weakest = ranked[0]!;
-  const teamStatus = statusFor(weakest.months!);
+  const rollupStatus = statusFor(overallRunwayMonths);
+  const teamStatus = weakest ? statusFor(weakest.months!) : "stable";
   const itemStatus = worstItem ? statusFor(worstItem.months) : "stable";
 
   /**
-   * An account or person running dry sooner than any team average outranks the
-   * team view. Leading with the team here would put "no action needed" directly
-   * above a critical row — the averaging is exactly what "Avg payroll runway"
-   * warns about, so the hero names the sharper fact instead.
+   * The chip carries the worst of the three. Averages hide sharper facts in
+   * both directions — a team reads healthy while one of its accounts is nearly
+   * dry, and the roll-up reads healthy while a whole team is not — so the
+   * status is never allowed to be softer than anything beneath it.
    */
-  if (SEVERITY_RANK[itemStatus] > SEVERITY_RANK[teamStatus] && worstItem) {
-    const segments: VerdictSegment[] = [
-      ...itemState(worstItem),
-      /**
-       * "well before" was written for the duration comparison, where both
-       * sides are ahead of the reader. The overdrawn branch drops the duration
-       * but kept the connective, comparing a present state to a future one:
-       * "is already overdrawn, well before Communities … at 11.3 months".
-       */
-      connective(worstItem.months < 0 ? " — " : ", well before "),
-      data(weakest.shortLabel, "/runway"),
-      connective(", your weakest team, averages "),
-      data(monthsPhrase(weakest.months!)),
-      connective("."),
-    ];
-    return {
-      status: itemStatus,
-      statusLabel: STATUS_LABEL[itemStatus],
-      finding: { segments },
-      action: actionFor(itemStatus, 1, true),
-      weakestTeamKey: weakest.key,
-      missing: null,
-    };
-  }
+  const status = ([rollupStatus, teamStatus, itemStatus] as const).reduce((worst, next) =>
+    SEVERITY_RANK[next] > SEVERITY_RANK[worst] ? next : worst
+  );
 
-  const status = teamStatus;
+  /**
+   * Position first, then how much threatens it.
+   *
+   * The sentence used to name the single worst item and compare it to the
+   * weakest team. That answered "what is wrong" without ever answering "how am
+   * I doing", and naming one of several problems read as arbitrary. A count
+   * carries the scale; the queue directly beneath carries every name, so
+   * nothing is hidden by summarising here — and the soonest one is still named,
+   * because a count alone cannot say where to start.
+   */
+  const segments: VerdictSegment[] = [...positionClause(overallRunwayMonths, rollupStatus)];
 
-  if (status === "stable") {
-    // Every team clears the caution line — say so about all of them rather
-    // than singling one out, since none is a problem.
-    return {
-      status,
-      statusLabel: STATUS_LABEL[status],
-      finding: {
-        segments:
-          ranked.length === 1
-            ? [...teamState(weakest), connective(", and no other team draws payroll.")]
-            : [
-                // statusFor is stable at >= CAUTION_MONTHS, so "more than 6
-                // months" was false for a team sitting exactly on the line. The
-                // copy moves, never the threshold: CAUTION_MONTHS is shared with
-                // the attention queue, and shifting it would reclassify severity
-                // page-wide.
-                connective("Every team holds "),
-                data(`${CAUTION_MONTHS} months or more`),
-                connective(" of payroll runway; "),
-                data(weakest.shortLabel, "/runway"),
-                connective(" is the shortest, averaging "),
-                data(monthsPhrase(weakest.months!)),
-                connective("."),
-              ],
-      },
-      action: actionFor(status, 0, true),
-      weakestTeamKey: weakest.key,
-      missing: null,
-    };
-  }
-
-  // Name every team under the caution line rather than counting them, up to a
-  // second one; past that the queue below carries the full list.
-  const alsoShort = ranked.slice(1).filter((r) => r.months! < CAUTION_MONTHS);
-  const segments: VerdictSegment[] = [...teamState(weakest)];
-
-  if (alsoShort.length === 0) {
+  if (tally.severity === null) {
+    segments.push(connective("."));
+  } else {
+    const one = tally.total === 1;
     segments.push(
+      connective(", but "),
+      data(tallyPhrase(tally)),
       connective(
-        ranked.length === 1
-          ? ", and no other team draws payroll."
-          : `, while every other team holds ${CAUTION_MONTHS} months or more.`
+        tally.severity === "critical"
+          ? one
+            ? " is already critical"
+            : " are already critical"
+          : one
+            ? ` needs attention within ${CAUTION_MONTHS} months`
+            : ` need attention within ${CAUTION_MONTHS} months`
       )
     );
-  } else if (alsoShort.length === 1) {
-    segments.push(
-      connective(", and "),
-      ...teamState(alsoShort[0]!, { trailing: false }),
-      connective(".")
-    );
-  } else {
-    segments.push(
-      connective(", and so do "),
-      data(alsoShort.map((r) => r.shortLabel).join(", ")),
-      connective(".")
-    );
+    if (worstItem) {
+      segments.push(connective(" — "), data(worstItem.label, "/runway"), connective(" soonest."));
+    } else {
+      segments.push(connective("."));
+    }
   }
 
   return {
     status,
     statusLabel: STATUS_LABEL[status],
     finding: { segments },
-    action: actionFor(status, 1 + alsoShort.length, true),
-    weakestTeamKey: weakest.key,
+    action: actionFor(status, tally.total, ranked.length > 0),
+    weakestTeamKey: weakest?.key ?? null,
     missing: null,
   };
 }

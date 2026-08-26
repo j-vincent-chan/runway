@@ -35,9 +35,13 @@ export const ATTENTION_ROW_CAP = 5;
 
 export type AttentionSeverity = "critical" | "caution" | "data";
 
+export type AttentionKind = "person" | "account" | "data";
+
 export interface AttentionRow {
   id: string;
   severity: AttentionSeverity;
+  /** What the row is about, so a summary can say "2 people and 1 account". */
+  kind: AttentionKind;
   /** Chip text — severity is never carried by color alone. */
   severityLabel: string;
   entity: string;
@@ -341,6 +345,7 @@ function uncategorizedRows(
     const meta = getPersonnelTypeMeta(group.id, settings);
     rows.push({
       id: `uncategorized-${group.id}`,
+      kind: "data",
       severity: "data",
       severityLabel: severityLabel("data"),
       entity: meta.shortLabel ?? meta.label,
@@ -420,6 +425,7 @@ export function buildAttentionQueue({
     peopleWithRows.add(employeeId);
     personRows.push({
       id: `person-${employeeId}`,
+      kind: "person",
       severity,
       severityLabel: severityLabel(severity),
       entity: employee.name,
@@ -460,6 +466,7 @@ export function buildAttentionQueue({
 
     accountRows.push({
       id: `account-${account.chartRoot}`,
+      kind: "account",
       severity,
       severityLabel: severityLabel(severity),
       entity: account.name,
