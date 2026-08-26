@@ -56,7 +56,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is broadly healthy, funded about 14.9 months out, but 2 people and 1 account are already critical. They need funding or a burn cut now."
+      "Critical: Payroll is broadly healthy, funded about 14.9 months out, but 2 people and 1 account are critical. They need funding or a burn cut now."
     );
   });
 
@@ -71,7 +71,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toContain("Payroll is broadly healthy");
-    expect(verdictText(verdict)).toContain("3 accounts are already critical");
+    expect(verdictText(verdict)).toContain("3 accounts are critical");
     // The attention queue below names all three; the hero states the scale.
     expect(verdictText(verdict)).not.toContain("Fund 4000");
   });
@@ -85,7 +85,7 @@ describe("buildVerdict", () => {
       worstItem: { label: "Alex Chen", months: 2.1 },
     });
     expect(verdictText(verdict)).toContain("Payroll is short, funded only about 2.1 months out");
-    expect(verdictText(verdict)).toContain("1 person is already critical");
+    expect(verdictText(verdict)).toContain("1 person is critical");
   });
 
   it("uses the caution wording when nothing is critical yet", () => {

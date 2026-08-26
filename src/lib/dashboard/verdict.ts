@@ -291,8 +291,8 @@ export function buildVerdict({
       connective(
         tally.severity === "critical"
           ? one
-            ? " is already critical"
-            : " are already critical"
+            ? " is critical"
+            : " are critical"
           : one
             ? ` needs attention within ${CAUTION_MONTHS} months`
             : ` need attention within ${CAUTION_MONTHS} months`
