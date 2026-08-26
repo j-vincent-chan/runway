@@ -146,10 +146,16 @@ export function PersonnelByGroupSection({
   planningMonth: string;
 }) {
   const monthLabel = formatMonthDisplay(planningMonth);
-  // Filtered, never re-sorted: buildPersonnelGroupBreakdown already ordered
-  // these by cost descending, and both panels hold that one order.
-  const countRows = groupBreakdown.filter((g) => g.count > 0);
-  const costRows = groupBreakdown.filter((g) => g.cost > 0);
+  /**
+   * Each panel ranks its own values. One shared order across both was built to
+   * let a reader cross-reference, but with a handful of teams the cost order
+   * left the headcount bars running 5, 3, 2, 4 — a bar chart that does not
+   * descend reads as broken before it reads as cross-referenced. The exposure
+   * matrix below still holds one fixed order, which is where a reader actually
+   * scans across rows.
+   */
+  const countRows = groupBreakdown.filter((g) => g.count > 0).sort((a, b) => b.count - a.count);
+  const costRows = groupBreakdown.filter((g) => g.cost > 0).sort((a, b) => b.cost - a.cost);
   const totalCount = countRows.reduce((s, g) => s + g.count, 0);
   const totalCost = costRows.reduce((s, g) => s + g.cost, 0);
 
