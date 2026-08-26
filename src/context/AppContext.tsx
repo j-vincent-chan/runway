@@ -209,6 +209,40 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/**
+ * Lift legacy "not my account" marks onto their accounts, then give every
+ * marked account a horizon.
+ *
+ * Order matters: running the backfill first would key dates against a store
+ * about to be retired. Both hydrate paths call this — a signed-in workspace
+ * used to skip it entirely, so the same data behaved differently depending on
+ * whether cloud sync happened to be on.
+ */
+function applyAssumedEndDateRules(
+  settings: AppSettings,
+  snapshot: PayrollReportSnapshot | null
+): AppSettings {
+  const migrated = migrateAssumedOkToAccountGroups(settings, (fundingSourceId) => {
+    const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+    if (!fs) return null;
+    return chartstringFundDeptProject(fs.accountString ?? fs.rawName);
+  });
+  return {
+    ...migrated,
+    // Workspaces saved before the end date became required can hold accounts
+    // marked "not my account" with no horizon; those would keep reading as
+    // infinite runway until touched by hand.
+    runwayAssumedEndDates: backfillAssumedEndDates(
+      Object.entries(migrated.accountGroupByBalanceKey ?? {})
+        .filter(([, groupId]) => groupId === NOT_MY_ACCOUNTS_GROUP_ID)
+        .map(([key]) => key),
+      migrated.runwayAssumedEndDates,
+      migrated.fiscalYearStartMonth,
+      getProjectionOriginMonth()
+    ),
+  };
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<PayrollReportSnapshot | null>(null);
   const [workingPlan, setWorkingPlan] = useState<WorkingPlan | null>(null);
@@ -267,28 +301,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : { ...(s.settings.employeeProfiles ?? {}) },
       };
 
-      // Order matters: lift any old per-person "not my account" marks onto
-      // their account first, then give every marked account a horizon. Running
-      // the backfill first would key dates against a store about to be retired.
-      settingsLocal = migrateAssumedOkToAccountGroups(settingsLocal, (fundingSourceId) => {
-        const fs = s.snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
-        if (!fs) return null;
-        return chartstringFundDeptProject(fs.accountString ?? fs.rawName);
-      });
-      settingsLocal = {
-        ...settingsLocal,
-        // Workspaces saved before the end date became required can hold
-        // accounts marked "not my account" with no horizon; those would keep
-        // reading as infinite runway until touched by hand.
-        runwayAssumedEndDates: backfillAssumedEndDates(
-          Object.entries(settingsLocal.accountGroupByBalanceKey ?? {})
-            .filter(([, groupId]) => groupId === NOT_MY_ACCOUNTS_GROUP_ID)
-            .map(([key]) => key),
-          settingsLocal.runwayAssumedEndDates,
-          settingsLocal.fiscalYearStartMonth,
-          getProjectionOriginMonth()
-        ),
-      };
+      settingsLocal = applyAssumedEndDateRules(settingsLocal, s.snapshot);
 
       if (cancelled) return;
 
@@ -375,6 +388,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ),
         };
       }
+
+      settingsLocal = applyAssumedEndDateRules(settingsLocal, workspace.snapshot);
 
       settingsLocal = await syncCatalogFromCloud(settingsLocal);
 
