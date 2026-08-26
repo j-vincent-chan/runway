@@ -174,16 +174,18 @@ function signed(amount: number): string {
 
 export function AnchorStats({
   overview,
+  planningMonth,
   horizonMonths,
   priorRunwayMonths,
   priorReportLabel,
 }: {
   overview: DashboardOverview;
+  /** Names the month Monthly Payroll Burn is actually for — it's a single month now, not a window. */
+  planningMonth: string;
   /** The Dashboard's own scope control — the runway figure never extrapolates past it. */
   horizonMonths: number;
   priorRunwayMonths: number | null;
   priorReportLabel: string | null;
-  /** When more than one team exists, the runway anchor becomes a per-team carousel. */
 }) {
   const {
     availableFunds,
@@ -193,8 +195,8 @@ export function AnchorStats({
     fundsDelta,
     fundsPriorLabel,
     monthlyBurn,
-    burnMonthsUsed,
     burnDelta,
+    burnPriorLabel,
     runwayMonths,
     runwayLimitingLabel,
     runwayTargetMonth,
@@ -208,9 +210,6 @@ export function AnchorStats({
         : runwayMonths < CAUTION_MONTHS
           ? "caution"
           : "neutral";
-
-  const burnBasis =
-    burnMonthsUsed === 1 ? "the one payroll month on file" : `the last ${burnMonthsUsed} payroll months`;
 
   // The month count itself is plain arithmetic — funds over burn — so it is
   // shown in full at any horizon. Only the *date* is a projection claim, and
@@ -291,17 +290,15 @@ export function AnchorStats({
         valueNode={
           <DerivedFigure
             value={formatCurrency(monthlyBurn)}
-            explanation={`Average total personnel cost — salary and benefits — across ${burnBasis}.`}
+            explanation={`Total personnel cost — salary and benefits — for ${monthLabelLong(planningMonth)}, the same current-month figure Avg payroll runway divides Available payroll by.`}
             className="type-stat text-ink"
           />
         }
         comparison={
-          burnDelta !== null ? (
-            <>
-              {burnMonthsUsed}-mo avg · {signed(burnDelta)} vs the prior {burnMonthsUsed} months
-            </>
+          burnDelta !== null && burnPriorLabel ? (
+            <>{signed(burnDelta)} since {burnPriorLabel}</>
           ) : (
-            <>{burnMonthsUsed}-mo avg · not enough history to compare</>
+            <>no prior payroll month to compare</>
           )
         }
         spark={<BarSpark points={overview.burnSeries} label="Monthly personnel cost" />}

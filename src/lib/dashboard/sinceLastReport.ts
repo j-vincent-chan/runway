@@ -1,6 +1,6 @@
 import { foldPayrollImports } from "@/lib/import/foldPayrollImports";
 import { buildPersonnelCostTrend } from "@/lib/dashboard/metrics";
-import { BURN_WINDOW_MONTHS, trailingBurn } from "@/lib/dashboard/overview";
+
 import { buildRunwayContext, totalFundedRoots } from "@/lib/dashboard/attention";
 import { monthLabelShort } from "@/lib/dashboard/month";
 import { getAllocations } from "@/lib/calculations";
@@ -92,7 +92,12 @@ export function buildSinceLastReport(args: {
   if (!priorSnapshot) return null;
 
   const priorTrend = buildPersonnelCostTrend(priorSnapshot, settings);
-  const { average: priorBurn } = trailingBurn(priorTrend.monthly, priorTrend.planningMonth, BURN_WINDOW_MONTHS);
+  // Current side is now a single month (overview.monthlyBurn), so the prior
+  // side reads its own single planning month too, not a trailing average —
+  // comparing a month to a smoothed window would compare two different kinds
+  // of number under one label.
+  const priorBurn =
+    priorTrend.monthly.find((m) => m.month === priorTrend.planningMonth)?.total ?? 0;
   const costDeltaPct = priorBurn > 0 ? (currentMonthlyBurn - priorBurn) / priorBurn : null;
 
   // Prior side always reads as-imported allocations (workingPlan: null) — see the

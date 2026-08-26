@@ -7,9 +7,6 @@ import type { AccountBalanceViewItem } from "@/lib/net-position/accountBalancesV
 import { totalFundedRoots, type RunwayContext } from "@/lib/dashboard/attention";
 import type { AppSettings, Employee, NetPositionReportImport, PayrollReportSnapshot } from "@/types";
 
-/** Months averaged for the headline burn rate. */
-export const BURN_WINDOW_MONTHS = 3;
-
 /** Sparkline lengths. */
 const BURN_SERIES_MONTHS = 12;
 const FUNDS_SERIES_PERIODS = 12;
@@ -50,11 +47,17 @@ export interface DashboardOverview {
   fundsSeries: SparkPoint[];
   hasFunds: boolean;
 
-  /** Trailing-average monthly personnel cost. */
+  /**
+   * Total personnel cost for the current payroll month — not an average.
+   * Avg payroll runway divides Available payroll by this same current-month
+   * burn (via computeEmployeeRunway), so the two figures share one
+   * denominator; a trailing average here previously implied a different one
+   * than the runway figure actually divided by.
+   */
   monthlyBurn: number;
-  burnMonthsUsed: number;
-  /** Change vs the equally long window before it. */
+  /** Change vs the immediately preceding payroll month, when it's on file. */
   burnDelta: number | null;
+  burnPriorLabel: string | null;
   burnSeries: SparkPoint[];
   hasBurn: boolean;
 
@@ -188,7 +191,7 @@ export function resolvePeriodStatus(
 export function trailingBurn(
   monthly: PersonnelCostTrendPoint[],
   endMonth: string,
-  count = BURN_WINDOW_MONTHS
+  count: number
 ): { average: number; monthsUsed: number } {
   const window = monthly.filter((m) => m.month <= endMonth).slice(-count);
   if (window.length === 0) return { average: 0, monthsUsed: 0 };
@@ -298,14 +301,22 @@ export function buildDashboardOverview({
     ? monthLabelShort(periodKeyToMonth(priorPoint.periodKey))
     : null;
 
-  const { average: monthlyBurn, monthsUsed: burnMonthsUsed } = trailingBurn(
-    monthly,
-    planningMonth
-  );
-  const priorWindowEnd = shiftMonth(planningMonth, -BURN_WINDOW_MONTHS);
-  const prior = trailingBurn(monthly, priorWindowEnd);
-  const burnDelta =
-    prior.monthsUsed >= BURN_WINDOW_MONTHS ? monthlyBurn - prior.average : null;
+  /**
+   * The current month's own total, not a trailing average. Avg payroll
+   * runway divides its own current-month burn by the same-scoped accounts
+   * (buildSharedAccountBurnIndex uses getCurrentMonth, not a window), so a
+   * smoothed figure here made the two stats imply different denominators —
+   * $181,978 shown against a runway that actually divided by $193,625. One
+   * month can spike; naming the month it came from, and the immediately
+   * preceding month it's compared to, keeps that spike visible rather than
+   * silently smoothing it into a number nothing else on the page uses.
+   */
+  const currentMonthPoint = monthly.find((m) => m.month === planningMonth);
+  const monthlyBurn = currentMonthPoint?.total ?? 0;
+  const priorMonth = shiftMonth(planningMonth, -1);
+  const priorMonthPoint = monthly.find((m) => m.month === priorMonth);
+  const burnDelta = priorMonthPoint ? monthlyBurn - priorMonthPoint.total : null;
+  const burnPriorLabel = priorMonthPoint ? monthLabelShort(priorMonth) : null;
 
   const burnSeries: SparkPoint[] = monthly
     .filter((m) => m.month <= planningMonth)
@@ -335,8 +346,8 @@ export function buildDashboardOverview({
     fundsSeries,
     hasFunds,
     monthlyBurn,
-    burnMonthsUsed,
     burnDelta,
+    burnPriorLabel,
     burnSeries,
     hasBurn,
     runwayMonths,

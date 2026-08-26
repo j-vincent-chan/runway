@@ -178,6 +178,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
   const anchors = (
     <AnchorStats
       overview={overview}
+      planningMonth={trend.planningMonth}
       horizonMonths={horizonMonths}
       priorRunwayMonths={sinceLastReport?.priorRunwayMonths ?? null}
       priorReportLabel={sinceLastReport?.priorLabel ?? null}

@@ -167,11 +167,11 @@ describe("trailingBurn", () => {
       ...months("2026-01", 5, 100),
       ...months("2026-06", 3, 200),
     ];
-    expect(trailingBurn(series, "2026-08")).toEqual({ average: 200, monthsUsed: 3 });
+    expect(trailingBurn(series, "2026-08", 3)).toEqual({ average: 200, monthsUsed: 3 });
   });
 
   it("reports how many months it actually had", () => {
-    expect(trailingBurn(months("2026-08", 1, 90), "2026-08")).toEqual({
+    expect(trailingBurn(months("2026-08", 1, 90), "2026-08", 3)).toEqual({
       average: 90,
       monthsUsed: 1,
     });
@@ -447,18 +447,37 @@ describe("buildDashboardOverview", () => {
     expect(overview.fundsDelta).toBeNull();
   });
 
-  it("compares burn against the equally long window before it", () => {
-    const series = [...months("2026-01", 3, 80_000), ...months("2026-04", 3, 100_000)];
+  it("is the current month's own total, not an average, and compares to the immediately preceding month", () => {
+    // A single spike month must be visible, not smoothed into a window — that
+    // smoothing was what made this stat disagree with Avg payroll runway,
+    // which divides by the same current month via computeEmployeeRunway.
+    const series = [...months("2026-01", 4, 80_000), ...months("2026-05", 1, 130_000)];
     const overview = buildDashboardOverview({
       monthly: series,
-      planningMonth: "2026-06",
+      planningMonth: "2026-05",
       accountItems: [account("a", 100_000)],
       netPositionImports: [],
       runway: emptyRunway,
       employees: [],
       settings,
     });
-    expect(overview.burnDelta).toBe(20_000);
+    expect(overview.monthlyBurn).toBe(130_000);
+    expect(overview.burnDelta).toBe(50_000);
+    expect(overview.burnPriorLabel).not.toBeNull();
+  });
+
+  it("reports no prior month to compare when the payroll history starts at the planning month", () => {
+    const overview = buildDashboardOverview({
+      monthly: months("2026-05", 1, 100_000),
+      planningMonth: "2026-05",
+      accountItems: [account("a", 100_000)],
+      netPositionImports: [],
+      runway: emptyRunway,
+      employees: [],
+      settings,
+    });
+    expect(overview.burnDelta).toBeNull();
+    expect(overview.burnPriorLabel).toBeNull();
   });
 
   it("reports no burn when there is none, independent of runway", () => {

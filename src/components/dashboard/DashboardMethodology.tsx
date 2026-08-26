@@ -1,6 +1,5 @@
 import { CAUTION_MONTHS, CRITICAL_MONTHS, UNATTRIBUTED_THRESHOLD } from "@/lib/dashboard/attention";
 import { ANOMALY_THRESHOLD } from "@/lib/dashboard/metrics";
-import { BURN_WINDOW_MONTHS } from "@/lib/dashboard/overview";
 import { COST_MATERIALITY, RUNWAY_MATERIALITY } from "@/lib/dashboard/sinceLastReport";
 import { EXPOSURE_CATEGORY_CAP } from "@/lib/dashboard/fundingExposure";
 import { COST_HISTORY_WINDOW_MONTHS } from "@/components/dashboard/PersonnelCostTrendCharts";
@@ -31,12 +30,16 @@ export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCo
           lists everything. An account you&rsquo;ve marked as not yours counts the balance its
           end date implies: its share of the burn multiplied by the months left on it. An
           account charged with no balance on file anywhere counts as $0, so the total reads low
-          until you fill one in — the stat says how many are waiting. Monthly payroll burn
-          averages total personnel cost — salary and benefits — across the trailing{" "}
-          {BURN_WINDOW_MONTHS} months, unchanged by any of this.
+          until you fill one in — the stat says how many are waiting. Monthly payroll burn is
+          total personnel cost — salary and benefits — for the current payroll month, not an
+          average: it is the same current-month figure Avg payroll runway divides Available
+          payroll by, so the two never imply different denominators. One month can spike; the
+          comparison line names the prior month it&rsquo;s measured against rather than smoothing
+          it away.
         </Entry>
         <Entry title="Avg payroll runway, overall and by team">
-          Available payroll divided by the combined monthly burn on those same accounts. It is an
+          Available payroll divided by the combined monthly burn on those same accounts, for the
+          current payroll month — the same figure shown above as Monthly payroll burn. It is an
           average across those accounts, not a floor: the month count is plain arithmetic and is
           shown in full, but the calendar date it implies is withheld once it lands past the
           window you have in view, rather than extrapolated there. Each team does the same over
