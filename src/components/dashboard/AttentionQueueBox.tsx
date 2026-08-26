@@ -55,7 +55,7 @@ export function AttentionQueueBox({ queue }: { queue: AttentionQueue }) {
 
   return (
     <section aria-labelledby="attention-queue-heading">
-      <h3 id="attention-queue-heading" className="type-caption text-muted">
+      <h3 id="attention-queue-heading" className="type-heading text-ink">
         Needs attention
       </h3>
       <div className="mt-2 flex overflow-hidden rounded-md border border-rule bg-surface">

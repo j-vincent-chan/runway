@@ -163,7 +163,7 @@ export function PersonnelByGroupSection({
     <section aria-label="Personnel by team">
       <div className="flex items-baseline justify-between gap-2">
         <div>
-          <h2 className="type-caption text-muted">By team</h2>
+          <h2 className="type-heading text-ink">By team</h2>
           <p className="type-row mt-1 text-muted">
             Headcount and cost for the active planning roster. Completes the picture with funding
             mix by team below.

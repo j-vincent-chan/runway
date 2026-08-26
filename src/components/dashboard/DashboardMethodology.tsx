@@ -21,7 +21,7 @@ function Entry({ title, children }: { title: string; children: React.ReactNode }
 export function DashboardMethodology({ projectedMonthCount }: { projectedMonthCount: number }) {
   return (
     <section aria-label="How these numbers were produced">
-      <h2 className="type-caption text-muted">How these numbers were produced</h2>
+      <h2 className="type-heading text-ink">How these numbers were produced</h2>
       <div className="mt-4 space-y-5">
         <Entry title="Available payroll and monthly payroll burn">
           Available payroll covers only the accounts that currently have payroll charged to them,

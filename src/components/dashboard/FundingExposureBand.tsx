@@ -117,7 +117,7 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
   if (timeline.uncategorizedShare >= 1) {
     return (
       <section aria-label="Funding exposure over time">
-        <h2 className="type-caption text-muted">Funding exposure, by type</h2>
+        <h2 className="type-heading text-ink">Funding exposure, by type</h2>
         <p className="type-body mt-2 max-w-prose text-ink-2">
           No account carries a funding type yet, so there is no mix to show here or in the
           by-team breakdown beneath. Assign types to your accounts and both fill in — the split
@@ -144,7 +144,7 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
 
   return (
     <section aria-label="Funding exposure over time">
-      <h2 className="type-caption text-muted">Funding exposure, by type</h2>
+      <h2 className="type-heading text-ink">Funding exposure, by type</h2>
       <p className="type-mono mt-1 text-muted">
         Share of personnel cost by funding type, trailing 12 months actual and projected ahead.
       </p>

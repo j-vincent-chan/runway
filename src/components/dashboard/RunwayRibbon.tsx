@@ -243,7 +243,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   return (
     <section aria-label="Funding depletion over time">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="type-caption text-muted">
+        <h2 className="type-heading text-ink">
           Funding depletion, next {horizonMonths} months
         </h2>
         {!noCurrentPersonnel && (

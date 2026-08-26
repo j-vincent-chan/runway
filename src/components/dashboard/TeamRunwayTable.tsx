@@ -64,7 +64,7 @@ export function TeamRunwayTable({ rows }: { rows: TeamRunwayRow[] | null }) {
 
   return (
     <section aria-label="Payroll runway by team">
-      <h2 className="type-caption text-muted">Payroll runway, by team</h2>
+      <h2 className="type-heading text-ink">Payroll runway, by team</h2>
       <p className="type-mono mt-1 text-muted">
         Team funds over team burn, weakest first. An average — a member can run dry sooner.
       </p>
