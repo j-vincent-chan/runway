@@ -68,24 +68,36 @@ const STATUS_LABEL: Record<Exclude<VerdictStatus, "insufficient_data">, string> 
 };
 
 /**
- * States whether money or a burn cut is needed now — the two levers a PI
- * actually has. Deliberately does not prescribe which: Runway cannot know
- * whether a transfer, a re-budget, or an effort change is the right remedy,
- * and inventing one would be advice the data doesn't support.
+ * States whether money or a burn cut is needed — the two levers a PI actually
+ * has. Deliberately does not prescribe which: Runway cannot know whether a
+ * transfer, a re-budget, or an effort change is the right remedy, and
+ * inventing one would be advice the data doesn't support.
+ *
+ * Declarative, never imperative. "Move money onto it" sat directly above a
+ * sidebar reading "Planning estimates only. Confirm with your finance
+ * post-award analyst" — the page cannot both instruct and disclaim. The
+ * stable line reports the measurement rather than asserting that nothing
+ * needs doing, which is a judgement the data cannot support either.
  */
 function actionFor(
   status: Exclude<VerdictStatus, "insufficient_data">,
-  shortTeamCount: number
+  shortTeamCount: number,
+  hasTeams: boolean
 ): string {
-  const subject = shortTeamCount > 1 ? "them" : "it";
-  const possessive = shortTeamCount > 1 ? "their" : "its";
+  const plural = shortTeamCount > 1;
   switch (status) {
     case "critical":
-      return `Move money onto ${subject} or cut ${possessive} burn now.`;
+      return plural
+        ? "They need funding or a burn cut now."
+        : "Needs funding or a burn cut now.";
     case "at_risk":
-      return `Line up funding or trim burn this quarter, before ${shortTeamCount > 1 ? "they turn" : "it turns"} critical.`;
+      return plural
+        ? `They need funding or a burn cut this quarter, before they turn critical.`
+        : `Needs funding or a burn cut this quarter, before it turns critical.`;
     case "stable":
-      return "No funding action needed right now.";
+      return hasTeams
+        ? `No team is below the ${CAUTION_MONTHS}-month line.`
+        : `Payroll runway is above the ${CAUTION_MONTHS}-month line.`;
   }
 }
 
@@ -245,7 +257,7 @@ export function buildVerdict({
             connective("."),
           ],
         },
-        action: actionFor(itemStatus, 1),
+        action: actionFor(itemStatus, 1, false),
         weakestTeamKey: null,
         missing: null,
       };
@@ -259,7 +271,7 @@ export function buildVerdict({
       status: rollupStatus,
       statusLabel: STATUS_LABEL[rollupStatus],
       finding: { segments },
-      action: actionFor(rollupStatus, 0),
+      action: actionFor(rollupStatus, 0, false),
       weakestTeamKey: null,
       missing: null,
     };
@@ -296,7 +308,7 @@ export function buildVerdict({
       status: itemStatus,
       statusLabel: STATUS_LABEL[itemStatus],
       finding: { segments },
-      action: actionFor(itemStatus, 1),
+      action: actionFor(itemStatus, 1, true),
       weakestTeamKey: weakest.key,
       missing: null,
     };
@@ -321,7 +333,7 @@ export function buildVerdict({
           connective(" is the only team drawing payroll."),
         ],
       },
-      action: actionFor(status, 1),
+      action: actionFor(status, 1, true),
       weakestTeamKey: weakest.key,
       missing: null,
     };
@@ -349,7 +361,7 @@ export function buildVerdict({
           connective("."),
         ],
       },
-      action: actionFor(status, 0),
+      action: actionFor(status, 0, true),
       weakestTeamKey: weakest.key,
       missing: null,
     };
@@ -386,7 +398,7 @@ export function buildVerdict({
     status,
     statusLabel: STATUS_LABEL[status],
     finding: { segments },
-    action: actionFor(status, 1 + alsoShort.length),
+    action: actionFor(status, 1 + alsoShort.length, true),
     weakestTeamKey: weakest.key,
     missing: null,
   };
