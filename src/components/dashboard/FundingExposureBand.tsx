@@ -187,10 +187,14 @@ export function FundingExposureBand({ timeline }: { timeline: FundingExposureTim
             />
             <YAxis
               domain={[0, 100]}
+              /* Explicit whole-percent ticks and room for the widest label
+                 ("100%"): an auto domain rendered a fractional tick that
+                 overran the 40px gutter and printed over its neighbour. */
+              ticks={[0, 25, 50, 75, 100]}
+              allowDecimals={false}
               tick={{ fontSize: 11, fill: "var(--muted)" }}
-              tickFormatter={(v) => `${v}%`}
-              width={40}
-              tickCount={5}
+              tickFormatter={(v) => `${Math.round(v)}%`}
+              width={48}
               tickLine={false}
               axisLine={false}
             />
