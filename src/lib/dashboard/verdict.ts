@@ -109,7 +109,12 @@ function rankTeams(teamRows: TeamRunwayRow[]): TeamRunwayRow[] {
 }
 
 /**
- * "{Team} is already overdrawn" / "{Team} has 1.5 months of payroll runway".
+ * "{Team} is already overdrawn" / "{Team} averages 1.5 months of payroll runway".
+ *
+ * "averages", never "at": a team's runway is a mean across its accounts, so
+ * one of its people can be funded through December while the team reads 11.3
+ * months. Both are true, and the qualifier makes that caveat travel with the
+ * number instead of waiting in the method section at the bottom of the page.
  * `trailing: false` drops "of payroll runway" for a second team in the same
  * sentence, where repeating the unit reads as a stutter.
  */
@@ -120,7 +125,7 @@ function teamState(row: TeamRunwayRow, { trailing = true }: { trailing?: boolean
   }
   return [
     name,
-    connective(" has "),
+    connective(" averages "),
     data(monthsPhrase(row.months!)),
     ...(trailing ? [connective(" of payroll runway")] : []),
   ];
@@ -283,7 +288,7 @@ export function buildVerdict({
        */
       connective(worstItem.months < 0 ? " — " : ", well before "),
       data(weakest.shortLabel, "/runway"),
-      connective(", your weakest team, at "),
+      connective(", your weakest team, averages "),
       data(monthsPhrase(weakest.months!)),
       connective("."),
     ];
@@ -335,7 +340,7 @@ export function buildVerdict({
           data(`${CAUTION_MONTHS} months`),
           connective(" of payroll runway; "),
           data(weakest.shortLabel, "/runway"),
-          connective(" is the shortest at "),
+          connective(" is the shortest, averaging "),
           data(monthsPhrase(weakest.months!)),
           connective("."),
         ],
