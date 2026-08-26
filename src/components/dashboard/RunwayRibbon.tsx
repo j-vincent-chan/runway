@@ -1,7 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Area, AreaChart, ReferenceDot, ReferenceLine, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  ReferenceArea,
+  ReferenceDot,
+  ReferenceLine,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import { HatchPattern, PROJECTED_PATTERN_ID, projectedFill } from "@/components/charts/HatchPattern";
 import { monthLabelLong, monthLabelShort } from "@/lib/dashboard/month";
@@ -37,25 +46,32 @@ type ChartRow = Record<string, number | string> & { label: string };
 interface StackedBand {
   chartRoot: string;
   label: string;
-  nearKey: string;
-  farKey: string;
+  key: string;
   opacity: number;
 }
 
-/** Reads from the collapsed band list, which contains an aggregate `ribbon.bands` does not. */
+/**
+ * Reads from the collapsed band list, which contains an aggregate
+ * `ribbon.bands` does not.
+ *
+ * One series per band. Each band used to be split into a "near" and a "far"
+ * series sharing the stack, each zero outside its own half of the window — so
+ * at the certainty boundary the near series fell from its full value to zero
+ * while the far series rose from zero, and the solid fill appeared to plunge
+ * to the floor in a single month. The total was continuous throughout; only
+ * the fills crossed over. Reported as "why is there such a large dropoff",
+ * which is exactly how it read.
+ */
 function buildChartData(
   bands: RibbonBand[],
   months: string[],
-  uncertaintyStartIndex: number,
   stackOrder: StackedBand[]
 ): ChartRow[] {
   const byRoot = new Map(bands.map((b) => [b.chartRoot, b]));
   return months.map((month, i) => {
     const row: ChartRow = { label: monthLabelShort(month) };
     for (const band of stackOrder) {
-      const value = byRoot.get(band.chartRoot)?.values[i] ?? 0;
-      row[band.nearKey] = i < uncertaintyStartIndex ? value : 0;
-      row[band.farKey] = i >= uncertaintyStartIndex ? value : 0;
+      row[band.key] = byRoot.get(band.chartRoot)?.values[i] ?? 0;
     }
     return row;
   });
@@ -108,15 +124,30 @@ function bandCallouts(
       dryPoint = { x: monthLabelShort(months[depletionIdx!]!), y: below };
     }
 
+    /**
+     * The aggregate's own depletion date describes the summed balance, which
+     * stays positive while accounts inside it run dry — so reporting only that
+     * date said "30 other accounts hold past July 2027" beneath a header
+     * saying 23 of 35 run dry. When some but not all of its members deplete,
+     * say how many rather than speaking for the sum.
+     */
+    const partial =
+      many &&
+      !depleted &&
+      (source.depletedMemberCount ?? 0) > 0 &&
+      (source.memberCount ?? 0) > 0;
+
     return [{
       key: band.chartRoot,
       label: band.label,
       // The aggregate names many accounts, so the verb has to agree with it as
       // well as with a single account.
-      when: depleted
-        ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[depletionIdx!]!)}`
-        : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`,
-      depleted,
+      when: partial
+        ? `${source.depletedMemberCount} of ${source.memberCount} run dry by ${monthLabelLong(months[lastIndex]!)}`
+        : depleted
+          ? `${many ? "run" : "runs"} dry ${monthLabelLong(months[depletionIdx!]!)}`
+          : `${many ? "hold" : "holds"} past ${monthLabelLong(months[lastIndex]!)}`,
+      depleted: depleted || partial,
       dryPoint,
     }];
   });
@@ -136,9 +167,7 @@ function RibbonTooltip({
   if (!active || !payload?.length) return null;
   const byBand = new Map<string, number>();
   for (const band of stackOrder) {
-    const near = payload.find((p) => p.dataKey === band.nearKey)?.value ?? 0;
-    const far = payload.find((p) => p.dataKey === band.farKey)?.value ?? 0;
-    const value = near || far;
+    const value = payload.find((p) => p.dataKey === band.key)?.value ?? 0;
     if (value > 0) byBand.set(band.label, value);
   }
   const total = [...byBand.values()].reduce((sum, v) => sum + v, 0);
@@ -185,8 +214,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   const stackOrder: StackedBand[] = orderedBands.map((band, i) => ({
     chartRoot: band.chartRoot,
     label: band.label,
-    nearKey: `${band.chartRoot}__near`,
-    farKey: `${band.chartRoot}__far`,
+    key: band.chartRoot,
     opacity:
       orderedBands.length > 1
         ? MIN_BAND_OPACITY + (i / (orderedBands.length - 1)) * (MAX_BAND_OPACITY - MIN_BAND_OPACITY)
@@ -194,7 +222,7 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
   }));
 
   const byRoot = new Map(drawnBands.map((b) => [b.chartRoot, b]));
-  const chartData = buildChartData(drawnBands, ribbon.months, ribbon.uncertaintyStartIndex, stackOrder);
+  const chartData = buildChartData(drawnBands, ribbon.months, stackOrder);
   const maxTotal = Math.max(...totalByMonth, 1);
   const callouts = bandCallouts(ribbon.months, stackOrder, byRoot);
 
@@ -278,9 +306,9 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
             <Tooltip content={<RibbonTooltip stackOrder={stackOrder} />} />
             {stackOrder.map((band) => (
               <Area
-                key={band.nearKey}
+                key={band.key}
                 type="monotone"
-                dataKey={band.nearKey}
+                dataKey={band.key}
                 stackId="ribbon"
                 stroke="var(--paper)"
                 strokeWidth={1}
@@ -289,20 +317,20 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                 isAnimationActive={false}
               />
             ))}
-            {stackOrder.map((band) => (
-              <Area
-                key={band.farKey}
-                type="monotone"
-                dataKey={band.farKey}
-                stackId="ribbon"
-                stroke="var(--paper)"
-                strokeWidth={1}
-                strokeDasharray="1 3"
-                fill={projectedFill()}
-                fillOpacity={band.opacity}
-                isAnimationActive={false}
-              />
-            ))}
+            {/* The hatch marks a period, not a band. Declared after the areas
+                so it veils them, and spanning the plot rather than the stack
+                because what is less certain is the time, not any one account. */}
+            {ribbon.uncertaintyStartIndex > 0 &&
+              ribbon.uncertaintyStartIndex < ribbon.months.length && (
+                <ReferenceArea
+                  x1={monthLabelShort(ribbon.months[ribbon.uncertaintyStartIndex]!)}
+                  x2={monthLabelShort(ribbon.months[ribbon.months.length - 1]!)}
+                  fill={projectedFill()}
+                  fillOpacity={1}
+                  stroke="none"
+                  ifOverflow="extendDomain"
+                />
+              )}
             {/* Not a "today" rule — this chart begins at today and is projection
                 end to end. What is worth marking is where the projection stops
                 being near-term, which is also where the fill turns hatched. */}
