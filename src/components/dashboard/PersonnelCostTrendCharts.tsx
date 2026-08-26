@@ -51,7 +51,7 @@ export function PersonnelCostTrendCharts({
   if (combined.length === 0) {
     return (
       <section aria-label="Personnel cost">
-        <h2 className="type-heading text-ink">Personnel cost</h2>
+        <h2 className="type-caption text-muted">Personnel cost</h2>
         <p className="type-row mt-2 text-muted">Not enough payroll data yet to chart cost over time.</p>
       </section>
     );
@@ -81,7 +81,7 @@ export function PersonnelCostTrendCharts({
   return (
     <section aria-label="Personnel cost">
       <div className="flex items-baseline justify-between gap-4">
-        <h2 className="type-heading text-ink">Personnel cost</h2>
+        <h2 className="type-caption text-muted">Personnel cost</h2>
         <p className="type-mono text-muted">
           {historyLabel}
           {projectedLabel && <> · {projectedLabel}</>}
