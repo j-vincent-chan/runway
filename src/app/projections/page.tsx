@@ -17,6 +17,8 @@ import { ByPersonView } from "@/components/projections/ByPersonView";
 import { ByAccountView } from "@/components/projections/ByAccountView";
 import { RuleEditor } from "@/components/projections/RuleEditor";
 import { formatCurrency, formatPercent, generateId } from "@/lib/utils/parse";
+import { countAllHiddenFunds } from "@/lib/funding/visibility";
+import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { employeePersonKey } from "@/lib/employees/stableKey";
@@ -39,12 +41,25 @@ export default function ProjectionsPage() {
     accountBalances,
     accountTitlesByChartstring,
     updateSettings,
+    toggleHiddenEmployeeFund,
+    toggleNotMyAccount,
+    updateFundingSourceAlias,
   } = useApp();
 
   const [tab, setTab] = useState<"person" | "account">("person");
   const [editing, setEditing] = useState<{ employee: Employee; source: FundingSource } | null>(
     null
   );
+  /**
+   * Same declutter model as Timeline: hiding never changes what a projection
+   * computes (simulateProjections keeps a hidden fund's effort "in the mix"),
+   * it only changes which rows are shown. One reveal set serves both tabs —
+   * keyed by employee id in By Person, by funding-source id in By Account —
+   * since the two views never render at the same time.
+   */
+  const [showHiddenFunds, setShowHiddenFunds] = useState(false);
+  const [revealHidden, setRevealHidden] = useState<Set<string>>(() => new Set());
+  const totalHiddenFunds = countAllHiddenFunds(settings);
 
   const employees = useMemo(
     () =>
@@ -297,6 +312,46 @@ export default function ProjectionsPage() {
                   originMonth={result.originMonth}
                 />
               </div>
+
+              {/* Same block as TimelineToolbar's — one shared setting, so hiding
+                  here is the same act as hiding on Timeline or Runway. */}
+              {(totalHiddenFunds > 0 || showHiddenFunds) && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    Funds
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowHiddenFunds((v) => !v);
+                      if (showHiddenFunds) setRevealHidden(new Set());
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
+                      showHiddenFunds
+                        ? "bg-teal-50 text-teal-900 ring-1 ring-teal-200"
+                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                    )}
+                    title={
+                      showHiddenFunds
+                        ? "Hide fund rows you marked with the eye icon"
+                        : "Show hidden fund rows so you can restore them with the eye icon on each row"
+                    }
+                  >
+                    {showHiddenFunds ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                    {showHiddenFunds
+                      ? "Hiding excluded funds"
+                      : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
+                  </button>
+                  <span className="text-[11px] text-slate-500">
+                    Use the eye icon on a fund row to exclude accounts you do not manage.
+                  </span>
+                </div>
+              )}
             </div>
 
             {tab === "person" ? (
@@ -307,6 +362,12 @@ export default function ProjectionsPage() {
                 displayMode={displayMode}
                 accountTitlesByChartstring={accountTitlesByChartstring}
                 onEdit={(employee, source) => setEditing({ employee, source })}
+                showHiddenFunds={showHiddenFunds}
+                revealHidden={revealHidden}
+                onRevealHidden={(key) => setRevealHidden((p) => new Set(p).add(key))}
+                onToggleHiddenFund={toggleHiddenEmployeeFund}
+                onToggleNotMyAccount={toggleNotMyAccount}
+                onSaveAlias={updateFundingSourceAlias}
               />
             ) : (
               <ByAccountView
@@ -317,6 +378,12 @@ export default function ProjectionsPage() {
                 displayMode={displayMode}
                 accountTitlesByChartstring={accountTitlesByChartstring}
                 onEdit={(employee, source) => setEditing({ employee, source })}
+                showHiddenFunds={showHiddenFunds}
+                revealHidden={revealHidden}
+                onRevealHidden={(key) => setRevealHidden((p) => new Set(p).add(key))}
+                onToggleHiddenFund={toggleHiddenEmployeeFund}
+                onToggleNotMyAccount={toggleNotMyAccount}
+                onSaveAlias={updateFundingSourceAlias}
               />
             )}
           </div>

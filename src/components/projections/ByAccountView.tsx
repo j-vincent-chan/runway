@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
@@ -11,6 +11,10 @@ import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
+import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
+import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { AliasEditor } from "@/components/funding/AliasEditor";
 import {
   mergeByPercent,
   isProjectedMonth,
@@ -34,6 +38,12 @@ export function ByAccountView({
   displayMode,
   accountTitlesByChartstring,
   onEdit,
+  showHiddenFunds,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
 }: {
   employees: Employee[];
   settings: AppSettings;
@@ -42,6 +52,13 @@ export function ByAccountView({
   displayMode: AppSettings["displayMode"];
   accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
+  showHiddenFunds: boolean;
+  /** Funding-source ids revealed this session — the same set By Person keys by employee id. */
+  revealHidden: Set<string>;
+  onRevealHidden: (fundingSourceId: string) => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -109,6 +126,12 @@ export function ByAccountView({
                 isCollapsed={isCollapsed}
                 barColors={barColors}
                 settings={settings}
+                accountTitlesByChartstring={accountTitlesByChartstring}
+                revealHidden={showHiddenFunds || revealHidden.has(fs.id)}
+                onRevealHidden={() => onRevealHidden(fs.id)}
+                onToggleHiddenFund={onToggleHiddenFund}
+                onToggleNotMyAccount={onToggleNotMyAccount}
+                onSaveAlias={onSaveAlias}
                 onToggle={() =>
                   setCollapsed((p) => {
                     const n = new Set(p);
@@ -139,6 +162,12 @@ function AccountBlock({
   isCollapsed,
   barColors,
   settings,
+  accountTitlesByChartstring,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
   onToggle,
   onEdit,
 }: {
@@ -153,10 +182,26 @@ function AccountBlock({
   isCollapsed: boolean;
   barColors: Map<string, string>;
   settings: AppSettings;
+  accountTitlesByChartstring?: Map<string, string>;
+  revealHidden: boolean;
+  onRevealHidden: () => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
   const key = chartstringKeyForFundingSource(fs);
+  /**
+   * Hiding is per employee-fund, so on this view it drops contributor rows
+   * rather than the account itself — the account still has money and still
+   * belongs in the projection, one of its people is just filtered out of view.
+   */
+  const visibleContributors = contributors.filter(
+    (emp) => revealHidden || !isEmployeeFundHidden(settings, emp.id, fs.id)
+  );
+  const hiddenCount = contributors.length - visibleContributors.length;
+  const notMine = isNotMyAccountKey(settings, rootOf(key));
   return (
     <>
       <tr className="bg-[#0c2340] text-white">
@@ -175,13 +220,61 @@ function AccountBlock({
             ) : (
               <ChevronDown className="h-3 w-3 shrink-0" />
             )}
+            {/* The account's own row is where an account-level mark belongs, so
+                the shield and the rename live here rather than on the people
+                below — one value, same one Timeline and Settings write. */}
+            <button
+              type="button"
+              className={cn(
+                "shrink-0 rounded p-0.5",
+                notMine
+                  ? "bg-sky-200/90 text-sky-900 ring-1 ring-sky-100/60"
+                  : "text-white/50 hover:bg-white/15 hover:text-white"
+              )}
+              title={
+                notMine
+                  ? "Apply runway to this account again"
+                  : "Not my account — count it only to its end date"
+              }
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleNotMyAccount(fs.accountString ?? fs.rawName);
+              }}
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+            </button>
             <span className="truncate" title={alias}>
               {alias.toUpperCase()}
+            </span>
+            <span onClick={(e) => e.stopPropagation()} className="shrink-0">
+              <AliasEditor
+                source={fs}
+                customAlias={getAliasEntry(settings.fundingSourceAliases, fs)?.alias}
+                accountTitle={
+                  fs.accountString ? accountTitlesByChartstring?.get(fs.accountString) : undefined
+                }
+                compact
+                onSave={(base) => onSaveAlias(fs.id, base)}
+              />
             </span>
             {isPlanned && (
               <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-teal-100">
                 PLANNED
               </span>
+            )}
+            {hiddenCount > 0 && !revealHidden && (
+              <button
+                type="button"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                title={`Show ${hiddenCount} hidden person row${hiddenCount === 1 ? "" : "s"} on this account`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRevealHidden();
+                }}
+              >
+                <EyeOff className="h-3 w-3" aria-hidden />
+                <span>({hiddenCount})</span>
+              </button>
             )}
           </div>
         </td>
@@ -214,7 +307,8 @@ function AccountBlock({
         })}
       </tr>
       {!isCollapsed &&
-        contributors.map((emp) => {
+        visibleContributors.map((emp) => {
+          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
           const segments = mergeByPercent(
             months,
             (month) => {
@@ -228,27 +322,60 @@ function AccountBlock({
             (month) => isProjectedMonth(month, result.originMonth)
           );
           return (
-            <tr key={emp.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+            <tr
+              key={emp.id}
+              className={cn(
+                "border-t border-slate-100 hover:bg-slate-50/50",
+                hidden && "bg-slate-50/90"
+              )}
+            >
               <td
-                className="sticky left-0 z-10 bg-white px-1 py-0.5 pl-8"
+                className={cn(
+                  "sticky left-0 z-10 px-1 py-0.5 pl-4",
+                  hidden ? "bg-slate-50/90" : "bg-white"
+                )}
                 style={{
                   width: PROJECTION_LABEL_COL,
                   minWidth: PROJECTION_LABEL_COL,
                   maxWidth: PROJECTION_LABEL_COL,
                 }}
               >
-                <button
-                  type="button"
-                  className="flex max-w-full items-center gap-1.5 text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline"
-                  onClick={() => onEdit(emp, fs)}
-                >
-                  <EmployeeAvatar
-                    name={emp.name}
-                    photoUrl={getEmployeePhotoUrlFor(settings, emp)}
-                    size="xs"
-                  />
-                  <span className="truncate">{emp.name}</span>
-                </button>
+                <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
+                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                    )}
+                    title={
+                      hidden
+                        ? "Include this fund in your view and totals"
+                        : "Hide fund (not under your control)"
+                    }
+                    onClick={() => onToggleHiddenFund(emp.id, fs.id)}
+                  >
+                    {hidden ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline",
+                      hidden && "opacity-50"
+                    )}
+                    onClick={() => onEdit(emp, fs)}
+                  >
+                    <EmployeeAvatar
+                      name={emp.name}
+                      photoUrl={getEmployeePhotoUrlFor(settings, emp)}
+                      size="xs"
+                    />
+                    <span className="truncate">{emp.name}</span>
+                  </button>
+                </div>
               </td>
               <td
                 className="sticky z-10 bg-white"

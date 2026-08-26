@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -12,6 +12,11 @@ import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatPercent } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
+import { isEmployeeFundHidden, countHiddenFundsForEmployee } from "@/lib/funding/visibility";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
+import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
+import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { AliasEditor } from "@/components/funding/AliasEditor";
 import {
   mergeByPercent,
   isProjectedMonth,
@@ -30,6 +35,12 @@ export function ByPersonView({
   displayMode,
   accountTitlesByChartstring,
   onEdit,
+  showHiddenFunds,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
 }: {
   employees: Employee[];
   settings: AppSettings;
@@ -37,6 +48,14 @@ export function ByPersonView({
   displayMode: AppSettings["displayMode"];
   accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
+  /** Same declutter model as Timeline — see the page-level state that owns this. */
+  showHiddenFunds: boolean;
+  /** Employee ids revealed for this session, same semantics as Timeline's per-row reveal. */
+  revealHidden: Set<string>;
+  onRevealHidden: (employeeId: string) => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -97,6 +116,12 @@ export function ByPersonView({
                 display={display}
                 isCollapsed={isCollapsed}
                 aliasFor={aliasFor}
+                accountTitlesByChartstring={accountTitlesByChartstring}
+                revealHidden={showHiddenFunds || revealHidden.has(emp.id)}
+                onRevealHidden={() => onRevealHidden(emp.id)}
+                onToggleHiddenFund={onToggleHiddenFund}
+                onToggleNotMyAccount={onToggleNotMyAccount}
+                onSaveAlias={onSaveAlias}
                 onToggle={() =>
                   setCollapsed((p) => {
                     const n = new Set(p);
@@ -124,6 +149,12 @@ function EmployeeBlock({
   display,
   isCollapsed,
   aliasFor,
+  accountTitlesByChartstring,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
   onToggle,
   onEdit,
 }: {
@@ -135,13 +166,31 @@ function EmployeeBlock({
   display: "percent" | "dollars" | "both";
   isCollapsed: boolean;
   aliasFor: (key: string) => string;
+  accountTitlesByChartstring?: Map<string, string>;
+  revealHidden: boolean;
+  onRevealHidden: () => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
   const months = result.months;
+  /**
+   * Same rule getTimelineFundingSources applies: a hidden fund drops out of the
+   * grid unless revealed. The projection itself still counts it — hiding is a
+   * view concern on every page that offers it.
+   */
+  const visibleSources = sources.filter(
+    (fs) => revealHidden || !isEmployeeFundHidden(settings, emp.id, fs.id)
+  );
+  const hiddenCount = countHiddenFundsForEmployee(emp.id, settings);
   const barColors = useMemo(
-    () => colorsForEmployeeVisibleSources(sources, () => false),
-    [sources]
+    () =>
+      colorsForEmployeeVisibleSources(sources, (fs) =>
+        isEmployeeFundHidden(settings, emp.id, fs.id)
+      ),
+    [sources, settings, emp.id]
   );
 
   return (
@@ -175,6 +224,20 @@ function EmployeeBlock({
               <span className="shrink-0 text-[9px] font-normal text-white/60" title="HR employee ID">
                 · {emp.employeeId}
               </span>
+            )}
+            {hiddenCount > 0 && !revealHidden && (
+              <button
+                type="button"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRevealHidden();
+                }}
+              >
+                <EyeOff className="h-3 w-3" aria-hidden />
+                <span>({hiddenCount})</span>
+              </button>
             )}
           </div>
         </td>
@@ -213,7 +276,7 @@ function EmployeeBlock({
           );
         })}
       </tr>
-      {!isCollapsed && sources.length === 0 && (
+      {!isCollapsed && visibleSources.length === 0 && (
         <tr className="border-t border-slate-100">
           <td
             className="sticky left-0 z-10 bg-white px-3 py-2 pl-8 text-slate-500"
@@ -224,8 +287,14 @@ function EmployeeBlock({
         </tr>
       )}
       {!isCollapsed &&
-        sources.map((fs) => {
+        visibleSources.map((fs) => {
           const key = chartstringKeyForFundingSource(fs);
+          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const notMine = isNotMyAccountKey(
+            settings,
+            chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
+              (fs.accountString ?? fs.rawName)
+          );
           const chips = rulesForPair(settings, personKey, key).map((r) =>
             ruleChipLabel(r, aliasFor)
           );
@@ -242,25 +311,90 @@ function EmployeeBlock({
             (month) => isProjectedMonth(month, result.originMonth)
           );
           return (
-            <tr key={fs.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+            <tr
+              key={fs.id}
+              className={cn(
+                "border-t border-slate-100 hover:bg-slate-50/50",
+                hidden && "bg-slate-50/90"
+              )}
+            >
               <td
-                className="sticky left-0 z-10 bg-white px-1 py-0.5 pl-8"
+                className={cn(
+                  "sticky left-0 z-10 px-1 py-0.5 pl-4",
+                  hidden ? "bg-slate-50/90" : "bg-white"
+                )}
                 style={{
                   width: PROJECTION_LABEL_COL,
                   minWidth: PROJECTION_LABEL_COL,
                   maxWidth: PROJECTION_LABEL_COL,
                 }}
               >
-                <button
-                  type="button"
-                  className="block max-w-full truncate text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline"
-                  title={[aliasFor(key), ...chips].join(" · ")}
-                  onClick={() => onEdit(emp, fs)}
-                >
-                  {aliasFor(key)}
-                </button>
+                {/* Eye, shield, then the name — same order and same three shared
+                    settings as Timeline's fund row, so the controls sit where a
+                    reader who has used Timeline already expects them. */}
+                <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
+                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                    )}
+                    title={
+                      hidden
+                        ? "Include this fund in your view and totals"
+                        : "Hide fund (not under your control)"
+                    }
+                    onClick={() => onToggleHiddenFund(emp.id, fs.id)}
+                  >
+                    {hidden ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5",
+                      notMine
+                        ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
+                        : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                    )}
+                    title={
+                      notMine
+                        ? "Apply runway to this account again"
+                        : "Not my account — count it only to its end date"
+                    }
+                    onClick={() => onToggleNotMyAccount(fs.accountString ?? fs.rawName)}
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline",
+                      hidden && "opacity-50"
+                    )}
+                    title={[aliasFor(key), ...chips].join(" · ")}
+                    onClick={() => onEdit(emp, fs)}
+                  >
+                    {aliasFor(key)}
+                  </button>
+                  <AliasEditor
+                    source={fs}
+                    customAlias={getAliasEntry(settings.fundingSourceAliases, fs)?.alias}
+                    accountTitle={
+                      fs.accountString
+                        ? accountTitlesByChartstring?.get(fs.accountString)
+                        : undefined
+                    }
+                    compact
+                    onSave={(base) => onSaveAlias(fs.id, base)}
+                    className={cn("shrink-0", hidden && "opacity-50")}
+                  />
+                </div>
                 {chips[0] && (
-                  <p className="truncate text-[9px] text-slate-500" title={chips.join(" · ")}>
+                  <p className="truncate pl-1 text-[9px] text-slate-500" title={chips.join(" · ")}>
                     {chips[0]}
                   </p>
                 )}
