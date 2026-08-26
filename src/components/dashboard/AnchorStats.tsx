@@ -8,8 +8,6 @@ import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
-import { TeamRunwayCarousel } from "@/components/dashboard/TeamRunwayCarousel";
-import { ALL_TEAMS_KEY, type TeamRunwayRow } from "@/lib/dashboard/teamRunway";
 import { runwayMonthsLabel } from "@/lib/runway/calculate";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
@@ -171,7 +169,6 @@ export function AnchorStats({
   horizonMonths,
   priorRunwayMonths,
   priorReportLabel,
-  teamRows,
 }: {
   overview: DashboardOverview;
   /** The Dashboard's own scope control — the runway figure never extrapolates past it. */
@@ -179,7 +176,6 @@ export function AnchorStats({
   priorRunwayMonths: number | null;
   priorReportLabel: string | null;
   /** When more than one team exists, the runway anchor becomes a per-team carousel. */
-  teamRows: TeamRunwayRow[] | null;
 }) {
   const {
     availableFunds,
@@ -214,7 +210,6 @@ export function AnchorStats({
   // buildVerdict does too.
   const beyondHorizon = runwayMonths !== null && runwayMonths > horizonMonths;
 
-  const hasTeams = !!teamRows && teamRows.filter((r) => r.key !== ALL_TEAMS_KEY).length > 1;
 
   const fundsExplanation = [
     `Balance on the ${accountCount} ${accountCount === 1 ? "account" : "accounts"} that both have payroll charged to them and have a balance on file, at the same figure Runway uses.`,
@@ -304,15 +299,10 @@ export function AnchorStats({
         spark={<BarSpark points={overview.burnSeries} label="Monthly personnel cost" />}
       />
 
-      {hasTeams ? (
-        <TeamRunwayCarousel
-          rows={teamRows!}
-          horizonMonths={horizonMonths}
-          priorRunwayMonths={priorRunwayMonths}
-          priorReportLabel={priorReportLabel}
-          runwayExplanation={runwayExplanation}
-        />
-      ) : (
+      {/* Always the all-accounts figure. This slot used to page through teams,
+          so the row's third stat changed its subject on click and showed
+          whatever the last reader left it on. Per-team runway is a table below,
+          sorted ascending. */}
       <Anchor
         label="Avg Payroll Runway"
         href="/runway"
@@ -374,7 +364,6 @@ export function AnchorStats({
           />
         }
       />
-      )}
     </section>
   );
 }

@@ -16,6 +16,7 @@ import { AttentionQueueBox } from "@/components/dashboard/AttentionQueueBox";
 import { AnchorStats } from "@/components/dashboard/AnchorStats";
 import { SinceLastReportPanel } from "@/components/dashboard/SinceLastReportPanel";
 import { RunwayRibbon } from "@/components/dashboard/RunwayRibbon";
+import { TeamRunwayTable } from "@/components/dashboard/TeamRunwayTable";
 import { FundingExposureBand } from "@/components/dashboard/FundingExposureBand";
 import { FundingExposureMatrix } from "@/components/dashboard/FundingExposureMatrix";
 import { DashboardMethodology } from "@/components/dashboard/DashboardMethodology";
@@ -179,7 +180,6 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       horizonMonths={horizonMonths}
       priorRunwayMonths={sinceLastReport?.priorRunwayMonths ?? null}
       priorReportLabel={sinceLastReport?.priorLabel ?? null}
-      teamRows={teamRunway}
     />
   );
 
@@ -198,6 +198,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       )}
       {sinceLastReport && <SinceLastReportPanel summary={sinceLastReport} />}
       <RunwayRibbon ribbon={ribbon} />
+      <TeamRunwayTable rows={teamRunway} />
       <PersonnelCostTrendCharts
         monthly={trend.monthly}
         monthlyProjected={trend.monthlyProjected}
