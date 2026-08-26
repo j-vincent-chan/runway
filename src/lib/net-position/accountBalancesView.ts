@@ -11,7 +11,6 @@ import {
   chartstringFundDeptProject,
   normalizeChartstring,
 } from "@/lib/funding/chartstring";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
 import {
   buildNetPositionAccountSeries,
   type NetPositionAccountSeries,
@@ -23,13 +22,6 @@ import { getAccountGroups } from "@/lib/net-position/accountGroup";
 export function normalizeAccountBalanceKey(key: string): string {
   return normalizeChartstring(key);
 }
-
-/** Resolve fund-dept-project key from a MyPortfolio chartstring (may include activity). */
-export function accountKeyFromPortfolioChartstring(chartstring: string): string | null {
-  return chartstringFundDeptProject(chartstring);
-}
-
-export type AccountBalanceDataSource = "netPosition" | "myPortfolio" | "both";
 
 export interface AccountBalanceViewItem {
   /** Normalized fund-dept-project key */
@@ -46,37 +38,15 @@ export interface AccountBalanceViewItem {
   parentAwardId?: string;
   parentAwardDescription?: string;
   busUnit?: string;
-  source: AccountBalanceDataSource;
-  /** Present when Net Position history exists */
-  series: NetPositionAccountSeries | null;
-  /** Snapshot balance from MyPortfolio when available */
-  portfolioBalance?: number;
-  portfolioAsOf?: string;
-  portfolioChartstring?: string;
+  series: NetPositionAccountSeries;
   isHidden: boolean;
-  isWatchedFromPortfolio: boolean;
-  /** Balance shown in the list (MyPortfolio preferred when both exist) */
-  displayBalance: number | null;
+  /** Latest reported ending balance */
+  displayBalance: number;
   changeFromPrior: number | null;
   /** Latest period expenses from Net Position (withdrawals proxy); 0 when none */
   withdrawals: number;
   /** Assigned account group id when set */
   accountGroupId?: string;
-}
-
-export interface PortfolioWatchCandidate {
-  accountKey: string;
-  displayKey: string;
-  chartstring: string;
-  title: string;
-  fund: string;
-  dept: string;
-  project: string;
-  balance: number;
-  reportRunDate: string;
-  /** Already appears via a Net Position import */
-  hasNetPosition: boolean;
-  isWatched: boolean;
 }
 
 export const ACCOUNT_BALANCE_SORT_OPTIONS: {
@@ -90,29 +60,19 @@ export const ACCOUNT_BALANCE_SORT_OPTIONS: {
   { value: "withdrawalsAsc", label: "Lowest withdrawals" },
 ];
 
-function displayBalanceFor(item: {
-  series: NetPositionAccountSeries | null;
-  portfolioBalance?: number;
-}): number | null {
-  if (item.portfolioBalance !== undefined) return item.portfolioBalance;
-  if (item.series) return item.series.latest.endingBalance;
-  return null;
-}
-
-/** Prefer saved alias keyed by chartstring or fund-dept-project. */
+/**
+ * Prefer a saved alias keyed by fund-dept-project.
+ *
+ * Payroll chartstrings carry an activity segment that account keys do not, so
+ * an alias saved from Timeline is stored under the longer key; the final sweep
+ * matches those by root.
+ */
 export function resolveAccountBalanceAlias(
   aliases: AppSettings["fundingSourceAliases"] | undefined,
-  accountKey: string,
-  portfolioChartstring?: string
+  accountKey: string
 ): string | undefined {
   if (!aliases) return undefined;
   const key = normalizeAccountBalanceKey(accountKey);
-  if (portfolioChartstring) {
-    const full = normalizeChartstring(portfolioChartstring);
-    if (aliases[full]?.alias?.trim()) return aliases[full]!.alias.trim();
-    const root = chartstringFundDeptProject(portfolioChartstring);
-    if (root && aliases[root]?.alias?.trim()) return aliases[root]!.alias.trim();
-  }
   if (aliases[key]?.alias?.trim()) return aliases[key]!.alias.trim();
   for (const [aliasKey, entry] of Object.entries(aliases)) {
     if (!entry?.alias?.trim()) continue;
@@ -125,79 +85,33 @@ function resolveTitle(args: {
   accountKey: string;
   projectDescription?: string;
   project?: string;
-  portfolioTitle?: string;
-  portfolioChartstring?: string;
   aliases?: AppSettings["fundingSourceAliases"];
 }): string {
-  const alias = resolveAccountBalanceAlias(
-    args.aliases,
-    args.accountKey,
-    args.portfolioChartstring
-  );
+  const alias = resolveAccountBalanceAlias(args.aliases, args.accountKey);
   if (alias) return alias;
-  return (
-    args.projectDescription ||
-    args.portfolioTitle ||
-    args.project ||
-    args.accountKey
-  );
+  return args.projectDescription || args.project || args.accountKey;
 }
 
-/**
- * Merge Net Position time series with opted-in MyPortfolio accounts.
- * Same fund-dept-project from both sources → one row; MyPortfolio balance
- * supersedes Net Position for the listed balance; NP series kept for trends.
- */
+/** One row per account in the Net Position Reports on file. */
 export function buildAccountBalanceView(args: {
   netPositionImports: NetPositionReportImport[];
-  portfolioBalances: Map<string, MergedPortfolioBalance>;
   hiddenKeys: string[];
-  watchedPortfolioKeys: string[];
   aliases?: AppSettings["fundingSourceAliases"];
   accountGroupByBalanceKey?: Record<string, string>;
   sort?: AccountBalanceSortKey;
 }): AccountBalanceViewItem[] {
   const hidden = new Set(args.hiddenKeys.map(normalizeAccountBalanceKey));
-  const watched = new Set(args.watchedPortfolioKeys.map(normalizeAccountBalanceKey));
   const groups = args.accountGroupByBalanceKey ?? {};
 
-  /**
-   * MyPortfolio rows only. `portfolioBalances` is the merged map, which also
-   * carries Net Position figures so Runway can spend against them — but here
-   * a Net Position entry must not masquerade as a MyPortfolio one, or an
-   * account known only to Net Position reports back as "both" and loses the
-   * period delta that is the whole point of its column.
-   *
-   * One rule, one place: mergeAccountBalances decides MyPortfolio wins, and
-   * this reads the `source` it stamped rather than re-deriving precedence.
-   */
-  const portfolioByAccountKey = new Map<string, MergedPortfolioBalance>();
-  for (const row of args.portfolioBalances.values()) {
-    if (row.source === "netPosition") continue;
-    const key = accountKeyFromPortfolioChartstring(row.chartstring);
-    if (!key) continue;
-    const existing = portfolioByAccountKey.get(key);
-    if (!existing || row.reportRunDate >= existing.reportRunDate) {
-      portfolioByAccountKey.set(key, row);
-    }
-  }
-
-  const npSeries = buildNetPositionAccountSeries(args.netPositionImports);
-  const byKey = new Map<string, AccountBalanceViewItem>();
-
-  for (const series of npSeries) {
+  const items = buildNetPositionAccountSeries(args.netPositionImports).map((series) => {
     const accountKey = normalizeAccountBalanceKey(series.accountKey);
-    const portfolio = portfolioByAccountKey.get(accountKey);
-    const source: AccountBalanceDataSource = portfolio ? "both" : "netPosition";
-    const item: AccountBalanceViewItem = {
+    return {
       accountKey,
       displayKey: series.accountKey,
       title: resolveTitle({
         accountKey,
         projectDescription: series.projectDescription,
         project: series.project,
-        portfolioTitle: portfolio?.projectTitle,
-        portfolioChartstring: portfolio?.chartstring,
         aliases: args.aliases,
       }),
       fund: series.fund,
@@ -209,81 +123,16 @@ export function buildAccountBalanceView(args: {
       parentAwardId: series.parentAwardId,
       parentAwardDescription: series.parentAwardDescription,
       busUnit: series.busUnit,
-      source,
       series,
-      portfolioBalance: portfolio?.balance,
-      portfolioAsOf: portfolio?.reportRunDate,
-      portfolioChartstring: portfolio?.chartstring,
       isHidden: hidden.has(accountKey),
-      isWatchedFromPortfolio: watched.has(accountKey),
-      displayBalance: null,
-      // Period delta is NP-only; omit when MyPortfolio owns the listed balance.
-      changeFromPrior: portfolio ? null : series.changeFromPrior,
+      displayBalance: series.latest.endingBalance,
+      changeFromPrior: series.changeFromPrior,
       withdrawals: series.latest.expenses,
       accountGroupId: groups[accountKey],
-    };
-    item.displayBalance = displayBalanceFor(item);
-    byKey.set(accountKey, item);
-  }
+    } satisfies AccountBalanceViewItem;
+  });
 
-  for (const watchKey of watched) {
-    if (byKey.has(watchKey)) continue;
-    const portfolio = portfolioByAccountKey.get(watchKey);
-    if (!portfolio) {
-      // Watched but no longer in MyPortfolio imports — still list as pending
-      byKey.set(watchKey, {
-        accountKey: watchKey,
-        displayKey: watchKey,
-        title: resolveTitle({
-          accountKey: watchKey,
-          aliases: args.aliases,
-        }),
-        fund: watchKey.split("-")[0] ?? "",
-        dept: watchKey.split("-")[1] ?? "",
-        project: watchKey.split("-")[2] ?? "",
-        source: "myPortfolio",
-        series: null,
-        isHidden: hidden.has(watchKey),
-        isWatchedFromPortfolio: true,
-        displayBalance: null,
-        changeFromPrior: null,
-        withdrawals: 0,
-        accountGroupId: groups[watchKey],
-      });
-      continue;
-    }
-    const parts = watchKey.split("-");
-    const item: AccountBalanceViewItem = {
-      accountKey: watchKey,
-      displayKey: chartstringFundDeptProject(portfolio.chartstring) ?? watchKey,
-      title: resolveTitle({
-        accountKey: watchKey,
-        projectDescription: portfolio.projectTitle,
-        project: portfolio.project,
-        portfolioTitle: portfolio.projectTitle,
-        portfolioChartstring: portfolio.chartstring,
-        aliases: args.aliases,
-      }),
-      fund: portfolio.fund || parts[0] || "",
-      dept: portfolio.dept || parts[1] || "",
-      project: portfolio.project || parts[2] || "",
-      projectDescription: portfolio.projectTitle,
-      source: "myPortfolio",
-      series: null,
-      portfolioBalance: portfolio.balance,
-      portfolioAsOf: portfolio.reportRunDate,
-      portfolioChartstring: portfolio.chartstring,
-      isHidden: hidden.has(watchKey),
-      isWatchedFromPortfolio: true,
-      displayBalance: portfolio.balance,
-      changeFromPrior: null,
-      withdrawals: 0,
-      accountGroupId: groups[watchKey],
-    };
-    byKey.set(watchKey, item);
-  }
-
-  return sortAccountBalanceItems([...byKey.values()], args.sort ?? "balanceDesc");
+  return sortAccountBalanceItems(items, args.sort ?? "balanceDesc");
 }
 
 export function sortAccountBalanceItems(
@@ -291,8 +140,7 @@ export function sortAccountBalanceItems(
   sort: AccountBalanceSortKey
 ): AccountBalanceViewItem[] {
   const list = [...items];
-  const bal = (i: AccountBalanceViewItem) =>
-    i.displayBalance ?? Number.NEGATIVE_INFINITY;
+  const bal = (i: AccountBalanceViewItem) => i.displayBalance;
   switch (sort) {
     case "titleAsc":
       return list.sort((a, b) => a.title.localeCompare(b.title) || a.accountKey.localeCompare(b.accountKey));
@@ -429,65 +277,16 @@ export function getEmployeesOnAccountKey(
 export function syntheticFundingSourceForAccount(
   item: Pick<
     AccountBalanceViewItem,
-    "accountKey" | "displayKey" | "title" | "portfolioChartstring" | "fund" | "project"
+    "accountKey" | "displayKey" | "title" | "fund" | "project"
   >
 ): FundingSource {
   return {
     id: item.accountKey,
     rawName: item.displayKey || item.accountKey,
     alias: item.title,
-    accountString: item.portfolioChartstring || item.displayKey || item.accountKey,
+    accountString: item.displayKey || item.accountKey,
     fund: item.fund || undefined,
     projectId: item.project || undefined,
     color: "#00778b",
   };
-}
-
-/** MyPortfolio accounts available to watch on Account Balances. */
-export function listPortfolioWatchCandidates(
-  portfolioBalances: Map<string, MergedPortfolioBalance>,
-  netPositionImports: NetPositionReportImport[],
-  watchedPortfolioKeys: string[]
-): PortfolioWatchCandidate[] {
-  const watched = new Set(watchedPortfolioKeys.map(normalizeAccountBalanceKey));
-  const npKeys = new Set(
-    buildNetPositionAccountSeries(netPositionImports).map((s) =>
-      normalizeAccountBalanceKey(s.accountKey)
-    )
-  );
-
-  const byKey = new Map<string, PortfolioWatchCandidate>();
-  for (const row of portfolioBalances.values()) {
-    // MyPortfolio only — the merged map also carries Net Position figures, and
-    // offering those as "MyPortfolio accounts to watch" would invite the user
-    // to opt into accounts that already appear by default.
-    if (row.source === "netPosition") continue;
-    const accountKey = accountKeyFromPortfolioChartstring(row.chartstring);
-    if (!accountKey) continue;
-    const existing = byKey.get(accountKey);
-    if (existing && row.reportRunDate < existing.reportRunDate) continue;
-    byKey.set(accountKey, {
-      accountKey,
-      displayKey: accountKey,
-      chartstring: row.chartstring,
-      title: row.projectTitle || row.project || accountKey,
-      fund: row.fund || "",
-      dept: row.dept || "",
-      project: row.project || "",
-      balance: row.balance,
-      reportRunDate: row.reportRunDate,
-      hasNetPosition: npKeys.has(accountKey),
-      isWatched: watched.has(accountKey),
-    });
-  }
-
-  return [...byKey.values()].sort((a, b) => a.title.localeCompare(b.title));
-}
-
-export function toggleKeyInList(keys: string[] | undefined, key: string): string[] {
-  const norm = normalizeAccountBalanceKey(key);
-  const set = new Set((keys ?? []).map(normalizeAccountBalanceKey));
-  if (set.has(norm)) set.delete(norm);
-  else set.add(norm);
-  return [...set];
 }

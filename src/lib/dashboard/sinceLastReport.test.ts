@@ -15,7 +15,7 @@ import type {
   PayrollReportSnapshot,
   WorkingPlan,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 function emp(id: string, name: string, hrId: string): Employee {
   return { id, name, appointmentPercent: 100, employeeId: hrId };
@@ -97,7 +97,7 @@ function payrollImport(snap: PayrollReportSnapshot): PayrollReportImport {
 
 const settings: AppSettings = { ...DEFAULT_SETTINGS };
 
-function portfolio(balance: number, account = "7000-1-7030720-45"): Map<string, MergedPortfolioBalance> {
+function balances(balance: number, account = "7000-1-7030720-45"): Map<string, AccountBalance> {
   return new Map([
     [account, { chartstring: account, balance, reportRunDate: "2026-08-01", sourceFileName: "mp.xlsx" }],
   ]);
@@ -148,7 +148,7 @@ function baseArgs(workingPlan: WorkingPlan | null = null) {
     workingPlan,
     fundingSources: [fs1],
     settings,
-    portfolio: portfolio(50_000),
+    balances: balances(50_000),
   };
 }
 

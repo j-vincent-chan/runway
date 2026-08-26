@@ -54,8 +54,8 @@ export function RunwayEmployeeSection({
   const assumedOkVisibleCount = accounts.filter((a) => !a.isHidden && a.isAssumedOk).length;
   const runwayVisibleCount = accounts.filter((a) => !a.isHidden && !a.isAssumedOk).length;
   const latestBalanceAsOf = accounts
-    .filter((a) => !a.isHidden && !a.isAssumedOk && a.balanceSource === "portfolio" && a.portfolioRunDate)
-    .map((a) => a.portfolioRunDate!)
+    .filter((a) => !a.isHidden && !a.isAssumedOk && a.balanceSource === "report" && a.balanceAsOf)
+    .map((a) => a.balanceAsOf!)
     .sort()
     .at(-1);
   const allVisibleAssumedOk =
@@ -297,10 +297,10 @@ export function RunwayEmployeeSection({
                       <BalanceInput
                         value={acct.balance}
                         source={acct.balanceSource}
-                        asOfDate={acct.portfolioRunDate}
+                        asOfDate={acct.balanceAsOf}
                         portfolioHint={
-                          acct.balanceSource === "portfolio"
-                            ? [acct.portfolioFile, formatIsoDateDisplay(acct.portfolioRunDate)]
+                          acct.balanceSource === "report"
+                            ? [acct.balanceFile, formatIsoDateDisplay(acct.balanceAsOf)]
                                 .filter(Boolean)
                                 .join(" · ")
                             : undefined
@@ -573,7 +573,7 @@ function BalanceInput({
   onCommit,
 }: {
   value: number;
-  source: "portfolio" | "manual" | "estimated" | "none";
+  source: "report" | "manual" | "estimated" | "none";
   asOfDate?: string;
   portfolioHint?: string;
   disabled?: boolean;
@@ -598,7 +598,7 @@ function BalanceInput({
           "w-[7.75rem] rounded-md border px-2 py-1 text-right text-sm font-semibold tabular-nums text-[#0c2340] shadow-sm",
           disabled && "cursor-not-allowed opacity-50",
           source === "manual" && "border-teal-500 bg-teal-50/50",
-          source === "portfolio" && "border-teal-200 bg-white",
+          source === "report" && "border-teal-200 bg-white",
           source === "none" && !disabled && "border-amber-300 bg-amber-50/80",
           source === "none" && disabled && "border-slate-200 bg-slate-50"
         )}
@@ -642,7 +642,7 @@ function BalanceInput({
             ? "Manual entry"
             : asOfLabel
               ? `As of ${asOfLabel}`
-              : "From portfolio"}
+              : "From report"}
         </p>
       )}
       {!disabled && source === "none" && (

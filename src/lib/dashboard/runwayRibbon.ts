@@ -7,7 +7,7 @@ import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import { getAllocations, getCurrentMonth } from "@/lib/calculations";
 import { addMonthsYm, getProjectionOriginMonth } from "@/lib/projections/horizon";
 import type { AppSettings, PayrollReportSnapshot, ProjectionHorizonPreset, WorkingPlan } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 /** Fallback when no scope is passed; the Dashboard always passes its own. */
 export const RIBBON_HORIZON_MONTHS = 24;
@@ -231,14 +231,14 @@ export function buildRunwayRibbon({
   snapshot,
   workingPlan,
   settings,
-  portfolio,
+  balances,
   horizonMonths = RIBBON_HORIZON_MONTHS,
   now,
 }: {
   snapshot: PayrollReportSnapshot;
   workingPlan: WorkingPlan | null;
   settings: AppSettings;
-  portfolio: Map<string, MergedPortfolioBalance>;
+  balances: Map<string, AccountBalance>;
   /** Months forward to project, from the Dashboard's scope control. */
   horizonMonths?: number;
   now?: Date;
@@ -261,7 +261,7 @@ export function buildRunwayRibbon({
     snapshot,
     workingPlan,
     settings: fixedHorizonSettings,
-    portfolio,
+    balances,
     now,
   });
 

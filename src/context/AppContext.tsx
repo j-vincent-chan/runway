@@ -49,8 +49,8 @@ import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
-import { mergeAccountBalances, mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
-import { chartstringFundDeptProject, findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
+import { buildAccountBalances, type AccountBalance } from "@/lib/funding/accountBalances";
+import { chartstringFundDeptProject, findAccountTitleForChartstring } from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
   runwayBalanceValuesMatch,
@@ -172,12 +172,12 @@ interface AppContextValue {
   saveScenario: (name: string) => void;
   clearAll: () => void;
   fundingSources: ReturnType<typeof applyAliases>;
-  portfolioTitlesByChartstring: Map<string, string>;
+  accountTitlesByChartstring: Map<string, string>;
   portfolioImports: PortfolioReportImport[];
   payrollImports: PayrollReportImport[];
   netPositionImports: NetPositionReportImport[];
   positionSalaryImports: PositionSalaryReportImport[];
-  mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
+  accountBalances: Map<string, AccountBalance>;
   /** Explicit hides + accounts hidden on Runway for everyone, minus explicit reveals. */
   hiddenAccountKeys: string[];
   parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
@@ -447,11 +447,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     userId,
   ]);
 
-  // Both report types, not just MyPortfolio — Runway resolves every balance
-  // through this map, so anything missing here is treated as $0.
-  const mergedPortfolioBalances = useMemo(
-    () => mergeAccountBalances(portfolioImports, netPositionImports),
-    [portfolioImports, netPositionImports]
+  // Runway resolves every balance through this map, so anything missing here
+  // is treated as $0.
+  const accountBalances = useMemo(
+    () => buildAccountBalances(netPositionImports),
+    [netPositionImports]
   );
 
   const snapshotForUi = useMemo(
@@ -482,19 +482,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return effectiveHiddenAccountKeys(settings, accountsHiddenForEveryone(pairs, settings));
   }, [snapshot, workingPlan, settings]);
 
-  const portfolioTitlesByChartstring = useMemo(() => {
+  const accountTitlesByChartstring = useMemo(() => {
     const map = new Map<string, string>();
     if (!snapshot) return map;
     for (const fs of snapshot.fundingSources) {
       if (!fs.accountString) continue;
-      const title = findPortfolioTitleForChartstring(
+      const title = findAccountTitleForChartstring(
         fs.accountString,
-        mergedPortfolioBalances
+        accountBalances
       );
       if (title) map.set(fs.accountString, title);
     }
     return map;
-  }, [snapshot, mergedPortfolioBalances]);
+  }, [snapshot, accountBalances]);
 
   const allocations = useMemo(
     () => (snapshot ? getAllocations(snapshot, workingPlan) : []),
@@ -507,10 +507,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? applyAliases(
             snapshot.fundingSources,
             settings.fundingSourceAliases,
-            portfolioTitlesByChartstring
+            accountTitlesByChartstring
           )
         : [],
-    [snapshot, settings.fundingSourceAliases, portfolioTitlesByChartstring]
+    [snapshot, settings.fundingSourceAliases, accountTitlesByChartstring]
   );
 
   const parsePayrollFiles = useCallback(
@@ -1369,7 +1369,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           delete overrides[key];
         } else {
           const portfolioBalances = new Map<string, number>();
-          for (const [k, v] of mergedPortfolioBalances) {
+          for (const [k, v] of accountBalances) {
             portfolioBalances.set(k, v.balance);
           }
           const match = findBalanceForChartstring(chartstring, portfolioBalances);
@@ -1382,7 +1382,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, runwayBalanceOverrides: overrides };
       });
     },
-    [mergedPortfolioBalances]
+    [accountBalances]
   );
 
   const setRunwayBurnOverride = useCallback(
@@ -1513,12 +1513,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveScenario,
     clearAll,
     fundingSources,
-    portfolioTitlesByChartstring,
+    accountTitlesByChartstring,
     portfolioImports,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
-    mergedPortfolioBalances,
+    accountBalances,
     hiddenAccountKeys,
     parsePortfolioFile,
     importPortfolioFiles,

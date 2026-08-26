@@ -168,7 +168,7 @@ export function TimelineGrid() {
     toggleNotMyAccount,
     setEmployeePlanningScope,
     updateSettings,
-    portfolioTitlesByChartstring,
+    accountTitlesByChartstring,
   } = useApp();
   const [display, setDisplay] = useState<"percent" | "dollars" | "both">("percent");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -344,7 +344,7 @@ export function TimelineGrid() {
                   updateAllocation={updateAllocation}
                   updateFundingSourceAlias={updateFundingSourceAlias}
                   customAliases={settings.fundingSourceAliases}
-                  portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+                  accountTitlesByChartstring={accountTitlesByChartstring}
                   settings={settings}
                   toggleHiddenEmployeeFund={toggleHiddenEmployeeFund}
                   toggleNotMyAccount={toggleNotMyAccount}
@@ -377,7 +377,7 @@ function EmployeeRows({
   updateAllocation,
   updateFundingSourceAlias,
   customAliases,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   settings,
   toggleHiddenEmployeeFund,
   toggleNotMyAccount,
@@ -399,7 +399,7 @@ function EmployeeRows({
   updateAllocation: (e: string, f: string, m: string, n: number) => void;
   updateFundingSourceAlias: (id: string, base: string) => void;
   customAliases: AppSettings["fundingSourceAliases"];
-  portfolioTitlesByChartstring: Map<string, string>;
+  accountTitlesByChartstring: Map<string, string>;
   settings: AppSettings;
   toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
   showHiddenFunds: boolean;
@@ -558,9 +558,9 @@ function EmployeeRows({
                   <AliasEditor
                     source={fs}
                     customAlias={getAliasEntry(customAliases, fs)?.alias}
-                    portfolioTitle={
+                    accountTitle={
                       fs.accountString
-                        ? portfolioTitlesByChartstring.get(fs.accountString)
+                        ? accountTitlesByChartstring.get(fs.accountString)
                         : undefined
                     }
                     compact

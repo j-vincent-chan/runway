@@ -15,7 +15,7 @@ import type {
   MonthlyCostRecord,
   PayrollReportSnapshot,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 const MONTH = "2026-06";
 const ACCOUNT = "7000-1-7030720-45";
@@ -51,9 +51,9 @@ function snapshot(): PayrollReportSnapshot {
   };
 }
 /** A real balance far larger than any estimate, so we can tell which one is used. */
-function portfolio(balance = 900_000): Map<string, MergedPortfolioBalance> {
+function balances(balance = 900_000): Map<string, AccountBalance> {
   return new Map([
-    ["7000-1-7030720-45", { chartstring: ACCOUNT, balance, reportRunDate: "2026-06-30", sourceFileName: "p.xlsx", source: "myPortfolio" }],
+    ["7000-1-7030720-45", { chartstring: ACCOUNT, balance, reportRunDate: "2026-06-30", sourceFileName: "p.xlsx" }],
   ]);
 }
 
@@ -64,7 +64,7 @@ function runFor(settings: AppSettings, estimateOriginMonth = TODAY) {
   const snap = snapshot();
   const index = buildSharedAccountBurnIndex(snap, null, snap.fundingSources, settings);
   return computeEmployeeRunway(
-    emp(), snap, null, snap.fundingSources, settings, portfolio(), index,
+    emp(), snap, null, snap.fundingSources, settings, balances(), index,
     { revealHidden: false, estimateOriginMonth }
   );
 }
@@ -122,7 +122,7 @@ describe("an account marked not-my-account", () => {
   it("uses the real balance when it is not marked", () => {
     const summary = runFor(DEFAULT_SETTINGS);
     expect(summary.totalBalance).toBeCloseTo(900_000, 0);
-    expect(summary.accounts[0]!.balanceSource).toBe("portfolio");
+    expect(summary.accounts[0]!.balanceSource).toBe("report");
   });
 
   it("still excludes a hidden account, which is a different idea", () => {

@@ -28,14 +28,14 @@ export function ByPersonView({
   settings,
   result,
   displayMode,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   onEdit,
 }: {
   employees: Employee[];
   settings: AppSettings;
   result: ProjectionResult;
   displayMode: AppSettings["displayMode"];
-  portfolioTitlesByChartstring?: Map<string, string>;
+  accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -47,7 +47,7 @@ export function ByPersonView({
   const aliasFor = (key: string) => {
     const fs = result.sources.find((s) => chartstringKeyForFundingSource(s) === key);
     if (!fs) return key;
-    return projectionSourceLabel(fs, settings, portfolioTitlesByChartstring);
+    return projectionSourceLabel(fs, settings, accountTitlesByChartstring);
   };
 
   return (

@@ -478,10 +478,10 @@ export function applyAliases(
 ): FundingSource[] {
   return sources.map((s) => {
     const a = getAliasEntry(aliases, s);
-    const portfolioTitle = s.accountString
+    const accountTitle = s.accountString
       ? portfolioTitlesByChartstring?.get(s.accountString)
       : undefined;
-    const alias = resolveDisplayAlias(s, a?.alias, portfolioTitle);
+    const alias = resolveDisplayAlias(s, a?.alias, accountTitle);
     return {
       ...s,
       alias,

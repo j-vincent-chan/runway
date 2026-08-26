@@ -24,18 +24,18 @@ export function buildPortfolioChartstring(
 }
 
 /**
- * Match payroll chartstrings to MyPortfolio rows.
- * Payroll effort accounts (e.g. …-136092L-44) often differ in the activity segment
- * from portfolio rows (e.g. …-136092L-01) while sharing the same fund-dept-project.
+ * Match payroll chartstrings to balance rows.
+ * Payroll effort accounts (e.g. …-136092L-44) carry an activity segment that
+ * account keys (e.g. …-136092L) do not, while sharing the fund-dept-project.
  */
-export function chartstringsMatch(payrollChart: string, portfolioChart: string): boolean {
+export function chartstringsMatch(payrollChart: string, balanceChart: string): boolean {
   const p = normalizeChartstring(payrollChart);
-  const c = normalizeChartstring(portfolioChart);
+  const c = normalizeChartstring(balanceChart);
   if (p === c) return true;
   if (p.startsWith(`${c}-`) || c.startsWith(`${p}-`)) return true;
 
   const pRoot = chartstringFundDeptProject(payrollChart);
-  const cRoot = chartstringFundDeptProject(portfolioChart);
+  const cRoot = chartstringFundDeptProject(balanceChart);
   return !!pRoot && pRoot === cRoot;
 }
 
@@ -70,17 +70,17 @@ export function findBalanceForChartstring(
   return { balance: best.balance, matchedKey: best.matchedKey };
 }
 
-/** Find the best-matching MyPortfolio row for a payroll chartstring. */
-export function findPortfolioRowForChartstring<T extends { chartstring: string }>(
+/** Find the best-matching balance row for a payroll chartstring. */
+export function findBalanceRowForChartstring<T extends { chartstring: string }>(
   payrollChart: string,
-  portfolio: Map<string, T>
+  balances: Map<string, T>
 ): { row: T; matchedKey: string; score: number } | undefined {
   const payrollNorm = normalizeChartstring(payrollChart);
   const payrollRoot = chartstringFundDeptProject(payrollChart);
 
   let best: { row: T; matchedKey: string; score: number } | undefined;
 
-  for (const [key, row] of portfolio) {
+  for (const [key, row] of balances) {
     if (!chartstringsMatch(payrollChart, key) && !chartstringsMatch(payrollChart, row.chartstring)) {
       continue;
     }
@@ -105,12 +105,12 @@ export function findPortfolioRowForChartstring<T extends { chartstring: string }
   return best;
 }
 
-export function findPortfolioTitleForChartstring(
+export function findAccountTitleForChartstring(
   payrollChart: string | undefined,
-  portfolio: Map<string, { chartstring: string; projectTitle?: string }>
+  balances: Map<string, { chartstring: string; projectTitle?: string }>
 ): string | undefined {
   if (!payrollChart?.trim()) return undefined;
-  const match = findPortfolioRowForChartstring(payrollChart, portfolio);
+  const match = findBalanceRowForChartstring(payrollChart, balances);
   const title = match?.row.projectTitle?.trim();
   return title || undefined;
 }

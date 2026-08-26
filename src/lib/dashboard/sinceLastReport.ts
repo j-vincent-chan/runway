@@ -14,7 +14,7 @@ import type {
   PayrollReportSnapshot,
   WorkingPlan,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 /** Minimum |%| cost swing worth naming — below this reads as noise, not a change. */
 export const COST_MATERIALITY = 0.01;
@@ -71,7 +71,7 @@ export function buildSinceLastReport(args: {
   workingPlan: WorkingPlan | null;
   fundingSources: FundingSource[];
   settings: AppSettings;
-  portfolio: Map<string, MergedPortfolioBalance>;
+  balances: Map<string, AccountBalance>;
 }): SinceLastReportSummary | null {
   const {
     payrollImports,
@@ -82,7 +82,7 @@ export function buildSinceLastReport(args: {
     workingPlan,
     fundingSources,
     settings,
-    portfolio,
+    balances,
   } = args;
 
   if (payrollImports.length < 2) return null;
@@ -111,7 +111,7 @@ export function buildSinceLastReport(args: {
   // workingPlan would otherwise pass getAllocations' snapshotId check
   // against the prior (smaller) snapshot too and silently overlay today's
   // manual edits onto the historical comparison.
-  const priorRunwayContext = buildRunwayContext(priorSnapshot, null, fundingSources, settings, portfolio);
+  const priorRunwayContext = buildRunwayContext(priorSnapshot, null, fundingSources, settings, balances);
   const priorRunwayMonths = totalFundedRoots(priorRunwayContext.fundedRoots.values()).months;
 
   const runwayDeltaMonths =

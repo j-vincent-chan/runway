@@ -22,7 +22,7 @@ import type {
   ProjectionHorizonPreset,
   WorkingPlan,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 /** Trailing history shown alongside the projection, matching the personnel-cost chart's window. */
 export const EXPOSURE_HISTORY_WINDOW_MONTHS = 12;
@@ -73,10 +73,10 @@ export function buildFundingExposureTimeline(args: {
   workingPlan: WorkingPlan | null;
   fundingSources: FundingSource[];
   settings: AppSettings;
-  portfolio: Map<string, MergedPortfolioBalance>;
+  balances: Map<string, AccountBalance>;
   horizonMonths: number;
 }): FundingExposureTimeline {
-  const { snapshot, workingPlan, fundingSources, settings, portfolio, horizonMonths } = args;
+  const { snapshot, workingPlan, fundingSources, settings, balances, horizonMonths } = args;
   const employees = filterEmployeesForPlanning(snapshot.employees, settings);
   const planningMonth = getCurrentMonth(snapshot);
 
@@ -104,7 +104,7 @@ export function buildFundingExposureTimeline(args: {
     snapshot,
     workingPlan,
     settings: fixedHorizonSettings,
-    portfolio,
+    balances,
     now: parse(`${planningMonth}-01`, "yyyy-MM-dd", new Date()),
   });
   const lastActualMonth = actualMonths[actualMonths.length - 1] ?? planningMonth;

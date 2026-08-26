@@ -32,7 +32,7 @@ export function ByAccountView({
   result,
   plannedSourceIds,
   displayMode,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   onEdit,
 }: {
   employees: Employee[];
@@ -40,7 +40,7 @@ export function ByAccountView({
   result: ProjectionResult;
   plannedSourceIds: Set<string>;
   displayMode: AppSettings["displayMode"];
-  portfolioTitlesByChartstring?: Map<string, string>;
+  accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -89,7 +89,7 @@ export function ByAccountView({
               }
             }
             const isCollapsed = collapsed.has(fs.id);
-            const alias = projectionSourceLabel(fs, settings, portfolioTitlesByChartstring);
+            const alias = projectionSourceLabel(fs, settings, accountTitlesByChartstring);
             const barColors = colorsForEmployeeVisibleSources(
               contributors.map((e) => ({ ...fs, id: e.id, alias: e.name, rawName: e.name })),
               () => false

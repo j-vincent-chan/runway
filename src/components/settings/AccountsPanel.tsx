@@ -32,8 +32,8 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
     fundingSources,
     settings,
     portfolioImports,
-    mergedPortfolioBalances,
-    portfolioTitlesByChartstring,
+    accountBalances,
+    accountTitlesByChartstring,
     updateFundingSourceAlias,
     setFundingSourceCategory,
     setAccountGroupForBalanceKey,
@@ -45,12 +45,12 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
     resolveDisplayAlias(
       a,
       getAliasEntry(settings.fundingSourceAliases, a)?.alias,
-      a.accountString ? portfolioTitlesByChartstring.get(a.accountString) : undefined
+      a.accountString ? accountTitlesByChartstring.get(a.accountString) : undefined
     ).localeCompare(
       resolveDisplayAlias(
         b,
         getAliasEntry(settings.fundingSourceAliases, b)?.alias,
-        b.accountString ? portfolioTitlesByChartstring.get(b.accountString) : undefined
+        b.accountString ? accountTitlesByChartstring.get(b.accountString) : undefined
       )
     )
   );
@@ -122,7 +122,7 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
               const accountGroupId = getAccountGroupForBalanceKey(settings, accountRoot);
               const netBalance = isPlanned
                 ? (settings.plannedFundingSources ?? []).find((p) => p.id === fs.id)?.openingBalance
-                : getFundingSourceNetBalance(fs, mergedPortfolioBalances);
+                : getFundingSourceNetBalance(fs, accountBalances);
 
               return (
                 <tr key={fs.id} className="border-t hover:bg-slate-50/80">
@@ -130,9 +130,9 @@ export function AccountsPanel({ compact }: { compact?: boolean }) {
                     <AliasEditor
                       source={fs}
                       customAlias={custom}
-                      portfolioTitle={
+                      accountTitle={
                         fs.accountString
-                          ? portfolioTitlesByChartstring.get(fs.accountString)
+                          ? accountTitlesByChartstring.get(fs.accountString)
                           : undefined
                       }
                       showProjectSuffix={false}

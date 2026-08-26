@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { buildAccountBalanceView } from "@/lib/net-position/accountBalancesView";
-import { mergeAccountBalances } from "@/lib/portfolio/mergeBalances";
 import type { NetPositionReportImport } from "@/types";
 
 function np(endingBalance: number, periodEnd: string, id: string): NetPositionReportImport {
@@ -28,23 +27,18 @@ function np(endingBalance: number, periodEnd: string, id: string): NetPositionRe
   } as NetPositionReportImport;
 }
 
-describe("an account known only to Net Position", () => {
+describe("an account reported over two periods", () => {
   const imports = [np(57741.29, "2026-06", "a"), np(41943.5, "2026-08", "b")];
 
-  it("is still labelled netPosition, and keeps its period delta", () => {
-    // portfolioBalances is the merged map, which now carries Net Position
-    // entries too — those must not be mistaken for MyPortfolio figures.
+  it("lists the latest balance and keeps its period delta", () => {
     const items = buildAccountBalanceView({
       netPositionImports: imports,
-      portfolioBalances: mergeAccountBalances([], imports),
       hiddenKeys: [],
-      watchedPortfolioKeys: [],
       aliases: {},
       accountGroupByBalanceKey: {},
     });
 
     const item = items.find((i) => i.accountKey === "7700-129074-7702322");
-    expect(item?.source).toBe("netPosition");
     expect(item?.displayBalance).toBeCloseTo(41943.5, 2);
     // 41,943.50 − 57,741.29: the drop is the whole point of the column.
     expect(item?.changeFromPrior).toBeCloseTo(-15797.79, 2);

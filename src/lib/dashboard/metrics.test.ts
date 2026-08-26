@@ -373,7 +373,7 @@ describe("buildPersonnelCostTrend projected extension", () => {
 
     const { monthly, monthlyProjected } = buildPersonnelCostTrend(snap, settings, "2026-08", {
       workingPlan: null,
-      portfolio: new Map(),
+      balances: new Map(),
       horizonMonths: 3,
     });
 
@@ -400,7 +400,7 @@ describe("buildPersonnelCostTrend projected extension", () => {
 
     const { monthlyProjected } = buildPersonnelCostTrend(snap, settings, "2026-08", {
       workingPlan: null,
-      portfolio: new Map(),
+      balances: new Map(),
       horizonMonths: 36,
     });
 

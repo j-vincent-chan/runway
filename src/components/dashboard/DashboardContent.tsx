@@ -28,7 +28,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     fundingSources,
     settings,
     workingPlan,
-    mergedPortfolioBalances,
+    accountBalances,
     netPositionImports,
     payrollImports,
     hiddenAccountKeys,
@@ -39,11 +39,11 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       snapshot
         ? buildPersonnelCostTrend(snapshot, settings, undefined, {
             workingPlan,
-            portfolio: mergedPortfolioBalances,
+            balances: accountBalances,
             horizonMonths,
           })
         : null,
-    [snapshot, settings, workingPlan, mergedPortfolioBalances, horizonMonths]
+    [snapshot, settings, workingPlan, accountBalances, horizonMonths]
   );
 
   const runway = useMemo(() => {
@@ -53,25 +53,21 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       workingPlan,
       fundingSources,
       settings,
-      mergedPortfolioBalances
+      accountBalances
     );
-  }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
+  }, [snapshot, workingPlan, fundingSources, settings, accountBalances]);
 
   const accountItems = useMemo(
     () =>
       buildAccountBalanceView({
         netPositionImports,
-        portfolioBalances: mergedPortfolioBalances,
         hiddenKeys: hiddenAccountKeys,
-        watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
       }),
     [
       netPositionImports,
-      mergedPortfolioBalances,
       hiddenAccountKeys,
-      settings.watchedPortfolioAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,
     ]
@@ -108,10 +104,10 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       snapshot,
       workingPlan,
       settings,
-      portfolio: mergedPortfolioBalances,
+      balances: accountBalances,
       horizonMonths,
     });
-  }, [snapshot, workingPlan, settings, mergedPortfolioBalances, horizonMonths]);
+  }, [snapshot, workingPlan, settings, accountBalances, horizonMonths]);
 
   const sinceLastReport = useMemo(() => {
     if (!snapshot || !trend || !overview) return null;
@@ -124,9 +120,9 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       workingPlan,
       fundingSources,
       settings,
-      portfolio: mergedPortfolioBalances,
+      balances: accountBalances,
     });
-  }, [snapshot, trend, overview, payrollImports, workingPlan, fundingSources, settings, mergedPortfolioBalances]);
+  }, [snapshot, trend, overview, payrollImports, workingPlan, fundingSources, settings, accountBalances]);
 
   const teamRunway = useMemo(() => {
     if (!snapshot || !trend || !runway) return null;
@@ -156,10 +152,10 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
       workingPlan,
       fundingSources,
       settings,
-      portfolio: mergedPortfolioBalances,
+      balances: accountBalances,
       horizonMonths,
     });
-  }, [snapshot, workingPlan, fundingSources, settings, mergedPortfolioBalances, horizonMonths]);
+  }, [snapshot, workingPlan, fundingSources, settings, accountBalances, horizonMonths]);
 
   const exposureMatrix = useMemo(() => {
     if (!snapshot || !trend || !exposureTimeline) return null;

@@ -36,8 +36,8 @@ export default function ProjectionsPage() {
     snapshot,
     workingPlan,
     settings,
-    mergedPortfolioBalances,
-    portfolioTitlesByChartstring,
+    accountBalances,
+    accountTitlesByChartstring,
     updateSettings,
   } = useApp();
 
@@ -66,9 +66,9 @@ export default function ProjectionsPage() {
       snapshot,
       workingPlan,
       settings,
-      portfolio: mergedPortfolioBalances,
+      balances: accountBalances,
     });
-  }, [snapshot, workingPlan, settings, mergedPortfolioBalances]);
+  }, [snapshot, workingPlan, settings, accountBalances]);
 
   const plannedSourceIds = useMemo(() => {
     if (!snapshot) return new Set<string>();
@@ -145,7 +145,7 @@ export default function ProjectionsPage() {
               {staleness.payrollStale && staleness.balancesStale ? " " : null}
               {staleness.balancesStale && (
                 <>
-                  Balances as of {staleness.portfolioRunDate}. Depletion uses that snapshot, not
+                  Balances as of {staleness.balanceAsOf}. Depletion uses that snapshot, not
                   cash spent since.
                 </>
               )}
@@ -174,7 +174,7 @@ export default function ProjectionsPage() {
 
           {originState && (
             <div className="flex h-3 overflow-hidden rounded-full bg-slate-200">
-              {summarizeOriginMix(result, settings, portfolioTitlesByChartstring).map((slice) => (
+              {summarizeOriginMix(result, settings, accountTitlesByChartstring).map((slice) => (
                 <div
                   key={slice.key}
                   title={`${slice.label} ${formatPercent(slice.share * 100)}`}
@@ -291,7 +291,7 @@ export default function ProjectionsPage() {
                   employees={employees}
                   sources={result.sources}
                   settings={settings}
-                  portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+                  accountTitlesByChartstring={accountTitlesByChartstring}
                   onAddPlanned={addPlanned}
                   onSaveRule={saveRule}
                   originMonth={result.originMonth}
@@ -305,7 +305,7 @@ export default function ProjectionsPage() {
                 settings={settings}
                 result={result}
                 displayMode={displayMode}
-                portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+                accountTitlesByChartstring={accountTitlesByChartstring}
                 onEdit={(employee, source) => setEditing({ employee, source })}
               />
             ) : (
@@ -315,7 +315,7 @@ export default function ProjectionsPage() {
                 result={result}
                 plannedSourceIds={plannedSourceIds}
                 displayMode={displayMode}
-                portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+                accountTitlesByChartstring={accountTitlesByChartstring}
                 onEdit={(employee, source) => setEditing({ employee, source })}
               />
             )}
@@ -329,7 +329,7 @@ export default function ProjectionsPage() {
           settings={settings}
           originMonth={result.originMonth}
           result={result}
-          portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+          accountTitlesByChartstring={accountTitlesByChartstring}
           onSave={saveRule}
           onRemove={removeRule}
           onAddPlanned={addPlanned}
@@ -354,7 +354,7 @@ function Kpi({ label, value }: { label: string; value: string }) {
 function summarizeOriginMix(
   result: NonNullable<ReturnType<typeof simulateProjections>>,
   settings: AppSettings,
-  portfolioTitlesByChartstring: Map<string, string>
+  accountTitlesByChartstring: Map<string, string>
 ) {
   const origin = result.states[0];
   if (!origin) return [];
@@ -365,7 +365,7 @@ function summarizeOriginMix(
     const prev = byKey.get(a.chartstringKey) ?? {
       burn: 0,
       color: fs?.color ?? "#cbd5e1",
-      label: fs ? projectionSourceLabel(fs, settings, portfolioTitlesByChartstring) : a.chartstringKey,
+      label: fs ? projectionSourceLabel(fs, settings, accountTitlesByChartstring) : a.chartstringKey,
     };
     prev.burn += a.monthlyBurn;
     byKey.set(a.chartstringKey, prev);
@@ -386,7 +386,7 @@ function AddToPersonBar({
   employees,
   sources,
   settings,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   onAddPlanned,
   onSaveRule,
   originMonth,
@@ -394,7 +394,7 @@ function AddToPersonBar({
   employees: Employee[];
   sources: FundingSource[];
   settings: AppSettings;
-  portfolioTitlesByChartstring: Map<string, string>;
+  accountTitlesByChartstring: Map<string, string>;
   onAddPlanned: (planned: PlannedFundingSource) => void;
   onSaveRule: (rule: ProjectionRule) => void;
   originMonth: string;
@@ -429,7 +429,7 @@ function AddToPersonBar({
         >
           {sources.map((s) => (
             <option key={s.id} value={s.id}>
-              {projectionSourceLabel(s, settings, portfolioTitlesByChartstring)}
+              {projectionSourceLabel(s, settings, accountTitlesByChartstring)}
             </option>
           ))}
         </select>

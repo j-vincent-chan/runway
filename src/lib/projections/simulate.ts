@@ -37,7 +37,7 @@ import {
   getEmployeeStartDate,
 } from "@/lib/employees/profile";
 import { calculateEmployeeAccountMonthlyBurn } from "@/lib/runway/calculate";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 import { hasPercentEffort } from "@/lib/utils/parse";
 import {
   getProjectionOriginMonth,
@@ -92,7 +92,7 @@ export interface ProjectionStaleness {
   originMonth: string;
   lastPayrollMonth: string | null;
   payrollStale: boolean;
-  portfolioRunDate?: string;
+  balanceAsOf?: string;
   balancesStale: boolean;
 }
 
@@ -337,12 +337,12 @@ function actualSpendTowardCap(
 function openingBalances(
   sources: FundingSource[],
   settings: AppSettings,
-  portfolio: Map<string, MergedPortfolioBalance>,
+  balances: Map<string, AccountBalance>,
   assumedOkEstimates: Map<string, number>
 ): Map<string, number> {
   const remaining = new Map<string, number>();
   const balanceMap = new Map<string, number>();
-  for (const [k, v] of portfolio) balanceMap.set(k, v.balance);
+  for (const [k, v] of balances) balanceMap.set(k, v.balance);
 
   for (const fs of sources) {
     const key = chartstringKeyForFundingSource(fs);
@@ -409,21 +409,21 @@ function assumedOkOpeningEstimates(
 export function detectStaleness(
   snapshot: PayrollReportSnapshot,
   originMonth: string,
-  portfolio: Map<string, MergedPortfolioBalance>
+  balances: Map<string, AccountBalance>
 ): ProjectionStaleness {
   const last = lastPayrollMonth(snapshot);
   const payrollStale = !last || originMonth > last;
-  let portfolioRunDate: string | undefined;
-  for (const row of portfolio.values()) {
-    if (!portfolioRunDate || row.reportRunDate > portfolioRunDate) portfolioRunDate = row.reportRunDate;
+  let balanceAsOf: string | undefined;
+  for (const row of balances.values()) {
+    if (!balanceAsOf || row.reportRunDate > balanceAsOf) balanceAsOf = row.reportRunDate;
   }
-  const portfolioMonth = portfolioRunDate?.slice(0, 7);
-  const balancesStale = Boolean(portfolioMonth && portfolioMonth < originMonth);
+  const balanceMonth = balanceAsOf?.slice(0, 7);
+  const balancesStale = Boolean(balanceMonth && balanceMonth < originMonth);
   return {
     originMonth,
     lastPayrollMonth: last,
     payrollStale,
-    portfolioRunDate,
+    balanceAsOf,
     balancesStale,
   };
 }
@@ -459,10 +459,10 @@ export function simulateProjections(input: {
   snapshot: PayrollReportSnapshot;
   workingPlan: WorkingPlan | null;
   settings: AppSettings;
-  portfolio: Map<string, MergedPortfolioBalance>;
+  balances: Map<string, AccountBalance>;
   now?: Date;
 }): ProjectionResult {
-  const { snapshot, workingPlan, settings, portfolio } = input;
+  const { snapshot, workingPlan, settings, balances } = input;
   const originMonth = getProjectionOriginMonth(input.now);
   const months = resolveHorizonMonths(
     originMonth,
@@ -494,7 +494,7 @@ export function simulateProjections(input: {
     settings,
     originMonth
   );
-  const remaining = openingBalances(sources, settings, portfolio, assumedOkEstimates);
+  const remaining = openingBalances(sources, settings, balances, assumedOkEstimates);
   const conflicts: ProjectionConflict[] = [];
   const pendingOff: PendingOff[] = [];
   const capSpent = new Map<string, number>();
@@ -768,7 +768,7 @@ export function simulateProjections(input: {
     months,
     states,
     conflicts: uniqueConflicts(conflicts),
-    staleness: detectStaleness(snapshot, originMonth, portfolio),
+    staleness: detectStaleness(snapshot, originMonth, balances),
     sources,
   };
 }

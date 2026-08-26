@@ -15,7 +15,7 @@ export const ALIAS_INPUT_WIDTH_CLASS = "w-[11.5rem]";
 export function AliasEditor({
   source,
   customAlias,
-  portfolioTitle,
+  accountTitle,
   onSave,
   compact = false,
   showProjectSuffix = true,
@@ -24,8 +24,8 @@ export function AliasEditor({
 }: {
   source: FundingSource;
   customAlias?: string;
-  /** MyPortfolio Project Nickname/Title — used when no custom alias is saved */
-  portfolioTitle?: string;
+  /** Project description from the balance report — used when no custom alias is saved */
+  accountTitle?: string;
   onSave: (aliasBase: string) => void;
   compact?: boolean;
   /** Hide gray project number beside input (e.g. Accounts page has chartstring column). */
@@ -35,9 +35,9 @@ export function AliasEditor({
   className?: string;
 }) {
   const project = getProjectNumber(source);
-  const base = resolveAliasBase(source, customAlias, portfolioTitle);
+  const base = resolveAliasBase(source, customAlias, accountTitle);
   const placeholder =
-    portfolioTitle?.trim() || defaultAliasBase(source);
+    accountTitle?.trim() || defaultAliasBase(source);
 
   return (
     <div
@@ -55,7 +55,7 @@ export function AliasEditor({
         defaultValue={base}
         placeholder={placeholder}
         title={`Friendly name · raw: ${source.accountString ?? source.rawName}${
-          portfolioTitle ? ` · MyPortfolio: ${portfolioTitle}` : ""
+          accountTitle ? ` · Report: ${accountTitle}` : ""
         }`}
         className={cn(
           "rounded border border-slate-200 bg-white px-2 py-1 text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500",
@@ -67,7 +67,7 @@ export function AliasEditor({
         )}
         onBlur={(e) => {
           const next = stripProjectFromAlias(e.target.value, project);
-          onSave(next || portfolioTitle?.trim() || defaultAliasBase(source));
+          onSave(next || accountTitle?.trim() || defaultAliasBase(source));
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
@@ -91,16 +91,16 @@ export function AliasEditor({
 export function AliasDisplay({
   source,
   customAlias,
-  portfolioTitle,
+  accountTitle,
   className,
 }: {
   source: FundingSource;
   customAlias?: string;
-  portfolioTitle?: string;
+  accountTitle?: string;
   className?: string;
 }) {
   const project = getProjectNumber(source);
-  const base = resolveAliasBase(source, customAlias, portfolioTitle);
+  const base = resolveAliasBase(source, customAlias, accountTitle);
   return (
     <span className={className} title={source.accountString ?? source.rawName}>
       {base}

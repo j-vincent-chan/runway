@@ -24,7 +24,7 @@ export function RuleEditor({
   settings,
   originMonth,
   result,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   onSave,
   onRemove,
   onAddPlanned,
@@ -35,7 +35,7 @@ export function RuleEditor({
   settings: AppSettings;
   originMonth: string;
   result: ProjectionResult;
-  portfolioTitlesByChartstring?: Map<string, string>;
+  accountTitlesByChartstring?: Map<string, string>;
   onSave: (rule: ProjectionRule) => void;
   onRemove: (ruleId: string) => void;
   onAddPlanned: (planned: PlannedFundingSource) => void;
@@ -155,7 +155,7 @@ export function RuleEditor({
           <div>
             <h2 className="text-lg font-semibold text-[#0c2340]">Distribution rule</h2>
             <p className="mt-1 text-sm text-slate-600">
-              {employee.name} · {projectionSourceLabel(source, settings, portfolioTitlesByChartstring)}
+              {employee.name} · {projectionSourceLabel(source, settings, accountTitlesByChartstring)}
             </p>
           </div>
           <button type="button" className="text-sm text-slate-500 hover:text-slate-800" onClick={onClose}>
@@ -277,7 +277,7 @@ export function RuleEditor({
                 <option value="">Select account</option>
                 {destinations.map((s) => (
                   <option key={s.id} value={chartstringKeyForFundingSource(s)}>
-                    {projectionSourceLabel(s, settings, portfolioTitlesByChartstring)}
+                    {projectionSourceLabel(s, settings, accountTitlesByChartstring)}
                   </option>
                 ))}
               </select>

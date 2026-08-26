@@ -13,7 +13,7 @@ import type {
   MonthlyCostRecord,
   PayrollReportSnapshot,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 function emp(id: string, name: string, hrId: string): Employee {
   return { id, name, appointmentPercent: 100, employeeId: hrId };
@@ -100,7 +100,7 @@ function snapshot(months: string[], extraCosts: MonthlyCostRecord[] = []): Payro
   };
 }
 
-function portfolio(): Map<string, MergedPortfolioBalance> {
+function balances(): Map<string, AccountBalance> {
   return new Map();
 }
 
@@ -112,7 +112,7 @@ describe("buildFundingExposureTimeline", () => {
       workingPlan: null,
       fundingSources,
       settings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
 
@@ -138,7 +138,7 @@ describe("buildFundingExposureTimeline", () => {
       workingPlan: null,
       fundingSources,
       settings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
 
@@ -155,7 +155,7 @@ describe("buildFundingExposureTimeline", () => {
       workingPlan: null,
       fundingSources,
       settings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 3,
     });
 
@@ -191,7 +191,7 @@ describe("buildFundingExposureMatrix", () => {
       workingPlan: null,
       fundingSources,
       settings: groupedSettings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
 
@@ -224,7 +224,7 @@ describe("categorization coverage", () => {
       workingPlan: null,
       fundingSources,
       settings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
 
@@ -245,7 +245,7 @@ describe("categorization coverage", () => {
       workingPlan: null,
       fundingSources,
       settings: uncategorizedSettings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
 
@@ -265,7 +265,7 @@ describe("categorization coverage", () => {
       workingPlan: null,
       fundingSources,
       settings: uncategorizedSettings,
-      portfolio: portfolio(),
+      balances: balances(),
       horizonMonths: 1,
     });
     const matrix = buildFundingExposureMatrix({

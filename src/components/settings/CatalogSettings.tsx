@@ -378,7 +378,6 @@ export function AccountGroupsSettings() {
 export function NetPositionAccountsSettings() {
   const {
     netPositionImports,
-    mergedPortfolioBalances,
     settings,
     hiddenAccountKeys,
     setAccountGroupForBalanceKey,
@@ -389,18 +388,14 @@ export function NetPositionAccountsSettings() {
     () =>
       buildAccountBalanceView({
         netPositionImports,
-        portfolioBalances: mergedPortfolioBalances,
         hiddenKeys: hiddenAccountKeys,
-        watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
         sort: "titleAsc",
       }),
     [
       netPositionImports,
-      mergedPortfolioBalances,
       hiddenAccountKeys,
-      settings.watchedPortfolioAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,
     ]

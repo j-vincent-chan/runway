@@ -30,7 +30,7 @@ function root(
   chartRoot: string,
   balance: number,
   sharedMonthlyBurn: number,
-  balanceSource: FundedRoot["balanceSource"] = "portfolio"
+  balanceSource: FundedRoot["balanceSource"] = "report"
 ): FundedRoot {
   return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, balanceSource };
 }

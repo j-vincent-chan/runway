@@ -36,7 +36,7 @@ import {
 } from "@/lib/dashboard/month";
 import { simulateProjections } from "@/lib/projections/simulate";
 import { addMonthsYm } from "@/lib/projections/horizon";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 export type FundingChartKey = string;
 
@@ -140,7 +140,7 @@ export function buildPersonnelCostTrend(
   todayYm = format(new Date(), "yyyy-MM"),
   projection?: {
     workingPlan: WorkingPlan | null;
-    portfolio: Map<string, MergedPortfolioBalance>;
+    balances: Map<string, AccountBalance>;
     horizonMonths: number;
   }
 ): {
@@ -190,7 +190,7 @@ export function buildPersonnelCostTrend(
           snapshot,
           workingPlan: projection.workingPlan,
           settings: fixedHorizonSettings,
-          portfolio: projection.portfolio,
+          balances: projection.balances,
           now: parse(`${todayYm}-01`, "yyyy-MM-dd", new Date()),
         });
         const lastActualMonth = monthly[monthly.length - 1]?.month ?? todayYm;

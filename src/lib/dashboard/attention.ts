@@ -15,7 +15,7 @@ import { buildFundingMixForEmployees } from "@/lib/dashboard/metrics";
 import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { monthLabelLong, shiftMonth } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 import type {
   AppSettings,
   Employee,
@@ -123,7 +123,7 @@ export function buildRunwayContext(
   workingPlan: WorkingPlan | null,
   fundingSources: FundingSource[],
   settings: AppSettings,
-  mergedPortfolioBalances: Map<string, MergedPortfolioBalance>
+  accountBalances: Map<string, AccountBalance>
 ): RunwayContext {
   const sharedBurnIndex = buildSharedAccountBurnIndex(
     snapshot,
@@ -145,7 +145,7 @@ export function buildRunwayContext(
       workingPlan,
       fundingSources,
       settings,
-      mergedPortfolioBalances,
+      accountBalances,
       sharedBurnIndex,
       { revealHidden: false }
     );

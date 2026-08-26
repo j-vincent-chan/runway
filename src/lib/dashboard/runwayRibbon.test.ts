@@ -17,7 +17,7 @@ import type {
   PayrollReportSnapshot,
   ProjectionRule,
 } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 const NOW = new Date(2026, 7, 15); // Aug 2026
 
@@ -82,7 +82,7 @@ function settings(patch: Partial<AppSettings> = {}): AppSettings {
   return { ...DEFAULT_SETTINGS, ...patch };
 }
 
-function portfolio(balance: number, account = "7000-1-7030720-45"): Map<string, MergedPortfolioBalance> {
+function balances(balance: number, account = "7000-1-7030720-45"): Map<string, AccountBalance> {
   return new Map([
     [account, { chartstring: account, balance, reportRunDate: "2026-07-31", sourceFileName: "mp.xlsx" }],
   ]);
@@ -95,7 +95,7 @@ describe("buildRunwayRibbon", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings(),
-      now: NOW, portfolio: portfolio(100_000),
+      now: NOW, balances: balances(100_000),
     });
     expect(ribbon.bands).toHaveLength(1);
     expect(ribbon.months).toHaveLength(24);
@@ -112,7 +112,7 @@ describe("buildRunwayRibbon", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings(),
-      now: NOW, portfolio: portfolio(25_000),
+      now: NOW, balances: balances(25_000),
     });
     const band = ribbon.bands[0]!;
     expect(band.depletionMonthIndex).not.toBeNull();
@@ -127,7 +127,7 @@ describe("buildRunwayRibbon", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings(),
-      now: NOW, portfolio: portfolio(10_000_000),
+      now: NOW, balances: balances(10_000_000),
     });
     expect(ribbon.terminalIndex).toBeNull();
   });
@@ -138,7 +138,7 @@ describe("buildRunwayRibbon", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings(),
-      now: NOW, portfolio: portfolio(15_000),
+      now: NOW, balances: balances(15_000),
     });
     expect(ribbon.terminalIndex).toBe(1); // 15,000 balance, 10,000/mo burn: gone during month 2 (index 1)
   });
@@ -149,7 +149,7 @@ describe("buildRunwayRibbon", () => {
     const s = settings({
       employeeProfiles: { [e.id]: { endDate: "2026-10-15" } },
     });
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, balances: balances(1_000_000) });
     const marker = ribbon.markers.find((m) => m.employeeName === e.name);
     expect(marker?.month).toBe("2026-10");
     expect(marker?.description).toBe("Employment ends");
@@ -168,7 +168,7 @@ describe("buildRunwayRibbon", () => {
       employeeProfiles: { [e.id]: { endDate: "2026-10-15" } },
       projectionRules: [rule],
     });
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, balances: balances(1_000_000) });
     const marker = ribbon.markers.find((m) => m.employeeName === e.name);
     expect(marker?.month).toBe("2026-12");
   });
@@ -185,7 +185,7 @@ describe("buildRunwayRibbon", () => {
       remainder: { kind: "uncovered" },
     };
     const s = settings({ projectionRules: [rule] });
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, balances: balances(1_000_000) });
     const marker = ribbon.markers.find((m) => m.month === "2026-11");
     expect(marker?.description).toBe("Funding ends");
     expect(marker?.employeeName).toBe(e.name);
@@ -198,7 +198,7 @@ describe("buildRunwayRibbon", () => {
       employeeProfiles: { [e.id]: { endDate: "2026-10-15" } },
       projectionIgnoreRosterEndDates: ["hr:1001"],
     });
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, balances: balances(1_000_000) });
     expect(ribbon.markers.find((m) => m.employeeName === e.name)).toBeUndefined();
   });
 
@@ -211,7 +211,7 @@ describe("buildRunwayRibbon", () => {
       ["7000-1-7030720-45", { chartstring: "7000-1-7030720-45", balance: 100_000, reportRunDate: "2026-07-31", sourceFileName: "mp.xlsx" }],
       ["9500-2-9029200-90", { chartstring: "9500-2-9029200-90", balance: 50_000, reportRunDate: "2026-07-31", sourceFileName: "mp.xlsx" }],
     ]);
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: settings(), now: NOW, portfolio: port });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: settings(), now: NOW, balances: port });
     const staffed = ribbon.bands.find((b) => b.chartRoot.includes("7030720"));
     const unstaffed = ribbon.bands.find((b) => b.chartRoot.includes("9029200"));
     expect(staffed?.hasCurrentPersonnel).toBe(true);
@@ -224,7 +224,7 @@ describe("buildRunwayRibbon", () => {
     const s = settings({
       employeeProfiles: Object.fromEntries(employees.map((e) => [e.id, { endDate: "2026-09-15" }])),
     });
-    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, portfolio: portfolio(1_000_000) });
+    const ribbon = buildRunwayRibbon({ snapshot: snap, workingPlan: null, settings: s, now: NOW, balances: balances(1_000_000) });
     expect(ribbon.markers).toHaveLength(5);
     expect(ribbon.hiddenMarkerCount).toBe(3);
   });
@@ -331,7 +331,7 @@ describe("label collisions", () => {
       snapshot: snap,
       workingPlan: null,
       settings: DEFAULT_SETTINGS,
-      portfolio: new Map<string, MergedPortfolioBalance>(),
+      balances: new Map<string, AccountBalance>(),
       horizonMonths: 3,
       now: NOW,
     });
@@ -357,7 +357,7 @@ describe("a band for an account marked not-my-account", () => {
       workingPlan: null,
       settings: settings(patch),
       // $900k on file — far more than any estimate, so we can see which is used.
-      portfolio: portfolio(900_000),
+      balances: balances(900_000),
       horizonMonths: 12,
       now: NOW,
     });

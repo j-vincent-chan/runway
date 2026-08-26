@@ -73,8 +73,8 @@ export function projectionSourceLabel(
   portfolioTitlesByChartstring?: Map<string, string>
 ): string {
   const custom = getAliasEntry(settings.fundingSourceAliases, fs)?.alias;
-  const portfolioTitle = fs.accountString
+  const accountTitle = fs.accountString
     ? portfolioTitlesByChartstring?.get(fs.accountString)
     : undefined;
-  return resolveDisplayAlias(fs, custom, portfolioTitle);
+  return resolveDisplayAlias(fs, custom, accountTitle);
 }

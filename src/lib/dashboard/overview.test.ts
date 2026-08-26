@@ -26,7 +26,7 @@ function months(start: string, count: number, total: number): PersonnelCostTrend
 
 function account(
   key: string,
-  displayBalance: number | null,
+  displayBalance: number,
   changeFromPrior: number | null = null,
   isHidden = false
 ): AccountBalanceViewItem {
@@ -37,10 +37,28 @@ function account(
     fund: "7000",
     dept: "129074",
     project: key,
-    source: "netPosition",
-    series: null,
+    series: {
+      accountKey: key,
+      busUnit: "SF",
+      fund: "7000",
+      dept: "129074",
+      project: key,
+      points: [],
+      latest: {
+        importId: key,
+        reportRunDate: "2026-08-21",
+        periodKey: "2026-08",
+        sourceFileName: "np.xlsx",
+        beginningBalance: displayBalance,
+        revenues: 0,
+        expenses: 0,
+        otherChanges: 0,
+        netChange: 0,
+        endingBalance: displayBalance,
+      },
+      changeFromPrior,
+    },
     isHidden,
-    isWatchedFromPortfolio: false,
     displayBalance,
     changeFromPrior,
     withdrawals: 0,
@@ -86,7 +104,7 @@ function fundedRoot(
   chartRoot: string,
   balance: number,
   sharedMonthlyBurn: number,
-  balanceSource: FundedRoot["balanceSource"] = "portfolio"
+  balanceSource: FundedRoot["balanceSource"] = "report"
 ): FundedRoot {
   return { chartRoot, name: chartRoot, balance, sharedMonthlyBurn, balanceSource };
 }

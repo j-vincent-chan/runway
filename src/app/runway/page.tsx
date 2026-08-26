@@ -30,7 +30,7 @@ export default function RunwayPage() {
     workingPlan,
     fundingSources,
     settings,
-    mergedPortfolioBalances,
+    accountBalances,
     portfolioImports,
     updateSettings,
     setRunwayBalanceOverride,
@@ -80,7 +80,7 @@ export default function RunwayPage() {
           workingPlan,
           fundingSources,
           settings,
-          mergedPortfolioBalances,
+          accountBalances,
           sharedBurnIndex,
           {
             revealHidden:
@@ -95,7 +95,7 @@ export default function RunwayPage() {
     workingPlan,
     fundingSources,
     settings,
-    mergedPortfolioBalances,
+    accountBalances,
     sharedBurnIndex,
     showHiddenFunds,
     revealHiddenForEmployees,
