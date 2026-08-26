@@ -81,6 +81,27 @@ describe("buildVerdict", () => {
     expect(verdictText(verdict)).toContain("and so do Beta, Gamma, Delta");
   });
 
+  it("does not compare a present overdraft to a future duration", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Communities", 11.3), team("Data", 20.2), rollup(14.9)],
+      worstItem: { label: "Community Manager · 7032261", months: -0.5 },
+    });
+    expect(verdictText(verdict)).toContain(
+      "Community Manager · 7032261 is already overdrawn — Communities, your weakest team,"
+    );
+    expect(verdictText(verdict)).not.toContain("overdrawn, well before");
+  });
+
+  it("keeps \"well before\" where both sides are durations", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Communities", 11.3), team("Data", 20.2), rollup(14.9)],
+      worstItem: { label: "Fund 4000", months: 0.2 },
+    });
+    expect(verdictText(verdict)).toContain("runs dry in less than a month, well before Communities");
+  });
+
   it("states a team is overdrawn rather than reporting negative months", () => {
     const verdict = buildVerdict({
       ...base,

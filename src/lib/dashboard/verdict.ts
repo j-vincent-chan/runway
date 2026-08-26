@@ -275,7 +275,13 @@ export function buildVerdict({
       ...positionClause(overallRunwayMonths),
       connective(", but "),
       ...itemState(worstItem),
-      connective(", well before "),
+      /**
+       * "well before" was written for the duration comparison, where both
+       * sides are ahead of the reader. The overdrawn branch drops the duration
+       * but kept the connective, comparing a present state to a future one:
+       * "is already overdrawn, well before Communities … at 11.3 months".
+       */
+      connective(worstItem.months < 0 ? " — " : ", well before "),
       data(weakest.shortLabel, "/runway"),
       connective(", your weakest team, at "),
       data(monthsPhrase(weakest.months!)),
