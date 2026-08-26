@@ -43,7 +43,8 @@ const MIN_BAND_OPACITY = 0.65;
 const DRY_ROW_CAP = 6;
 /** Roster-date pins: tick height above the axis, then the circle on top. */
 const MARKER_TICK = 10;
-const MARKER_R = 9;
+/** Big enough that a face is recognisable at a glance, not just a coloured dot. */
+const MARKER_R = 13;
 const MARKER_CLIP_ID = "ribbon-marker-clip";
 const DRY_DOT_MIN_R = 3.5;
 const DRY_DOT_MAX_R = 9;
@@ -439,7 +440,8 @@ export function RunwayRibbon({ ribbon }: { ribbon: RunwayRibbonData | null }) {
                               y={cy}
                               textAnchor="middle"
                               dominantBaseline="central"
-                              fontSize={8}
+                              fontSize={11}
+                              fontWeight={500}
                               fill="var(--ink-2)"
                             >
                               {initials}
