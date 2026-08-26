@@ -336,8 +336,12 @@ export function buildVerdict({
       finding: {
         segments: [
           ...positionClause(overallRunwayMonths),
-          connective(", and every team holds more than "),
-          data(`${CAUTION_MONTHS} months`),
+          // statusFor is stable at >= CAUTION_MONTHS, so "more than 6 months"
+          // was false for a team sitting exactly on the line. The copy moves,
+          // never the threshold: CAUTION_MONTHS is shared with the attention
+          // queue, and shifting it would reclassify severity page-wide.
+          connective(", and every team holds "),
+          data(`${CAUTION_MONTHS} months or more`),
           connective(" of payroll runway; "),
           data(weakest.shortLabel, "/runway"),
           connective(" is the shortest, averaging "),
@@ -362,7 +366,7 @@ export function buildVerdict({
 
   if (alsoShort.length === 0) {
     segments.push(
-      connective(`, while every other team stays above ${CAUTION_MONTHS} months.`)
+      connective(`, while every other team holds ${CAUTION_MONTHS} months or more.`)
     );
   } else if (alsoShort.length === 1) {
     segments.push(

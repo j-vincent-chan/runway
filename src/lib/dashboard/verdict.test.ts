@@ -37,7 +37,7 @@ describe("buildVerdict", () => {
     expect(verdict.status).toBe("critical");
     expect(verdict.weakestTeamKey).toBe("community-management");
     expect(verdictText(verdict)).toBe(
-      "Critical: Payroll is funded about 14.9 months out, but Community management averages 1.5 months of payroll runway, while every other team stays above 6 months. Move money onto it or cut its burn now."
+      "Critical: Payroll is funded about 14.9 months out, but Community management averages 1.5 months of payroll runway, while every other team holds 6 months or more. Move money onto it or cut its burn now."
     );
   });
 
@@ -48,7 +48,7 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("at_risk");
     expect(verdictText(verdict)).toBe(
-      "At Risk: Payroll is funded about 14.9 months out, but Marketing averages 3.2 months of payroll runway, while every other team stays above 6 months. Line up funding or trim burn this quarter, before it turns critical."
+      "At Risk: Payroll is funded about 14.9 months out, but Marketing averages 3.2 months of payroll runway, while every other team holds 6 months or more. Line up funding or trim burn this quarter, before it turns critical."
     );
   });
 
@@ -59,8 +59,20 @@ describe("buildVerdict", () => {
     });
     expect(verdict.status).toBe("stable");
     expect(verdictText(verdict)).toBe(
-      "Stable: Payroll is funded about 14.9 months out, and every team holds more than 6 months of payroll runway; Community management is the shortest, averaging 8.4 months. No funding action needed right now."
+      "Stable: Payroll is funded about 14.9 months out, and every team holds 6 months or more of payroll runway; Community management is the shortest, averaging 8.4 months. No funding action needed right now."
     );
+  });
+
+  it("is true for a team sitting exactly on the caution line", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Alpha", 6), team("Beta", 20.2), rollup(14.9)],
+    });
+    // statusFor is stable at >= CAUTION_MONTHS, so the sentence must not
+    // claim every team is *above* six.
+    expect(verdict.status).toBe("stable");
+    expect(verdictText(verdict)).toContain("every team holds 6 months or more");
+    expect(verdictText(verdict)).not.toContain("more than 6 months");
   });
 
   it("names a second short team rather than counting it", () => {
