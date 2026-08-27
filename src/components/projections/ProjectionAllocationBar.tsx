@@ -12,6 +12,9 @@ export function ProjectionAllocationBar({
   projected,
   months,
   titlePrefix,
+  unfunded = false,
+  dryStart = false,
+  dryMonthLabel,
   onClick,
 }: {
   percentEffort: number;
@@ -21,6 +24,11 @@ export function ProjectionAllocationBar({
   projected: boolean;
   months: string[];
   titlePrefix: string;
+  /** The account backing this effort has no balance left in these months. */
+  unfunded?: boolean;
+  /** These are the first months past the account's zero crossing. */
+  dryStart?: boolean;
+  dryMonthLabel?: string;
   onClick?: () => void;
 }) {
   const rangeLabel =
@@ -29,6 +37,10 @@ export function ProjectionAllocationBar({
       : formatMonthDisplay(months[0]!);
   const tooltip = `${titlePrefix} · ${rangeLabel} · ${formatPercent(percentEffort)}${
     projected ? " · Projected" : " · Origin month"
+  }${
+    unfunded
+      ? ` · Account projected dry${dryMonthLabel ? ` from ${dryMonthLabel}` : ""} — this effort has no balance behind it`
+      : ""
   }`;
   const isReversal = percentEffort < 0;
   const fill = projected ? lightenProjectionFill(color) : color;
@@ -39,7 +51,10 @@ export function ProjectionAllocationBar({
         type="button"
         className={cn(
           "h-8 w-full cursor-pointer hover:bg-slate-50",
-          projected ? "bg-slate-50" : "bg-white"
+          projected ? "bg-slate-50" : "bg-white",
+          // No effort charged, so nothing is unfunded here — but the cliff edge
+          // still marks where the account's money ran out.
+          dryStart && "allocation-bar--dry-start"
         )}
         title={tooltip}
         onClick={onClick}
@@ -63,7 +78,9 @@ export function ProjectionAllocationBar({
         "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-center text-[10px] font-medium",
         display === "both" && "px-0.5 leading-tight",
         projected ? "text-slate-600" : "text-slate-800",
-        isReversal && "allocation-bar--reversal"
+        isReversal && "allocation-bar--reversal",
+        unfunded && "allocation-bar--unfunded",
+        dryStart && "allocation-bar--dry-start"
       )}
       style={{ backgroundColor: fill }}
     >

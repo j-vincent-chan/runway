@@ -241,6 +241,29 @@ body {
   color: #9f1239;
 }
 
+/*
+ * Months after an account's balance reaches zero, on the Projections grid.
+ *
+ * The account's own hue stays — that is what says which account a row belongs
+ * to — and a critical-red hatch lies over it, so "effort is still charged here
+ * and the money is gone" reads as one cell rather than as a sentence in the
+ * label column. Pattern as well as colour, so it survives greyscale.
+ */
+.allocation-bar--unfunded {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(149, 56, 43, 0.55) 3px,
+    rgba(149, 56, 43, 0.55) 5px
+  );
+}
+
+/* The exact month the money runs out: a hard edge, not a gradual fade. */
+.allocation-bar--dry-start {
+  box-shadow: inset 2px 0 0 0 #95382b;
+}
+
 .pattern-future-flat {
   background-image: repeating-linear-gradient(
     -45deg,

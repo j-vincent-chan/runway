@@ -308,6 +308,11 @@ function EmployeeBlock({
           const chips = rulesForPair(settings, personKey, key).map((r) =>
             ruleChipLabel(r, aliasFor)
           );
+          /**
+           * Group by projected-ness *and* by whether the account still has
+           * money, so a merged run never straddles the month the balance hits
+           * zero — a single cell cannot be half funded.
+           */
           const segments = mergeByPercent(
             months,
             (month) => {
@@ -318,7 +323,10 @@ function EmployeeBlock({
                   ?.percentEffort ?? 0
               );
             },
-            (month) => isProjectedMonth(month, result.originMonth)
+            (month) =>
+              `${isProjectedMonth(month, result.originMonth)}|${
+                dryIndex !== null && months.indexOf(month) >= dryIndex
+              }`
           );
           return (
             <tr
@@ -403,21 +411,9 @@ function EmployeeBlock({
                     className={cn("shrink-0", hidden && "opacity-50")}
                   />
                 </div>
-                <div className="flex items-center gap-1.5 overflow-hidden pl-1">
-                  {dryMonth && (
-                    <span
-                      className="shrink-0 text-[9px] font-medium text-red-700"
-                      title={`This account is projected to run dry in ${formatMonthLabel(dryMonth)} at the distributions shown. Change an allocation and this moves with it.`}
-                    >
-                      ~dry {formatMonthLabel(dryMonth)}
-                    </span>
-                  )}
-                  {chips[0] && (
-                    <p className="truncate text-[9px] text-slate-500" title={chips.join(" · ")}>
-                      {chips[0]}
-                    </p>
-                  )}
-                </div>
+                {/* No sub-line: the rule's effect is the effort change already
+                    drawn across these cells, and the account running dry is
+                    drawn on them too. Both stay in the row's hover text. */}
               </td>
               <td
                 className="sticky z-10 bg-white"
@@ -449,6 +445,11 @@ function EmployeeBlock({
                       projected={projected}
                       months={segment.months}
                       titlePrefix={`${emp.name} · ${aliasFor(key)}`}
+                      unfunded={
+                        dryIndex !== null && months.indexOf(segment.months[0]!) >= dryIndex
+                      }
+                      dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
+                      dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

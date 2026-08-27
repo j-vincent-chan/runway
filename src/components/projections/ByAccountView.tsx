@@ -271,14 +271,9 @@ function AccountBlock({
                 PLANNED
               </span>
             )}
-            {dryMonth && (
-              <span
-                className="shrink-0 rounded bg-red-500/25 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-red-50"
-                title={`Projected to run dry in ${formatMonthLabel(dryMonth)} at the distributions below. Change an allocation and this moves with it.`}
-              >
-                ~DRY {formatMonthLabel(dryMonth).toUpperCase()}
-              </span>
-            )}
+            {/* No badge: this account's own remaining-balance row below already
+                turns red at zero, and the people's cells carry the hatch from
+                that month on. */}
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
@@ -308,15 +303,21 @@ function AccountBlock({
         {remainingSeries.map((v, i) => {
           const month = months[i]!;
           const projected = isProjectedMonth(month, result.originMonth);
+          const empty = v <= 0.5;
           return (
           <td
             key={month}
             className={cn(
               "text-center text-[10px] tabular-nums",
               projected && "bg-white/10 text-white/80",
-              v <= 0.5 && "bg-red-500/20"
+              empty && "bg-red-500/30 text-red-50",
+              // A hard edge on the month it crosses zero, matching the same
+              // mark on the people's cells directly below.
+              i === dryIndex && "allocation-bar--dry-start"
             )}
-            title={`Remaining ${formatCurrency(v)}${projected ? " · Projected" : ""}`}
+            title={`Remaining ${formatCurrency(v)}${projected ? " · Projected" : ""}${
+              empty ? " · Account is dry" : ""
+            }`}
           >
             {formatCurrency(v).replace(".00", "")}
           </td>
@@ -326,6 +327,10 @@ function AccountBlock({
       {!isCollapsed &&
         visibleContributors.map((emp) => {
           const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          /**
+           * Grouped by projected-ness and by whether the account still has
+           * money, so a merged run never straddles the zero crossing.
+           */
           const segments = mergeByPercent(
             months,
             (month) => {
@@ -336,7 +341,10 @@ function AccountBlock({
                   ?.percentEffort ?? 0
               );
             },
-            (month) => isProjectedMonth(month, result.originMonth)
+            (month) =>
+              `${isProjectedMonth(month, result.originMonth)}|${
+                dryIndex !== null && months.indexOf(month) >= dryIndex
+              }`
           );
           return (
             <tr
@@ -424,6 +432,11 @@ function AccountBlock({
                       projected={projected}
                       months={segment.months}
                       titlePrefix={`${emp.name} · ${alias}`}
+                      unfunded={
+                        dryIndex !== null && months.indexOf(segment.months[0]!) >= dryIndex
+                      }
+                      dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
+                      dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>
