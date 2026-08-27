@@ -43,7 +43,17 @@ export function ProjectionAllocationBar({
       : ""
   }`;
   const isReversal = percentEffort < 0;
-  const fill = projected ? lightenProjectionFill(color) : color;
+  /**
+   * Unfunded months fade further back than merely-projected ones. The account
+   * keeps its own hue — that is still how a reader tells rows apart — it just
+   * stops looking like funded effort, which is what lets the cliff edge be the
+   * loud thing rather than the whole run after it.
+   */
+  const fill = unfunded
+    ? lightenProjectionFill(color, 0.72)
+    : projected
+      ? lightenProjectionFill(color)
+      : color;
 
   if (!hasPercentEffort(percentEffort)) {
     return (
@@ -78,6 +88,9 @@ export function ProjectionAllocationBar({
         "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-center text-[10px] font-medium",
         display === "both" && "px-0.5 leading-tight",
         projected ? "text-slate-600" : "text-slate-800",
+        // Muted against the faded fill, so the figure stays readable without
+        // competing with the mark that says it is unfunded.
+        unfunded && "text-slate-500",
         isReversal && "allocation-bar--reversal",
         unfunded && "allocation-bar--unfunded",
         dryStart && "allocation-bar--dry-start"

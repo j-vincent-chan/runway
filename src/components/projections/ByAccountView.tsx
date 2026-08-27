@@ -310,7 +310,9 @@ function AccountBlock({
             className={cn(
               "text-center text-[10px] tabular-nums",
               projected && "bg-white/10 text-white/80",
-              empty && "bg-red-500/30 text-red-50",
+              // Quieter than the fill it sits above: the number reaching zero
+              // is already the statement, the tint only has to group the run.
+              empty && "bg-red-500/15 text-red-100",
               // A hard edge on the month it crosses zero, matching the same
               // mark on the people's cells directly below.
               i === dryIndex && "allocation-bar--dry-start"

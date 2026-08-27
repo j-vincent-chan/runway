@@ -244,22 +244,25 @@ body {
 /*
  * Months after an account's balance reaches zero, on the Projections grid.
  *
- * The account's own hue stays — that is what says which account a row belongs
- * to — and a critical-red hatch lies over it, so "effort is still charged here
- * and the money is gone" reads as one cell rather than as a sentence in the
- * label column. Pattern as well as colour, so it survives greyscale.
+ * The edge carries the signal; the region only has to stop looking funded.
+ * A dense hatch across every unfunded month buried the percentage and made a
+ * long run of them the loudest thing on the page — which inverts the point,
+ * since the month it *starts* is the fact worth finding. So the fill fades
+ * back (the component lightens the account's own hue) and this adds a single
+ * hairline every 7px: enough to read as a pattern in greyscale or with a
+ * colour-vision deficiency, quiet enough to leave the number legible.
  */
 .allocation-bar--unfunded {
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
-    transparent 3px,
-    rgba(149, 56, 43, 0.55) 3px,
-    rgba(149, 56, 43, 0.55) 5px
+    transparent 6px,
+    rgba(149, 56, 43, 0.2) 6px,
+    rgba(149, 56, 43, 0.2) 7px
   );
 }
 
-/* The exact month the money runs out: a hard edge, not a gradual fade. */
+/* The exact month the money runs out — the one hard mark in the treatment. */
 .allocation-bar--dry-start {
   box-shadow: inset 2px 0 0 0 #95382b;
 }
