@@ -25,10 +25,9 @@ import {
 } from "@/lib/funding/visibility";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { buildSharedAccountBurnIndex } from "@/lib/runway/calculate";
-import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
+  effectiveAssumedEndDate,
   estimateBalanceFromAssumedEnd,
-  getRunwayAssumedEndDate,
   monthsUntilAssumedEnd,
 } from "@/lib/runway/assumedEndDate";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
@@ -387,8 +386,13 @@ function assumedOkOpeningEstimates(
   for (const fs of sources) {
     const root = chartRoot(chartstringKeyForFundingSource(fs));
     if (monthsByRoot.has(root)) continue;
-    if (!isNotMyAccountKey(settings, root)) continue;
-    const endDate = getRunwayAssumedEndDate(settings, root);
+    /**
+     * Marked accounts never fall back to the balance on file — that is the
+     * number this estimate exists to replace. A missing end date resolves to
+     * the same default every writer of the mark applies, rather than silently
+     * handing the account back to its real balance.
+     */
+    const endDate = effectiveAssumedEndDate(settings, root, estimateOriginMonth);
     if (!endDate) continue;
     // From today, matching computeEmployeeRunway's estimate origin. These two
     // must use the same month or the chart and the Runway page report

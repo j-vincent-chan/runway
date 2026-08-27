@@ -3,7 +3,7 @@ import {
   buildSharedAccountBurnIndex,
   computeEmployeeRunway,
 } from "@/lib/runway/calculate";
-import { monthsUntilAssumedEnd } from "@/lib/runway/assumedEndDate";
+import { defaultAssumedEndDate, monthsUntilAssumedEnd } from "@/lib/runway/assumedEndDate";
 import { hiddenFundKey } from "@/lib/funding/visibility";
 import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
 import { DEFAULT_SETTINGS } from "@/types";
@@ -117,6 +117,27 @@ describe("an account marked not-my-account", () => {
       monthsUntilAssumedEnd(MONTH, "2026-12-31")! - monthsUntilAssumedEnd(TODAY, "2026-12-31")!;
     const gap = fromPayrollMonth.totalBalance - fromToday.totalBalance;
     expect(gap).toBeCloseTo(MONTHLY_COST * extraMonths, 0);
+  });
+
+  it("never falls back to the real balance when the end date is missing", () => {
+    // Marked, but no stored date — an older workspace, or one where the
+    // backfill has not run. Reading the stored date directly and bailing
+    // handed the account straight back to the $900,000 on file, which is the
+    // one number this whole mechanism exists to ignore.
+    const summary = runFor({
+      ...DEFAULT_SETTINGS,
+      accountGroupByBalanceKey: { [ACCOUNT_KEY]: NOT_MY_ACCOUNTS_GROUP_ID },
+    });
+
+    expect(summary.accounts[0]!.balanceSource).toBe("estimated");
+    expect(summary.totalBalance).toBeLessThan(900_000);
+
+    // Falls to the same fiscal-year-end default every writer of the mark uses.
+    const fallback = defaultAssumedEndDate(DEFAULT_SETTINGS.fiscalYearStartMonth, TODAY);
+    expect(summary.totalBalance).toBeCloseTo(
+      MONTHLY_COST * monthsUntilAssumedEnd(TODAY, fallback)!,
+      0
+    );
   });
 
   it("uses the real balance when it is not marked", () => {

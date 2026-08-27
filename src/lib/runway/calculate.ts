@@ -21,7 +21,7 @@ import { isEmployeeFundHidden } from "@/lib/funding/visibility";
 import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
   estimateBalanceFromAssumedEnd,
-  getRunwayAssumedEndDate,
+  effectiveAssumedEndDate,
   monthsUntilAssumedEnd,
 } from "@/lib/runway/assumedEndDate";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
@@ -472,7 +472,9 @@ export function computeEmployeeRunway(
     // Both read the account, not this person's slice of it: "not my money" and
     // "the account ends here" are facts about the account itself.
     const isAssumedOk = isNotMyAccountKey(settings, root);
-    const assumedEndDate = getRunwayAssumedEndDate(settings, root);
+    // Resolves the default when none is stored, so a marked account never
+    // falls back to the balance on file — same rule Projections applies.
+    const assumedEndDate = effectiveAssumedEndDate(settings, root, estimateOrigin);
 
     let balance = bal.balance;
     let balanceSource = bal.balanceSource;

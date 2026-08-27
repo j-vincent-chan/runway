@@ -185,3 +185,62 @@ describe("depletionMonthByRoot", () => {
     expect(map.get(ROOT)).toBe(depletionMonthIndexForRoot(project(60_000), ROOT));
   });
 });
+
+describe("an account marked not-my-account", () => {
+  const NOT_MINE = "notMyAccounts";
+
+  function runWith(patch: Partial<AppSettings>) {
+    const settings: AppSettings = {
+      ...DEFAULT_SETTINGS,
+      projectionHorizon: { preset: "24" },
+      ...patch,
+    };
+    return simulateProjections({
+      snapshot: snapshot(["2026-06", "2026-07", "2026-08"], 100),
+      workingPlan: null,
+      settings,
+      // 50 months of runway at $10k/mo if the real balance were used.
+      balances: new Map([
+        [
+          ROOT,
+          {
+            chartstring: ROOT,
+            balance: 500_000,
+            reportRunDate: "2026-08-01",
+            sourceFileName: "np.xlsx",
+          },
+        ],
+      ]),
+      now,
+    });
+  }
+
+  it("opens at the estimate its end date implies, not the balance on file", () => {
+    const marked = runWith({
+      accountGroupByBalanceKey: { [ROOT]: NOT_MINE },
+      runwayAssumedEndDates: { [ROOT]: "2026-11-30" },
+    });
+    const opening = marked.states[0]!.remainingByRoot[ROOT]!;
+
+    expect(opening).toBeLessThan(100_000);
+    // Draws down to zero at the end date rather than running for 50 months.
+    expect(depletionMonthIndexForRoot(marked, ROOT)).not.toBeNull();
+    expect(depletionMonthIndexForRoot(marked, ROOT)!).toBeLessThan(6);
+  });
+
+  it("still ignores the balance on file when no end date is stored", () => {
+    // The reported bug: marked, but the stored date was missing, so the
+    // simulation bailed out of the override and used the real $500,000.
+    const marked = runWith({ accountGroupByBalanceKey: { [ROOT]: NOT_MINE } });
+    const opening = marked.states[0]!.remainingByRoot[ROOT]!;
+
+    expect(opening).toBeLessThan(200_000);
+    expect(depletionMonthIndexForRoot(marked, ROOT)).not.toBeNull();
+  });
+
+  it("uses the balance on file when the account is not marked", () => {
+    const plain = runWith({});
+    expect(plain.states[0]!.remainingByRoot[ROOT]!).toBeGreaterThan(400_000);
+    expect(depletionMonthIndexForRoot(plain, ROOT)).toBeNull();
+  });
+});

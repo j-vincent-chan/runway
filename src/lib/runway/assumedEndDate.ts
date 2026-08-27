@@ -3,6 +3,7 @@ import { normalizeChartstring } from "@/lib/funding/chartstring";
 import { roundCurrencyAmount } from "@/lib/utils/parse";
 import { differenceInCalendarDays, endOfMonth, format, isValid, parseISO } from "date-fns";
 import { fiscalYearEndMonth } from "@/lib/projections/horizon";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 
 /**
  * End dates are keyed by account, not by person-and-fund. The account is the
@@ -35,6 +36,35 @@ export function defaultAssumedEndDate(
   const fyEnd = fiscalYearEndMonth(originMonth, fiscalYearStartMonth);
   const [y, m] = fyEnd.split("-").map(Number);
   return format(endOfMonth(new Date(y!, m! - 1, 1)), "yyyy-MM-dd");
+}
+
+/**
+ * The end date an account marked "not my account" is measured against —
+ * whatever is stored, else the default every writer of that mark applies.
+ *
+ * Runway and Projections both used to read the stored date directly and bail
+ * when it was absent, which quietly handed the account back to its balance on
+ * file. That is the one number this whole mechanism exists to ignore: the
+ * balance is somebody else's, part of it is restricted, and some of these
+ * accounts run a deliberate deficit against a parent we cannot see. So a
+ * marked account with no stored date now falls to fiscal year end here rather
+ * than falling back to the balance there — the same rule toggleNotMyAccount,
+ * setAccountGroupForBalanceKey and backfillAssumedEndDates already apply when
+ * they write one.
+ *
+ * Returns undefined for an account that is not marked, so callers can use the
+ * presence of a date as the signal to estimate.
+ */
+export function effectiveAssumedEndDate(
+  settings: AppSettings,
+  accountKey: string,
+  originMonth: string
+): string | undefined {
+  if (!isNotMyAccountKey(settings, accountKey)) return undefined;
+  return (
+    getRunwayAssumedEndDate(settings, accountKey) ??
+    defaultAssumedEndDate(settings.fiscalYearStartMonth, originMonth)
+  );
 }
 
 /** Fractional months from end of planning month to the estimated end date. */
