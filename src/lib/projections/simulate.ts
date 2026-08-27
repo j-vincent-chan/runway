@@ -378,7 +378,8 @@ function assumedOkOpeningEstimates(
   workingPlan: WorkingPlan | null,
   sources: FundingSource[],
   settings: AppSettings,
-  estimateOriginMonth: string
+  estimateOriginMonth: string,
+  originBurnByRoot: Map<string, number>
 ): Map<string, number> {
   const burnIndex = buildSharedAccountBurnIndex(snapshot, workingPlan, sources, settings);
   const monthsByRoot = new Map<string, number>();
@@ -404,10 +405,51 @@ function assumedOkOpeningEstimates(
 
   const estimates = new Map<string, number>();
   for (const [root, months] of monthsByRoot) {
-    const burn = burnIndex.get(root)?.combinedMonthlyBurn ?? 0;
+    /**
+     * The projection's own origin-month burn, not the payroll index's.
+     *
+     * These are the same number in the ordinary case, and differ exactly when
+     * it matters: the payroll's current month can lag today, a rule can have
+     * already fired by origin, and the index drops any account whose
+     * current-month burn is <= 0 — a residual carrying a reversal, say. In all
+     * three the index says less than the grid is about to draw, so the account
+     * opened underfunded and read as dry while the cells beside it still
+     * showed effort charged to it.
+     *
+     * Funding it at the burn it will actually be charged is also what makes
+     * the comment above true: draw down what you opened with and the balance
+     * reaches zero on the end date, not before it.
+     */
+    const burn = originBurnByRoot.get(root) ?? burnIndex.get(root)?.combinedMonthlyBurn ?? 0;
     estimates.set(root, estimateBalanceFromAssumedEnd(months, burn));
   }
   return estimates;
+}
+
+/**
+ * Origin-month burn per account root, from the projection's own seeded mix —
+ * % distribution x salary and benefits, the same personFundBurn the drawdown
+ * loop calls for every later month.
+ */
+function originBurnByRootFromMix(
+  employees: Employee[],
+  mix: Map<string, Map<string, number>>,
+  snapshot: PayrollReportSnapshot,
+  allocations: MonthlyAllocation[],
+  sources: FundingSource[],
+  settings: AppSettings,
+  refMonth: string
+): Map<string, number> {
+  const byRoot = new Map<string, number>();
+  for (const emp of employees) {
+    for (const [key, pct] of mix.get(emp.id) ?? []) {
+      const burn = personFundBurn(emp, key, pct, snapshot, allocations, sources, settings, refMonth);
+      if (burn <= 0) continue;
+      const root = chartRoot(key);
+      byRoot.set(root, (byRoot.get(root) ?? 0) + burn);
+    }
+  }
+  return byRoot;
 }
 
 export function detectStaleness(
@@ -496,7 +538,16 @@ export function simulateProjections(input: {
     workingPlan,
     sources,
     settings,
-    originMonth
+    originMonth,
+    originBurnByRootFromMix(
+      employees,
+      mix,
+      snapshot,
+      allocations,
+      sources,
+      settings,
+      lastKnown ?? originMonth
+    )
   );
   const remaining = openingBalances(sources, settings, balances, assumedOkEstimates);
   const conflicts: ProjectionConflict[] = [];
