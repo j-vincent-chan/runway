@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, ShieldCheck } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -347,9 +347,10 @@ function EmployeeBlock({
                   maxWidth: PROJECTION_LABEL_COL,
                 }}
               >
-                {/* Eye, shield, then the name — same order and same three shared
-                    settings as Timeline's fund row, so the controls sit where a
-                    reader who has used Timeline already expects them. */}
+                {/* Eye and shield first, same order as Timeline's fund row and
+                    the same two shared settings. Then a dedicated icon to open
+                    the distribution rule (a control Timeline has no equivalent
+                    of), and the rename input last. */}
                 <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
                   <button
                     type="button"
@@ -387,16 +388,24 @@ function EmployeeBlock({
                   >
                     <ShieldCheck className="h-3.5 w-3.5" />
                   </button>
+                  {/*
+                    A truncating text button here used to be the only way to
+                    open the distribution rule editor. It sat in the same flex
+                    row as the always-visible rename input below, competing for
+                    a shrinking share of a 300px column — the input is
+                    shrink-0 and fixed-width, so the button that opened the
+                    editor was squeezed toward zero width and became
+                    unclickable, with no visible sign that it was still there.
+                    A small icon, sized like its eye/shield neighbours, cannot
+                    be squeezed the same way.
+                  */}
                   <button
                     type="button"
-                    className={cn(
-                      "min-w-0 flex-1 truncate text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline",
-                      hidden && "opacity-50"
-                    )}
-                    title={[aliasFor(key), ...chips].join(" · ")}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                    title={`Edit distribution rule — ${[aliasFor(key), ...chips].join(" · ")}`}
                     onClick={() => onEdit(emp, fs)}
                   >
-                    {aliasFor(key)}
+                    <Settings2 className="h-3.5 w-3.5" />
                   </button>
                   <AliasEditor
                     source={fs}
