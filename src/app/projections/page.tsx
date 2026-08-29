@@ -11,8 +11,13 @@ import {
 } from "@/lib/employees/personnelType";
 import { simulateProjections } from "@/lib/projections/simulate";
 import { formatMonthLabel } from "@/lib/projections/horizon";
-import { unmatchedPlannedSources, projectionSourceLabel } from "@/lib/projections/sources";
+import {
+  unmatchedPlannedSources,
+  projectionSourceLabel,
+  chartstringKeyForFundingSource,
+} from "@/lib/projections/sources";
 import { upsertRule } from "@/lib/projections/rules";
+import { applyChartstringRemoval, checkChartstringRemoval } from "@/lib/projections/removal";
 import { ByPersonView } from "@/components/projections/ByPersonView";
 import { ByAccountView } from "@/components/projections/ByAccountView";
 import { RuleEditor } from "@/components/projections/RuleEditor";
@@ -119,6 +124,59 @@ export default function ProjectionsPage() {
   function addPlanned(planned: PlannedFundingSource) {
     const existing = settings.plannedFundingSources ?? [];
     updateSettings({ plannedFundingSources: [...existing, planned] });
+  }
+
+  /**
+   * Removing a chartstring only ever unwinds this person's own plan (their
+   * rules, plus a planned source nothing else uses). A pairing that comes
+   * from imported payroll is a fact from the report, so the removal is
+   * refused with the reason rather than hidden.
+   */
+  function removeChartstring(employee: Employee, source: FundingSource) {
+    if (!snapshot) return;
+    const chartstringKey = chartstringKeyForFundingSource(source);
+    const label = projectionSourceLabel(source, settings, accountTitlesByChartstring);
+    const check = checkChartstringRemoval({
+      snapshot,
+      workingPlan,
+      settings,
+      employeeId: employee.id,
+      personKey: employeePersonKey(employee),
+      chartstringKey,
+    });
+    if (!check.removable) {
+      const first = check.months[0]!;
+      const last = check.months[check.months.length - 1]!;
+      const span =
+        check.months.length === 1
+          ? `in ${formatMonthLabel(first)}`
+          : `from ${formatMonthLabel(first)} through ${formatMonthLabel(last)}`;
+      window.alert(
+        `${label} can't be removed from ${employee.name}'s list.\n\n` +
+          `Your imported payroll report charges ${employee.name} to this account ${span}. ` +
+          `Rows that come from a report reflect what actually happened, so Runway keeps them.\n\n` +
+          `To stop projecting effort on this account, open its distribution rule and move the effort elsewhere.`
+      );
+      return;
+    }
+    const ruleCount = check.ruleIdsToDelete.length + check.remainderRuleIdsToRepair.length;
+    const parts = [
+      ruleCount > 0
+        ? `This deletes or rewinds ${ruleCount} distribution rule${ruleCount === 1 ? "" : "s"} you set.`
+        : null,
+      check.removePlannedSourceId
+        ? "The planned chartstring is removed too — nothing else references it."
+        : null,
+    ].filter(Boolean);
+    const ok = window.confirm(
+      [`Remove ${label} from ${employee.name}'s list?`, ...parts].join("\n\n")
+    );
+    if (!ok) return;
+    const next = applyChartstringRemoval(settings, check);
+    updateSettings({
+      projectionRules: next.projectionRules,
+      plannedFundingSources: next.plannedFundingSources,
+    });
   }
 
   if (!hasData || !snapshot || !result) {
@@ -368,6 +426,7 @@ export default function ProjectionsPage() {
                 onToggleHiddenFund={toggleHiddenEmployeeFund}
                 onToggleNotMyAccount={toggleNotMyAccount}
                 onSaveAlias={updateFundingSourceAlias}
+                onRemoveChartstring={removeChartstring}
               />
             ) : (
               <ByAccountView

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, Landmark } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, Landmark, Trash2 } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -43,6 +43,7 @@ export function ByPersonView({
   onToggleHiddenFund,
   onToggleNotMyAccount,
   onSaveAlias,
+  onRemoveChartstring,
 }: {
   employees: Employee[];
   settings: AppSettings;
@@ -58,6 +59,7 @@ export function ByPersonView({
   onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
   onToggleNotMyAccount: (chartstring: string) => void;
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
+  onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -124,6 +126,7 @@ export function ByPersonView({
                 onToggleHiddenFund={onToggleHiddenFund}
                 onToggleNotMyAccount={onToggleNotMyAccount}
                 onSaveAlias={onSaveAlias}
+                onRemoveChartstring={onRemoveChartstring}
                 onToggle={() =>
                   setCollapsed((p) => {
                     const n = new Set(p);
@@ -157,6 +160,7 @@ function EmployeeBlock({
   onToggleHiddenFund,
   onToggleNotMyAccount,
   onSaveAlias,
+  onRemoveChartstring,
   onToggle,
   onEdit,
 }: {
@@ -174,6 +178,7 @@ function EmployeeBlock({
   onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
   onToggleNotMyAccount: (chartstring: string) => void;
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
+  onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
@@ -406,6 +411,14 @@ function EmployeeBlock({
                     onClick={() => onEdit(emp, fs)}
                   >
                     <Settings2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700"
+                    title={`Remove ${aliasFor(key)} from ${emp.name}'s list`}
+                    onClick={() => onRemoveChartstring(emp, fs)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                   <AliasEditor
                     source={fs}

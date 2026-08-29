@@ -107,9 +107,7 @@ describe("checkChartstringRemoval", () => {
 
   it("blocks when the pairing exists only through a working-plan edit", () => {
     const plan: WorkingPlan = {
-      id: "wp",
       snapshotId: "snap",
-      name: "plan",
       allocations: [alloc("2026-03", 25)],
       updatedAt: "2026-07-01T00:00:00.000Z",
     };
