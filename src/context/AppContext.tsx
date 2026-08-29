@@ -21,7 +21,7 @@ import type {
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/types";
 import { generateId, hasPercentEffort } from "@/lib/utils/parse";
-import { loadStateForAccount, saveState } from "@/lib/storage/localStorage";
+import { emptyState, loadStateForAccount, saveState } from "@/lib/storage/localStorage";
 import { readWorkbook, parsePayrollFundingWorkbook } from "@/lib/parsers/payrollFundingParser";
 import { getAllocations, applyAliases, getCurrentMonth } from "@/lib/calculations";
 import { refreshFundingSourceColors } from "@/lib/timeline/colors";
@@ -114,6 +114,11 @@ import {
   workspaceHasPlanningData,
 } from "@/lib/supabase/workspace";
 import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
+import {
+  getActiveWorkspaceOverride,
+  setActiveWorkspaceOverride,
+} from "@/lib/supabase/activeWorkspace";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 interface AppContextValue {
   snapshot: PayrollReportSnapshot | null;
@@ -263,6 +268,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
+  const { activeOwner } = useWorkspace();
+  /**
+   * True while an analyst is inside a delegated PI workspace. Delegate mode
+   * is cloud-only: no local IndexedDB read/write, so the PI's payroll data
+   * never lands in the analyst's own browser slots (PRIVACY.md boundary).
+   */
+  const actingAsDelegate = activeOwner ? !activeOwner.isSelf : false;
   const userId = user?.id ?? null;
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
@@ -273,6 +285,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!authReady) return;
     let cancelled = false;
     setLoading(true);
+    // A workspace switch must never let the previous workspace's debounced
+    // save land on the new target.
+    if (cloudSaveTimer.current) {
+      clearTimeout(cloudSaveTimer.current);
+      cloudSaveTimer.current = null;
+    }
+    // This effect owns the ambient override: asserting it from activeOwner
+    // here means the override and the workspace being hydrated can never
+    // disagree, whatever order the providers' effects ran in.
+    setActiveWorkspaceOverride(
+      activeOwner && !activeOwner.isSelf
+        ? { userId: activeOwner.userId, email: activeOwner.email }
+        : null
+    );
+    /**
+     * The owner this hydrate is for. The module override can flip mid-flight
+     * (WorkspaceContext restores a persisted delegate selection right after
+     * sign-in), so every fetch result is re-checked against it before any
+     * state or browser slot is written.
+     */
+    const expectedOwnerId = actingAsDelegate && activeOwner ? activeOwner.userId : userId;
+    const ownerStillCurrent = () =>
+      (getActiveWorkspaceOverride()?.userId ?? userId) === expectedOwnerId;
 
     async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
       setNetPositionImports(s.netPositionImports ?? []);
@@ -323,7 +358,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     async function hydrate() {
       const ownerEmail = user?.email ?? (user?.user_metadata?.email as string | undefined);
-      const s = await loadStateForAccount(userId, ownerEmail);
+      // Delegate mode never touches the analyst's own browser slots — the
+      // cloud copy of the PI's workspace is the only source and sink.
+      const s = actingAsDelegate ? emptyState() : await loadStateForAccount(userId, ownerEmail);
 
       if (!cloudSyncEnabled) {
         await hydrateLocal(s);
@@ -331,7 +368,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       let cloud = await fetchCloudWorkspace();
-      if (!workspaceHasPlanningData(cloud ?? {}) && isLabOwnerEmail(ownerEmail)) {
+      if (
+        !actingAsDelegate &&
+        !workspaceHasPlanningData(cloud ?? {}) &&
+        isLabOwnerEmail(ownerEmail)
+      ) {
         cloud = (await claimLegacyCloudWorkspace(ownerEmail)) ?? cloud;
       }
 
@@ -339,11 +380,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
       ]);
-      if (cancelled) return;
-      const workspace = pickWorkspace(s, cloud);
+      if (cancelled || !ownerStillCurrent()) return;
+      const workspace = actingAsDelegate
+        ? cloud
+          ? pickWorkspace(emptyState(), cloud)
+          : emptyState()
+        : pickWorkspace(s, cloud);
 
       // Persist recovered lab data into the owner browser slot immediately.
-      if (userId && workspaceHasPlanningData(workspace) && !workspaceHasPlanningData(s)) {
+      if (
+        !actingAsDelegate &&
+        userId &&
+        workspaceHasPlanningData(workspace) &&
+        !workspaceHasPlanningData(s)
+      ) {
         void saveState(workspace, userId);
       }
 
@@ -401,7 +451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plan = migrated.workingPlan;
         setDataMigrated(migrated.migrated);
       }
-      if (cancelled) return;
+      if (cancelled || !ownerStillCurrent()) return;
       setNetPositionImports(workspace.netPositionImports ?? []);
       setPositionSalaryImports(workspace.positionSalaryImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
@@ -410,14 +460,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSettings(settingsLocal);
       setScenarios(workspace.scenarios ?? []);
       setLoading(false);
-      if (snap) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
+      // The backfill reads the analyst's local offer-letter blobs — wrong
+      // source and wrong target for a delegated workspace.
+      if (snap && !actingAsDelegate) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
     }
 
     void hydrate();
     return () => {
       cancelled = true;
     };
-  }, [authReady, cloudSyncEnabled, userId, user?.email, user?.user_metadata?.email]);
+  }, [
+    authReady,
+    cloudSyncEnabled,
+    userId,
+    user?.email,
+    user?.user_metadata?.email,
+    activeOwner,
+    actingAsDelegate,
+  ]);
 
   useEffect(() => {
     if (loading) return;
@@ -432,11 +492,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       positionSalaryImports,
       savedAt,
     };
-    void saveState(state, userIdRef.current);
+    // Delegate mode is cloud-only: the PI's data must not be cached into the
+    // analyst's own browser slot.
+    if (!actingAsDelegate) void saveState(state, userIdRef.current);
     if (!cloudSyncRef.current) return;
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    // Belt and suspenders against a save closure surviving a workspace
+    // switch: capture the target at schedule time and re-check at fire time.
+    const scheduledOwnerId = getActiveWorkspaceOverride()?.userId ?? userIdRef.current;
     cloudSaveTimer.current = setTimeout(() => {
       if (!cloudSyncRef.current) return;
+      const currentOwnerId = getActiveWorkspaceOverride()?.userId ?? userIdRef.current;
+      if (currentOwnerId !== scheduledOwnerId) return;
       void saveCloudWorkspace(state);
     }, 1500);
     return () => {
@@ -453,6 +520,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loading,
     cloudSyncEnabled,
     userId,
+    actingAsDelegate,
   ]);
 
   // Runway resolves every balance through this map, so anything missing here
@@ -1437,18 +1505,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         hiddenEmployeeFunds: DEFAULT_SETTINGS.hiddenEmployeeFunds,
         employeePlanningScope: DEFAULT_SETTINGS.employeePlanningScope,
       };
-      void saveState(
-        {
-          snapshot: null,
-          workingPlan: null,
-          scenarios: [],
-          settings: keptSettings,
-          payrollImports: [],
-          netPositionImports,
-          positionSalaryImports,
-        },
-        userIdRef.current
-      );
+      // Never write a delegated workspace's state into the analyst's own
+      // local slot; the cloud save effect propagates the clear to the PI.
+      if (!actingAsDelegate) {
+        void saveState(
+          {
+            snapshot: null,
+            workingPlan: null,
+            scenarios: [],
+            settings: keptSettings,
+            payrollImports: [],
+            netPositionImports,
+            positionSalaryImports,
+          },
+          userIdRef.current
+        );
+      }
       return keptSettings;
     });
     setSnapshot(null);
@@ -1460,7 +1532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
     setDataMigrated(false);
-  }, [netPositionImports, positionSalaryImports]);
+  }, [netPositionImports, positionSalaryImports, actingAsDelegate]);
 
   const value: AppContextValue = {
     snapshot: snapshotForUi,

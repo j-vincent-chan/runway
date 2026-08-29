@@ -35,7 +35,7 @@ export interface StoredAppState {
 
 type StoredRow = StoredAppState & { id: string };
 
-function emptyState(): StoredAppState {
+export function emptyState(): StoredAppState {
   return {
     snapshot: null,
     workingPlan: null,

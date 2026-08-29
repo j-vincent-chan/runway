@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Info, PanelLeft, PanelLeftOpen, LogIn, LogOut } from "lucide-react";
+import { Info, PanelLeft, PanelLeftOpen, LogIn, LogOut, Users } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { AlertsBell } from "@/components/alerts/AlertsBell";
 import { IMMUNOX_COLORS, PARENT_LABEL_ACADEMIC } from "@/lib/brand";
 import { LedgerLogo } from "@/components/brand/LedgerLogo";
@@ -32,6 +33,7 @@ export function Header({
 }) {
   const { snapshot, settings, updateSettings } = useApp();
   const { configured, user, cloudSyncEnabled, signOut } = useAuth();
+  const { activeOwner, delegationsToMe, switchWorkspace } = useWorkspace();
 
   return (
     <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
@@ -104,6 +106,38 @@ export function Header({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* The workspace picker exists only for accounts with delegated
+              access — everyone else is simply in their own workspace. */}
+          {delegationsToMe.length > 0 && activeOwner && (
+            <label
+              className={cn(
+                "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-sm",
+                activeOwner.isSelf
+                  ? "border-slate-300 bg-white text-slate-700"
+                  : "border-teal-700 bg-teal-50 text-teal-900"
+              )}
+              title={
+                activeOwner.isSelf
+                  ? "Choose which workspace to work in"
+                  : `Working in ${activeOwner.email}'s workspace with full access`
+              }
+            >
+              <Users className="h-4 w-4 shrink-0" aria-hidden />
+              <span className="sr-only">Workspace</span>
+              <select
+                className="max-w-[14rem] bg-transparent text-sm font-medium focus:outline-none"
+                value={activeOwner.isSelf ? "" : activeOwner.userId}
+                onChange={(e) => switchWorkspace(e.target.value || null)}
+              >
+                <option value="">My workspace</option>
+                {delegationsToMe.map((g) => (
+                  <option key={g.piUserId} value={g.piUserId}>
+                    {g.piEmail}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <AlertsBell />
           {configured &&
             (user ? (

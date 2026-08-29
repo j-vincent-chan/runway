@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { WorkspaceProvider } from "@/context/WorkspaceContext";
 import { AppProvider } from "@/context/AppContext";
 import { AppShell } from "@/components/layout/AppShell";
 
@@ -18,9 +19,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="antialiased">
         <AuthProvider>
-          <AppProvider>
-            <AppShell>{children}</AppShell>
-          </AppProvider>
+          <WorkspaceProvider>
+            <AppProvider>
+              <AppShell>{children}</AppShell>
+            </AppProvider>
+          </WorkspaceProvider>
         </AuthProvider>
       </body>
     </html>
