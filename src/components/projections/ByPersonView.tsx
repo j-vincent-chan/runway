@@ -1,7 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, Landmark, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Settings2,
+  Landmark,
+  Trash2,
+  SendHorizontal,
+} from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -44,6 +53,8 @@ export function ByPersonView({
   onToggleNotMyAccount,
   onSaveAlias,
   onRemoveChartstring,
+  onLockIn,
+  lockInReady,
 }: {
   employees: Employee[];
   settings: AppSettings;
@@ -60,6 +71,9 @@ export function ByPersonView({
   onToggleNotMyAccount: (chartstring: string) => void;
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
+  /** Formal handoff to the analyst; false disables with an explanation. */
+  onLockIn: (employee: Employee) => void;
+  lockInReady: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -127,6 +141,8 @@ export function ByPersonView({
                 onToggleNotMyAccount={onToggleNotMyAccount}
                 onSaveAlias={onSaveAlias}
                 onRemoveChartstring={onRemoveChartstring}
+                onLockIn={onLockIn}
+                lockInReady={lockInReady}
                 onToggle={() =>
                   setCollapsed((p) => {
                     const n = new Set(p);
@@ -161,6 +177,8 @@ function EmployeeBlock({
   onToggleNotMyAccount,
   onSaveAlias,
   onRemoveChartstring,
+  onLockIn,
+  lockInReady,
   onToggle,
   onEdit,
 }: {
@@ -179,6 +197,8 @@ function EmployeeBlock({
   onToggleNotMyAccount: (chartstring: string) => void;
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
+  onLockIn: (employee: Employee) => void;
+  lockInReady: boolean;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
@@ -231,6 +251,27 @@ function EmployeeBlock({
               <span className="shrink-0 text-[9px] font-normal text-white/60" title="HR employee ID">
                 · {emp.employeeId}
               </span>
+            )}
+            {/* Only a person whose plan differs from today's distribution has
+                anything to hand off, so the button follows the rules. */}
+            {(settings.projectionRules ?? []).some((r) => r.personKey === personKey) && (
+              <button
+                type="button"
+                disabled={!lockInReady}
+                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium hover:bg-white/25 disabled:opacity-50"
+                title={
+                  lockInReady
+                    ? `Hand ${emp.name}'s distribution change to your analyst`
+                    : "Sign in with cloud sync to hand off changes to your analyst"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLockIn(emp);
+                }}
+              >
+                <SendHorizontal className="h-3 w-3" aria-hidden />
+                Lock In
+              </button>
             )}
             {hiddenCount > 0 && !revealHidden && (
               <button

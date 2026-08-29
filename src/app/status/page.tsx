@@ -12,6 +12,7 @@ import {
   type ChangeRequestRecord,
   type ChangeRequestStatus,
 } from "@/lib/supabase/changeRequests";
+import { sendLockInEmail } from "@/lib/projections/lockIn";
 
 /**
  * The shared PI ↔ analyst queue of Lock In handoffs. The PI reads it to see
@@ -54,6 +55,14 @@ export default function StatusPage() {
       window.alert(
         `The status change didn't save: ${result.error ?? "unknown error"}. Refresh and try again.`
       );
+    }
+    setRequests(await fetchChangeRequests());
+  }
+
+  async function resendEmail(id: string) {
+    const result = await sendLockInEmail(id);
+    if (!result.emailOk) {
+      window.alert(result.emailError ?? "The email could not be sent. Try again.");
     }
     setRequests(await fetchChangeRequests());
   }
@@ -104,6 +113,7 @@ export default function StatusPage() {
               requests={requests}
               canUpdateStatus={canUpdateStatus}
               onSetStatus={(id, status) => void setStatus(id, status)}
+              onResendEmail={resendEmail}
             />
           )}
         </div>

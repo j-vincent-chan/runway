@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Send } from "lucide-react";
 import { changeSummarySentences } from "@/lib/projections/changeSummary";
 import {
   CHANGE_REQUEST_STATUSES,
@@ -17,12 +17,15 @@ function RequestRow({
   request,
   canUpdateStatus,
   onSetStatus,
+  onResendEmail,
 }: {
   request: ChangeRequestRecord;
   canUpdateStatus: boolean;
   onSetStatus: (id: string, status: ChangeRequestStatus) => void;
+  onResendEmail: (id: string) => Promise<void>;
 }) {
   const [imageBusy, setImageBusy] = useState(false);
+  const [emailBusy, setEmailBusy] = useState(false);
   const sentences = changeSummarySentences(request.details);
   const submitted = formatIsoDateDisplay(request.createdAt) ?? request.createdAt;
   const statusChanged = formatIsoDateDisplay(request.statusChangedAt) ?? request.statusChangedAt;
@@ -80,17 +83,33 @@ function RequestRow({
           ? "awaiting review"
           : `${STATUS_LABEL[request.status]} since ${statusChanged} (${request.statusChangedByEmail})`}
       </p>
-      {request.imagePaths.length > 0 && (
-        <button
-          type="button"
-          disabled={imageBusy}
-          onClick={() => void openImage(request.imagePaths[0]!)}
-          className="type-row mt-1.5 inline-flex min-h-11 items-center gap-1 font-medium text-accent hover:underline disabled:opacity-50"
-        >
-          <ImageIcon className="h-3.5 w-3.5" aria-hidden />
-          {imageBusy ? "Opening…" : "View distribution image"}
-        </button>
-      )}
+      <div className="flex flex-wrap items-center gap-x-4">
+        {request.imagePaths.length > 0 && (
+          <button
+            type="button"
+            disabled={imageBusy}
+            onClick={() => void openImage(request.imagePaths[0]!)}
+            className="type-row mt-1.5 inline-flex min-h-11 items-center gap-1 font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            <ImageIcon className="h-3.5 w-3.5" aria-hidden />
+            {imageBusy ? "Opening…" : "View distribution image"}
+          </button>
+        )}
+        {request.emailSentAt === null && (
+          <button
+            type="button"
+            disabled={emailBusy}
+            onClick={() => {
+              setEmailBusy(true);
+              void onResendEmail(request.id).finally(() => setEmailBusy(false));
+            }}
+            className="type-row mt-1.5 inline-flex min-h-11 items-center gap-1 font-medium text-accent hover:underline disabled:opacity-50"
+          >
+            <Send className="h-3.5 w-3.5" aria-hidden />
+            {emailBusy ? "Sending…" : "Email not sent — send it now"}
+          </button>
+        )}
+      </div>
     </li>
   );
 }
@@ -99,10 +118,12 @@ export function ChangeRequestList({
   requests,
   canUpdateStatus,
   onSetStatus,
+  onResendEmail,
 }: {
   requests: ChangeRequestRecord[];
   canUpdateStatus: boolean;
   onSetStatus: (id: string, status: ChangeRequestStatus) => void;
+  onResendEmail: (id: string) => Promise<void>;
 }) {
   return (
     <div className="overflow-hidden rounded-md border border-rule bg-surface">
@@ -113,6 +134,7 @@ export function ChangeRequestList({
             request={request}
             canUpdateStatus={canUpdateStatus}
             onSetStatus={onSetStatus}
+            onResendEmail={onResendEmail}
           />
         ))}
       </ul>

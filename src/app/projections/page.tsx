@@ -18,6 +18,13 @@ import {
 } from "@/lib/projections/sources";
 import { upsertRule } from "@/lib/projections/rules";
 import { applyChartstringRemoval, checkChartstringRemoval } from "@/lib/projections/removal";
+import {
+  buildChangeSummary,
+  type ChangeRequestDetails,
+} from "@/lib/projections/changeSummary";
+import { LockInDialog } from "@/components/projections/LockInDialog";
+import { useAuth } from "@/context/AuthContext";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { ByPersonView } from "@/components/projections/ByPersonView";
 import { ByAccountView } from "@/components/projections/ByAccountView";
 import { RuleEditor } from "@/components/projections/RuleEditor";
@@ -51,10 +58,15 @@ export default function ProjectionsPage() {
     updateFundingSourceAlias,
   } = useApp();
 
+  const { configured, user, cloudSyncEnabled } = useAuth();
+  const { activeOwner } = useWorkspace();
   const [tab, setTab] = useState<"person" | "account">("person");
   const [editing, setEditing] = useState<{ employee: Employee; source: FundingSource } | null>(
     null
   );
+  const [lockingIn, setLockingIn] = useState<ChangeRequestDetails | null>(null);
+  // A handoff needs both parties: the request row and email are cloud-side.
+  const lockInReady = Boolean(configured && user && cloudSyncEnabled && activeOwner);
   /**
    * Same declutter model as Timeline: hiding never changes what a projection
    * computes (simulateProjections keeps a hidden fund's effort "in the mix"),
@@ -124,6 +136,31 @@ export default function ProjectionsPage() {
   function addPlanned(planned: PlannedFundingSource) {
     const existing = settings.plannedFundingSources ?? [];
     updateSettings({ plannedFundingSources: [...existing, planned] });
+  }
+
+  /**
+   * Snapshot the person's requested change for the Lock In dialog. Labels are
+   * resolved here, with the PI's aliases, because the analyst reading the
+   * email may not have them.
+   */
+  function openLockIn(employee: Employee) {
+    if (!snapshot || !result) return;
+    const aliasFor = (key: string) => {
+      const fs = result.sources.find((s) => chartstringKeyForFundingSource(s) === key);
+      return fs ? projectionSourceLabel(fs, settings, accountTitlesByChartstring) : key;
+    };
+    setLockingIn(
+      buildChangeSummary({
+        snapshot,
+        workingPlan,
+        settings,
+        balances: accountBalances,
+        employeeId: employee.id,
+        personKey: employeePersonKey(employee),
+        personName: employee.name,
+        aliasFor,
+      })
+    );
   }
 
   /**
@@ -427,6 +464,8 @@ export default function ProjectionsPage() {
                 onToggleNotMyAccount={toggleNotMyAccount}
                 onSaveAlias={updateFundingSourceAlias}
                 onRemoveChartstring={removeChartstring}
+                onLockIn={openLockIn}
+                lockInReady={lockInReady}
               />
             ) : (
               <ByAccountView
@@ -460,6 +499,15 @@ export default function ProjectionsPage() {
           onRemove={removeRule}
           onAddPlanned={addPlanned}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {lockingIn && lockInReady && activeOwner && (
+        <LockInDialog
+          details={lockingIn}
+          piUserId={activeOwner.userId}
+          createdByEmail={user?.email ?? ""}
+          isSelfWorkspace={activeOwner.isSelf}
+          onClose={() => setLockingIn(null)}
         />
       )}
     </>

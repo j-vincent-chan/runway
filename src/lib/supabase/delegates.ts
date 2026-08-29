@@ -66,6 +66,28 @@ export async function fetchMyDelegates(): Promise<DelegationGrant[]> {
   return ((data ?? []) as DelegateRow[]).map(rowToGrant);
 }
 
+/**
+ * Grants on a specific workspace — used to preview who a Lock In will notify.
+ * RLS trims the view: the PI sees every grant; an analyst sees at least the
+ * grant naming them. The server always emails the full list.
+ */
+export async function fetchDelegatesForWorkspace(
+  ownerId: string
+): Promise<DelegationGrant[]> {
+  const supabase = getSupabase();
+  if (!supabase || !ownerId) return [];
+  const { data, error } = await supabase
+    .from("workspace_delegates")
+    .select("pi_user_id, pi_email, analyst_email, created_at")
+    .eq("pi_user_id", ownerId)
+    .order("created_at");
+  if (error) {
+    console.warn("[supabase] fetch workspace delegates failed:", error.message);
+    return [];
+  }
+  return ((data ?? []) as DelegateRow[]).map(rowToGrant);
+}
+
 export async function upsertDelegate(input: {
   analystEmail: string;
   piEmail: string;
