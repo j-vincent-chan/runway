@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Header } from "@/components/layout/Header";
 import { useAuth } from "@/context/AuthContext";
@@ -29,19 +29,23 @@ export default function StatusPage() {
   // the PI reads. RLS permits both — this is a workflow choice, not security.
   const canUpdateStatus = Boolean(activeOwner && !activeOwner.isSelf);
 
-  const refresh = useCallback(async () => {
-    if (!cloudReady) return;
-    const rows = await fetchChangeRequests();
-    setRequests(rows);
-    setLoaded(true);
-  }, [cloudReady]);
-
   useEffect(() => {
-    void refresh();
-    const onFocus = () => void refresh();
+    if (!cloudReady) return;
+    let cancelled = false;
+    const load = async () => {
+      const rows = await fetchChangeRequests();
+      if (cancelled) return;
+      setRequests(rows);
+      setLoaded(true);
+    };
+    void load();
+    const onFocus = () => void load();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, [refresh, activeOwner?.userId]);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [cloudReady, activeOwner?.userId]);
 
   async function setStatus(id: string, status: ChangeRequestStatus) {
     const byEmail = user?.email ?? "";
@@ -51,7 +55,7 @@ export default function StatusPage() {
         `The status change didn't save: ${result.error ?? "unknown error"}. Refresh and try again.`
       );
     }
-    await refresh();
+    setRequests(await fetchChangeRequests());
   }
 
   return (
