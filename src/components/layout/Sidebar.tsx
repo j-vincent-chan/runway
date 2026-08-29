@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LineChart,
   Wallet,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
@@ -22,6 +23,7 @@ const mainNav = [
   { href: "/projections", label: "Projections", icon: LineChart },
   { href: "/runway", label: "Runway", icon: TrendingDown },
   { href: "/account-balances", label: "Account Balances", icon: Wallet },
+  { href: "/status", label: "Status", icon: ClipboardList },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/upload", label: "Upload", icon: Upload },
 ];
