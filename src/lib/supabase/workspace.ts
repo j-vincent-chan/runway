@@ -10,6 +10,7 @@ import type {
   WorkingPlan,
 } from "@/types";
 import { getCurrentUserId } from "@/lib/supabase/authUser";
+import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
 import { getSupabase } from "@/lib/supabase/client";
 import { ensureCatalogDefaults } from "@/lib/supabase/catalog";
 import { ensurePayrollImports } from "@/lib/import/foldPayrollImports";
@@ -172,7 +173,7 @@ async function parseWorkspaceBlob(data: Blob): Promise<CloudWorkspacePayload | n
 
 export async function fetchCloudWorkspace(): Promise<CloudWorkspacePayload | null> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return null;
 
   const { data, error } = await supabase.storage
@@ -280,7 +281,7 @@ export async function claimLegacyCloudWorkspace(
 
 export async function saveCloudWorkspace(state: StoredAppState): Promise<string | null> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return null;
 
   // Never push an empty workspace over a cloud copy that still has lab data.

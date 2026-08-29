@@ -1,7 +1,7 @@
 import type { AppSettings, Employee, EmployeeOfferLetterMeta } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
-import { getCurrentUserId } from "@/lib/supabase/authUser";
+import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
   applyRemoteRosterToSettings,
@@ -33,11 +33,13 @@ export async function fetchRemoteAliases(): Promise<
   AppSettings["fundingSourceAliases"]
 > {
   const supabase = getSupabase();
-  if (!supabase) return {};
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return {};
 
   const { data, error } = await supabase
     .from("funding_source_aliases")
-    .select("chartstring_key, alias, notes, color");
+    .select("chartstring_key, alias, notes, color")
+    .eq("user_id", ownerId);
 
   if (error) {
     console.warn("[supabase] fetch aliases failed:", error.message);
@@ -58,9 +60,10 @@ export async function fetchRemoteAliases(): Promise<
 
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
-  if (!supabase) return [];
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
 
-  const { data, error } = await supabase.from("employee_roster_meta").select(
+  const query = supabase.from("employee_roster_meta").select(
     [
       "person_key",
       "display_name",
@@ -81,6 +84,7 @@ export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
       "offer_letter_extracted_end",
     ].join(", ")
   );
+  const { data, error } = await query.eq("user_id", ownerId);
 
   if (error) {
     console.warn("[supabase] fetch roster meta failed:", error.message);
@@ -119,7 +123,7 @@ export async function upsertFundingSourceAlias(input: {
   color?: string;
 }): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
 
   const { error } = await supabase.from("funding_source_aliases").upsert(
@@ -144,7 +148,7 @@ export async function upsertEmployeePhoto(input: {
   photoPath?: string | null;
 }): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
 
   if (!input.photoUrl && !input.photoPath) {
@@ -186,7 +190,7 @@ export async function uploadEmployeePhotoFile(
   file: File
 ): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) {
     throw new Error(
       "Sign in to upload photos to private cloud storage."
@@ -240,7 +244,7 @@ export type RosterCloudPatch = {
 
 export async function upsertEmployeeRosterMeta(patch: RosterCloudPatch): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
 
   const row: Record<string, unknown> = {
@@ -279,7 +283,7 @@ export async function uploadEmployeeOfferLetterFile(
   file: File
 ): Promise<{ storageRef: string; storagePath: string; signedUrl: string }> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) {
     throw new Error(
       "Sign in to upload offer letters to private cloud storage."
@@ -344,7 +348,7 @@ export async function backfillOfferLettersToCloud(
   settings: AppSettings
 ): Promise<void> {
   if (!isSupabaseConfigured()) return;
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!userId) return;
   for (const emp of employees) {
     const profile = resolveEmployeeProfile(settings, emp);

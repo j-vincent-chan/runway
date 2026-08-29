@@ -8,7 +8,7 @@ import {
   DEFAULT_FUNDING_SOURCE_TYPES,
   DEFAULT_PERSONNEL_GROUPS,
 } from "@/lib/catalog/defaults";
-import { getCurrentUserId } from "@/lib/supabase/authUser";
+import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
 import { getSupabase } from "@/lib/supabase/client";
 import { ensureFundingSourceTypes } from "@/lib/funding/accountCategory";
 import { ensurePersonnelGroups } from "@/lib/employees/personnelType";
@@ -50,10 +50,12 @@ export function ensureCatalogDefaults(settings: AppSettings): AppSettings {
 
 export async function fetchRemotePersonnelGroups(): Promise<PersonnelGroupDef[] | null> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return null;
   const { data, error } = await supabase
     .from("personnel_groups")
     .select("id, label, short_label, pill_class, dot_class, chart_color, sort_order")
+    .eq("user_id", ownerId)
     .order("sort_order");
   if (error) {
     console.warn("[supabase] fetch personnel_groups failed:", error.message);
@@ -74,10 +76,12 @@ export async function fetchRemotePersonnelGroups(): Promise<PersonnelGroupDef[] 
 
 export async function fetchRemoteFundingSourceTypes(): Promise<FundingSourceTypeDef[] | null> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return null;
   const { data, error } = await supabase
     .from("funding_source_types")
     .select("id, label, pill_class, dot_class, chart_color, sort_order")
+    .eq("user_id", ownerId)
     .order("sort_order");
   if (error) {
     console.warn("[supabase] fetch funding_source_types failed:", error.message);
@@ -97,10 +101,12 @@ export async function fetchRemoteFundingSourceTypes(): Promise<FundingSourceType
 
 export async function fetchRemoteAccountGroups(): Promise<AccountGroupDef[] | null> {
   const supabase = getSupabase();
-  if (!supabase) return null;
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return null;
   const { data, error } = await supabase
     .from("account_groups")
     .select("id, label, pill_class, dot_class, chart_color, sort_order")
+    .eq("user_id", ownerId)
     .order("sort_order");
   if (error) {
     // Table may not exist until migration is applied — soft-fail.
@@ -121,7 +127,7 @@ export async function fetchRemoteAccountGroups(): Promise<AccountGroupDef[] | nu
 
 export async function upsertPersonnelGroup(group: PersonnelGroupDef): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase.from("personnel_groups").upsert(
     {
@@ -142,7 +148,7 @@ export async function upsertPersonnelGroup(group: PersonnelGroupDef): Promise<vo
 
 export async function deletePersonnelGroupRemote(id: string): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase
     .from("personnel_groups")
@@ -154,7 +160,7 @@ export async function deletePersonnelGroupRemote(id: string): Promise<void> {
 
 export async function upsertFundingSourceType(type: FundingSourceTypeDef): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase.from("funding_source_types").upsert(
     {
@@ -174,7 +180,7 @@ export async function upsertFundingSourceType(type: FundingSourceTypeDef): Promi
 
 export async function deleteFundingSourceTypeRemote(id: string): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase
     .from("funding_source_types")
@@ -186,7 +192,7 @@ export async function deleteFundingSourceTypeRemote(id: string): Promise<void> {
 
 export async function upsertAccountGroup(group: AccountGroupDef): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase.from("account_groups").upsert(
     {
@@ -206,7 +212,7 @@ export async function upsertAccountGroup(group: AccountGroupDef): Promise<void> 
 
 export async function deleteAccountGroupRemote(id: string): Promise<void> {
   const supabase = getSupabase();
-  const userId = await getCurrentUserId();
+  const userId = await getActiveWorkspaceOwnerId();
   if (!supabase || !userId) return;
   const { error } = await supabase
     .from("account_groups")
