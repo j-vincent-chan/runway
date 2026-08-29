@@ -5,7 +5,8 @@ Keep real payroll / Net Position exports **out of git** and **out of public clou
 ## Per-user datasets
 
 - Each signed-in account has its **own** cloud workspace, aliases, catalogs, roster, and files.
-- Another user logging in does **not** see your payroll data (and cannot overwrite it).
+- Another user logging in does **not** see your payroll data (and cannot overwrite it) — with **one explicit exception**: a financial analyst you grant access to in Settings → **Privacy & sync** → *Financial analyst access*. A grant is made by you, names one email, gives that account the same visibility and editing you have (enforced by database row-level security), and is revocable there at any time.
+- An analyst working in your workspace does so **cloud-only**: your data is never cached into their browser storage, and it disappears from their view the moment you revoke access.
 - Browser storage is also keyed per user, so switching accounts on one machine keeps datasets separate.
 - **Lab owner** (`vincent.chan@ucsf.edu`, overridable via `NEXT_PUBLIC_LAB_OWNER_EMAIL`) is the only account that inherits the pre-auth shared dataset:
   - Browser: unsigned `:local` / legacy key → owner’s user slot on first sign-in

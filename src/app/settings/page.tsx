@@ -11,6 +11,7 @@ import {
   PersonnelGroupsSettings,
 } from "@/components/settings/CatalogSettings";
 import { CloudPrivacyPanel } from "@/components/settings/CloudPrivacyPanel";
+import { DelegateAccessCard } from "@/components/settings/DelegateAccessCard";
 import { cn } from "@/lib/utils/cn";
 
 const TABS = [
@@ -78,7 +79,12 @@ export default function SettingsPage() {
           </nav>
 
           <div className="min-w-0 flex-1 space-y-6">
-            {tab === "privacy" && <CloudPrivacyPanel />}
+            {tab === "privacy" && (
+              <>
+                <CloudPrivacyPanel />
+                <DelegateAccessCard />
+              </>
+            )}
 
             {tab === "planning" && (
               <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
