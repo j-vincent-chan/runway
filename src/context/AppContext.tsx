@@ -702,7 +702,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /**
-   * "Not my account" is a property of the account, so the shield writes the
+   * "Not my account" is a property of the account, so the landmark mark writes the
    * account group — the single place it is stored. Marking from Runway or the
    * timeline and assigning the group in Settings are the same action.
    */
@@ -1326,7 +1326,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         else map[key] = groupId;
 
         /**
-         * Assigning the group here is the same act as the shield on Runway or
+         * Assigning the group here is the same act as the landmark mark on Runway or
          * Timeline, so it must leave the account in the same state — including
          * the horizon. Without this, marking from Settings produced an account
          * with no end date until the next reload backfilled one, and in the

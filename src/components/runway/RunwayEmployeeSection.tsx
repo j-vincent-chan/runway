@@ -12,7 +12,7 @@ import {
   hasPercentEffort,
 } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
-import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import { AssumedOkFundingCell } from "@/components/runway/AssumedOkFundingCell";
 import { RunwayIndicatorBadge } from "@/components/runway/RunwayIndicatorBadge";
 import type { RunwayAccountLine } from "@/lib/runway/calculate";
@@ -250,7 +250,7 @@ export function RunwayEmployeeSection({
                           }
                           onClick={() => onToggleAssumedOk(acct.chartstring)}
                         >
-                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <Landmark className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>

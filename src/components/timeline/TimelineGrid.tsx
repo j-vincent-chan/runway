@@ -22,7 +22,7 @@ import {
   hasPercentEffort,
 } from "@/lib/utils/parse";
 import type { Employee, FundingSource, MonthlyAllocation, PayrollReportSnapshot } from "@/types";
-import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import { TimelineToolbar } from "@/components/timeline/TimelineToolbar";
 import { FreezeableGrid, freezeTheadClass } from "@/components/grid/FreezeableGrid";
 import { AliasEditor } from "@/components/funding/AliasEditor";
@@ -536,7 +536,7 @@ function EmployeeRows({
                       <Eye className="h-3.5 w-3.5" />
                     )}
                   </button>
-                  {/* Same mark as Runway's shield and the Settings account
+                  {/* Same mark as Runway's landmark and the Settings account
                       group — all three write one account-level value. */}
                   <button
                     type="button"
@@ -553,7 +553,7 @@ function EmployeeRows({
                     }
                     onClick={() => toggleNotMyAccount(fs.accountString ?? fs.rawName)}
                   >
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <Landmark className="h-3.5 w-3.5" />
                   </button>
                   <AliasEditor
                     source={fs}

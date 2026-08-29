@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { Link2, PencilLine, ShieldCheck } from "lucide-react";
+import { Link2, PencilLine, Landmark } from "lucide-react";
 
 export type RunwayIndicatorVariant =
   | "linked"
@@ -37,7 +37,7 @@ export function RunwayIndicatorBadge({
       : variant === "manual"
         ? PencilLine
         : variant === "assumedOk"
-          ? ShieldCheck
+          ? Landmark
           : null;
 
   return (

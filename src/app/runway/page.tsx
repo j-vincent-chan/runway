@@ -184,7 +184,7 @@ export default function RunwayPage() {
                 )
               )}
               <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                <span className="font-medium text-slate-700">Shield</span> = external (not yours);
+                <span className="font-medium text-slate-700">Landmark</span> = external (not yours);
                 add an optional fund end date to estimate balance and runway.
                 <span className="font-medium text-slate-700"> Eye</span> = hide from timeline and totals.
               </p>

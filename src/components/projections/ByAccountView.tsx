@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
@@ -230,7 +230,7 @@ function AccountBlock({
               <ChevronDown className="h-3 w-3 shrink-0" />
             )}
             {/* The account's own row is where an account-level mark belongs, so
-                the shield and the rename live here rather than on the people
+                the landmark mark and the rename live here rather than on the people
                 below — one value, same one Timeline and Settings write. */}
             <button
               type="button"
@@ -250,7 +250,7 @@ function AccountBlock({
                 onToggleNotMyAccount(fs.accountString ?? fs.rawName);
               }}
             >
-              <ShieldCheck className="h-3.5 w-3.5" />
+              <Landmark className="h-3.5 w-3.5" />
             </button>
             <span className="truncate" title={alias}>
               {alias.toUpperCase()}

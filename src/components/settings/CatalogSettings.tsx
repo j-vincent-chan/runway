@@ -579,7 +579,7 @@ function AccountRow({
       </td>
       <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.displayKey}</td>
       <td className="px-3 py-2">
-        {/* Assigning "Not my accounts" here is the same action as the shield
+        {/* Assigning "Not my accounts" here is the same action as the landmark mark
             on Runway and Timeline — one store, three doors. */}
         <AccountGroupSelect
           value={settings.accountGroupByBalanceKey?.[accountKey]}

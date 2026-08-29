@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Settings2, Landmark } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -347,7 +347,7 @@ function EmployeeBlock({
                   maxWidth: PROJECTION_LABEL_COL,
                 }}
               >
-                {/* Eye and shield first, same order as Timeline's fund row and
+                {/* Eye and landmark first, same order as Timeline's fund row and
                     the same two shared settings. Then a dedicated icon to open
                     the distribution rule (a control Timeline has no equivalent
                     of), and the rename input last. */}
@@ -386,7 +386,7 @@ function EmployeeBlock({
                     }
                     onClick={() => onToggleNotMyAccount(fs.accountString ?? fs.rawName)}
                   >
-                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <Landmark className="h-3.5 w-3.5" />
                   </button>
                   {/*
                     A truncating text button here used to be the only way to
@@ -396,7 +396,7 @@ function EmployeeBlock({
                     shrink-0 and fixed-width, so the button that opened the
                     editor was squeezed toward zero width and became
                     unclickable, with no visible sign that it was still there.
-                    A small icon, sized like its eye/shield neighbours, cannot
+                    A small icon, sized like its eye/landmark neighbours, cannot
                     be squeezed the same way.
                   */}
                   <button
