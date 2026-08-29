@@ -526,3 +526,45 @@ create policy "app_workspace_claim_legacy_delete"
     and name in ('default.json', 'workspace.json')
     and lower(coalesce(auth.jwt() ->> 'email', '')) = 'vincent.chan@ucsf.edu'
   );
+
+-- ---------------------------------------------------------------------------
+-- Change requests: "Lock In" submissions from Projections
+-- One row per handoff; the PI (or a delegate) creates it, analysts advance
+-- its status. No delete policy — the request list is an audit trail.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.change_requests (
+  id uuid primary key default gen_random_uuid(),
+  pi_user_id uuid not null references auth.users (id) on delete cascade,
+  person_key text not null,
+  person_name text not null,
+  -- ChangeRequestDetails (versioned JSON): the person's projection rules at
+  -- capture time plus the per-account, per-month before/after diff.
+  details jsonb not null,
+  -- PNG renders in the app-workspace bucket under {pi_user_id}/change-requests/.
+  image_paths text[] not null default '{}',
+  status text not null default 'pending'
+    check (status in ('pending', 'in_progress', 'completed')),
+  created_at timestamptz not null default now(),
+  created_by_email text not null,
+  status_changed_at timestamptz not null default now(),
+  status_changed_by_email text not null,
+  email_sent_at timestamptz
+);
+
+alter table public.change_requests enable row level security;
+
+drop policy if exists "change_requests_select" on public.change_requests;
+drop policy if exists "change_requests_insert" on public.change_requests;
+drop policy if exists "change_requests_update" on public.change_requests;
+
+create policy "change_requests_select"
+  on public.change_requests for select to authenticated
+  using (public.can_access_workspace(pi_user_id));
+create policy "change_requests_insert"
+  on public.change_requests for insert to authenticated
+  with check (public.can_access_workspace(pi_user_id));
+create policy "change_requests_update"
+  on public.change_requests for update to authenticated
+  using (public.can_access_workspace(pi_user_id))
+  with check (public.can_access_workspace(pi_user_id));
