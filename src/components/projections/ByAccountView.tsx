@@ -385,7 +385,7 @@ function AccountBlock({
                     title={
                       hidden
                         ? "Include this fund in your view and totals"
-                        : "Hide fund (not under your control)"
+                        : "Hide fund (not my account)"
                     }
                     onClick={() => onToggleHiddenFund(emp.id, fs.id)}
                   >

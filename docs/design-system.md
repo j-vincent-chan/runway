@@ -137,6 +137,12 @@ One name per concept across every surface — axis labels, legends, tables, and 
 
 The settled names:
 
+- **Not my account** — an account the PI doesn't control, whose balance is counted only to its end date. Never "external account", "not under your control", "assumed OK", "accounts you do not manage", or "not yours". The code key `runwayAssumedOkFunds` keeps its name; user-visible copy does not.
+- **Hidden** — a row excluded from a view without leaving the totals. Always name the scope, because there are two distinct sets and their counts legitimately differ: **hidden funds** (per person, on Distributions/Projections/Runway) and **hidden accounts** (account-level, on Account Balances and Settings). A bare "Show hidden (13)" next to a "Show hidden (8)" reads as a bug.
+- **Monthly payroll burn** — salary and benefits for the current payroll month. Three surfaces showed this under three names.
+- **Projected burn at origin** — the Projections figure. It is a *different* measure from monthly payroll burn (it is allocation-weighted across the projected distribution) and must never share its name; a near-identical name on a different measure is what hid the Dashboard's Available ÷ Burn discrepancy.
+- **Distributions** — the `/timeline` route. Never "Timeline" in user-visible copy, including help text and button labels.
+- **Account Balances** — the `/account-balances` route. Never "Accounts" in nav, links, or capability lists.
 - **Team** — the grouping a person belongs to. Every user-visible surface says "team", never "personnel group" or "personnel type"; those names survive only in code, settings keys, and the `personnel_groups` table. The org chart's own "Our Team" heading is a different feature and a known collision — rename it before adding any new copy there.
 - **Account** — one fund-dept-project. Never "chartstring" in user-visible copy.
 - **Available payroll** — the balance on accounts that currently have payroll charged to them, never the sum of every account on file.

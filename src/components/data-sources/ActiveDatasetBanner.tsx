@@ -12,7 +12,7 @@ export function ActiveDatasetBanner({
   snapshot: PayrollReportSnapshot;
 }) {
   return (
-    <div className="rounded-xl border border-teal-200 bg-gradient-to-r from-teal-50 to-emerald-50/80 px-5 py-4 shadow-sm">
+    <div className="rounded-xl border border-teal-200 bg-teal-50 px-5 py-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
@@ -62,7 +62,7 @@ export function ActiveDatasetBanner({
             href="/timeline"
             className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
           >
-            View Timeline
+            View Distributions
           </Link>
         </div>
       </div>

@@ -147,7 +147,7 @@ export function PayrollReportCard() {
                     href="/timeline"
                     className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
                   >
-                    View Timeline
+                    View Distributions
                   </Link>
                 </div>
               )}

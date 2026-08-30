@@ -30,7 +30,6 @@ import { EmployeeYearlyCompCell } from "@/components/employees/EmployeeYearlyCom
 import { EmployeeStartDateCell } from "@/components/employees/EmployeeStartDateCell";
 import { EmployeeCompTrendCell } from "@/components/employees/EmployeeCompTrendCell";
 import {
-  PersonnelTypeLegend,
   PersonnelTypeSelect,
 } from "@/components/employees/PersonnelTypeSelect";
 import { getEmployeePersonnelType } from "@/lib/employees/personnelType";
@@ -261,8 +260,6 @@ function EmployeesPageContent() {
               )}
             </div>
 
-            <PersonnelTypeLegend />
-
             <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#0c2340] text-xs text-white">
@@ -274,7 +271,7 @@ function EmployeesPageContent() {
                     <th className="px-3 py-2">Your scope %</th>
                     <th className="px-3 py-2">Current coverage</th>
                     <th className="px-3 py-2">First gap</th>
-                    <th className="px-3 py-2">Monthly S+B</th>
+                    <th className="px-3 py-2">Monthly payroll burn</th>
                     <th className="min-w-[7.5rem] px-3 py-2">Yearly comp</th>
                     <th className="min-w-[8.5rem] px-3 py-2">Comp over time</th>
                     <th className="w-10 px-2 py-2" aria-label="Actions" />

@@ -39,6 +39,7 @@ import { countAllHiddenFunds } from "@/lib/funding/visibility";
 import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
+import { PageStatRow } from "@/components/layout/PageStatRow";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
 import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
@@ -338,27 +339,38 @@ export default function ProjectionsPage() {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3">
-            <Kpi label="Origin month" value={formatMonthLabel(result.originMonth)} />
-            <Kpi label="Monthly personnel burn" value={formatCurrency(originBurn)} />
-            <Kpi label="People with a coverage gap" value={String(gapCount)} />
-            <Kpi label="Off-ramp rules" value={String(ruleCount)} />
-          </div>
+          <PageStatRow
+            stats={[
+              {
+                label: "Origin month",
+                value: formatMonthLabel(result.originMonth),
+                basis: "Where actuals end and projection begins",
+              },
+              {
+                label: "Projected burn at origin",
+                value: formatCurrency(originBurn),
+                // Deliberately not "monthly payroll burn": this is
+                // allocation-weighted across the projected distribution, a
+                // different measure from the Dashboard's current-month total.
+                basis: "Across the projected distribution",
+              },
+              {
+                label: "People with a coverage gap",
+                value: String(gapCount),
+                basis: "Under their planning scope this month",
+                tone: gapCount > 0 ? "caution" : "neutral",
+              },
+              {
+                label: "Off-ramp rules",
+                value: String(ruleCount),
+                basis: "Distribution changes you have set",
+              },
+            ]}
+          />
 
-          {originState && (
-            <div className="flex h-3 overflow-hidden rounded-full bg-slate-200">
-              {summarizeOriginMix(result, settings, accountTitlesByChartstring).map((slice) => (
-                <div
-                  key={slice.key}
-                  title={`${slice.label} ${formatPercent(slice.share * 100)}`}
-                  style={{ width: `${slice.share * 100}%`, backgroundColor: slice.color }}
-                />
-              ))}
-            </div>
-          )}
 
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="shrink-0 border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
+            <div className="shrink-0 border-b border-slate-200 px-4 py-3">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="flex flex-col gap-1.5">
@@ -506,7 +518,7 @@ export default function ProjectionsPage() {
                       : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
                   </button>
                   <span className="text-[11px] text-slate-500">
-                    Use the eye icon on a fund row to exclude accounts you do not manage.
+                    Use the eye icon on a fund row to mark an account as not my account.
                   </span>
                 </div>
               )}
@@ -586,44 +598,6 @@ export default function ProjectionsPage() {
       )}
     </>
   );
-}
-
-function Kpi({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-[12.5rem] flex-none rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-[10px] font-medium uppercase leading-snug tracking-wide text-slate-500">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-semibold tabular-nums text-[#0c2340]">{value}</p>
-    </div>
-  );
-}
-
-function summarizeOriginMix(
-  result: NonNullable<ReturnType<typeof simulateProjections>>,
-  settings: AppSettings,
-  accountTitlesByChartstring: Map<string, string>
-) {
-  const origin = result.states[0];
-  if (!origin) return [];
-  const byKey = new Map<string, { burn: number; color: string; label: string }>();
-  let total = 0;
-  for (const a of origin.allocations) {
-    const fs = result.sources.find((s) => s.id === a.fundingSourceId || chartstringKey(s) === a.chartstringKey);
-    const prev = byKey.get(a.chartstringKey) ?? {
-      burn: 0,
-      color: fs?.color ?? "#cbd5e1",
-      label: fs ? projectionSourceLabel(fs, settings, accountTitlesByChartstring) : a.chartstringKey,
-    };
-    prev.burn += a.monthlyBurn;
-    byKey.set(a.chartstringKey, prev);
-    total += a.monthlyBurn;
-  }
-  if (total <= 0) return [];
-  return [...byKey.entries()]
-    .map(([key, v]) => ({ key, share: v.burn / total, color: v.color, label: v.label }))
-    .sort((a, b) => b.share - a.share)
-    .slice(0, 8);
 }
 
 function chartstringKey(fs: FundingSource) {

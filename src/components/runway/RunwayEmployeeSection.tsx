@@ -118,9 +118,9 @@ export function RunwayEmployeeSection({
                 <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
                   <RunwayIndicatorBadge
                     variant="assumedOk"
-                    title="Accounts are not yours — runway is not calculated"
+                    title="Not my account — runway is not calculated"
                   >
-                    Assumed OK
+                    Not my account
                   </RunwayIndicatorBadge>
                   <span>
                     {assumedOkVisibleCount} account{assumedOkVisibleCount === 1 ? "" : "s"} not
@@ -164,7 +164,7 @@ export function RunwayEmployeeSection({
           <button
             type="button"
             className="shrink-0 self-start rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-600 hover:bg-slate-200"
-            title="Show hidden accounts for this person"
+            title="Show hidden funds for this person"
             onClick={onRevealHidden}
           >
             {hiddenAccountCount} hidden · show
@@ -233,8 +233,8 @@ export function RunwayEmployeeSection({
                         )}
                         title={
                           acct.isHidden
-                            ? "Include this fund in timeline and runway totals"
-                            : "Hide fund (not under your control)"
+                            ? "Include this fund in Distributions and runway totals"
+                            : "Hide fund (not my account)"
                         }
                         onClick={() => onToggleHidden(acct.fundingSourceId)}
                       >
@@ -283,7 +283,7 @@ export function RunwayEmployeeSection({
                   >
                     <span className="block text-sm leading-snug">{acct.displayName}</span>
                     {!acct.isHidden && acct.isAssumedOk && (
-                      <p className="mt-0.5 text-[10px] text-slate-500">External account</p>
+                      <p className="mt-0.5 text-[10px] text-slate-500">Not my account</p>
                     )}
                     {!acct.isHidden && !acct.isAssumedOk && isLinked && (
                       <AccountIndicators acct={acct} isLinked={isLinked} />

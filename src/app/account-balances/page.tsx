@@ -72,11 +72,10 @@ function GroupBadge({ groupId }: { groupId?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-        meta.pillClass
+        "inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700 ring-1 ring-slate-200"
       )}
+      title={meta.label}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dotClass)} aria-hidden />
       {meta.label}
     </span>
   );

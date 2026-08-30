@@ -22,12 +22,10 @@ function AccountGroupPill({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium leading-tight",
-        meta.pillClass,
+        "inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium leading-tight text-slate-700 ring-1 ring-slate-200",
         className
       )}
     >
-      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
       {meta.label}
     </span>
   );

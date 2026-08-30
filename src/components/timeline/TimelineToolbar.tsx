@@ -159,7 +159,7 @@ export function TimelineToolbar({
               : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
           </button>
           <span className="text-[11px] text-slate-500">
-            Use the eye icon on a fund row to exclude accounts you do not manage.
+            Use the eye icon on a fund row to mark an account as not my account.
           </span>
         </div>
       )}

@@ -11,6 +11,18 @@ import {
 } from "@/lib/employees/personnelType";
 import { cn } from "@/lib/utils/cn";
 
+/**
+ * Teams carry no colour of their own. The design system reserves categorical
+ * colour for the funding-exposure band and gives personnel groups none, so
+ * colour on a team can only ever mean its runway state — which is what the
+ * Dashboard already does. Four categorical dots here made the same four teams
+ * look like two different taxonomies across two pages.
+ *
+ * The rendered text is the catalog's short label, with the full name on hover.
+ * The legend beside this used to print the full label while the pill printed
+ * the short one, so a team read as "Projects" in one place and
+ * "PM & clinical coord." in the other.
+ */
 function PersonnelTypePill({
   type,
   className,
@@ -23,31 +35,13 @@ function PersonnelTypePill({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-left text-xs font-medium leading-snug",
-        meta.pillClass,
+        "inline-flex max-w-full items-center rounded-full bg-slate-100 px-2.5 py-1 text-left text-xs font-medium leading-snug text-slate-700 ring-1 ring-slate-200",
         className
       )}
       title={meta.label}
     >
-      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
       {getPersonnelTypeDisplayLabel(type, settings)}
     </span>
-  );
-}
-
-export function PersonnelTypeLegend() {
-  const { settings } = useApp();
-  const groups = getPersonnelGroups(settings);
-  return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-      <span className="font-medium text-slate-700">Teams</span>
-      {groups.map((t) => (
-        <span key={t.id} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-3 w-3 rounded-full ring-1 ring-black/10", t.dotClass)} aria-hidden />
-          {t.label}
-        </span>
-      ))}
-    </div>
   );
 }
 

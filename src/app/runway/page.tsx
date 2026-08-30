@@ -189,9 +189,9 @@ export default function RunwayPage() {
                 )
               )}
               <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                <span className="font-medium text-slate-700">Landmark</span> = external (not yours);
+                <span className="font-medium text-slate-700">Landmark</span> = not my account;
                 add an optional fund end date to estimate balance and runway.
-                <span className="font-medium text-slate-700"> Eye</span> = hide from timeline and totals.
+                <span className="font-medium text-slate-700"> Eye</span> = hide the fund from this view, without changing totals.
               </p>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div className="flex flex-wrap items-end gap-5">
@@ -226,7 +226,9 @@ export default function RunwayPage() {
                     )}
                   >
                     {showHiddenFunds ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    {showHiddenFunds ? "Collapse hidden" : `Show hidden (${totalHiddenFunds})`}
+                    {showHiddenFunds
+                      ? "Collapse hidden funds"
+                      : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
                   </button>
                 )}
               </div>

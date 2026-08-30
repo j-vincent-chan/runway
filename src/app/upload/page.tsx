@@ -44,7 +44,7 @@ export default function DataSourcesPage() {
     <>
       <Header
         ledgerTitle
-        title="Data Sources"
+        title="Upload"
         subtitle="Manage the reports that power Runway."
         showImportMeta={false}
         topAction={
