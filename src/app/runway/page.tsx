@@ -8,7 +8,6 @@ import { RunwayEmployeeSection } from "@/components/runway/RunwayEmployeeSection
 import { buildSharedAccountBurnIndex, computeEmployeeRunway } from "@/lib/runway/calculate";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import { filterEmployeesByPersonnelGroups } from "@/lib/employees/personnelType";
-import { RunwayIndicatorLegend } from "@/components/runway/RunwayIndicatorBadge";
 import { RunwayEmployeeSort } from "@/components/runway/RunwayEmployeeSort";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { countAllHiddenFunds } from "@/lib/funding/visibility";
@@ -19,7 +18,6 @@ import {
   type RunwayEmployeeSortKey,
 } from "@/lib/runway/sortEmployees";
 import { cn } from "@/lib/utils/cn";
-import { formatIsoDateDisplay } from "@/lib/utils/parse";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
@@ -61,12 +59,6 @@ export default function RunwayPage() {
   };
 
   const totalHiddenFunds = countAllHiddenFunds(settings);
-  const latestReportRunDate = [...netPositionImports]
-    .map((imp) => imp.reportRunDate)
-    .filter(Boolean)
-    .sort()
-    .at(-1);
-  const latestReportAsOf = formatIsoDateDisplay(latestReportRunDate);
 
   const sharedBurnIndex = useMemo(() => {
     if (!snapshot) return new Map();
@@ -167,24 +159,6 @@ export default function RunwayPage() {
     [summaries, naturalOrder]
   );
 
-  /**
-   * The verdict pattern the Dashboard and Status already use: a conclusion
-   * before its evidence. The soonest person to run dry is deliberately not
-   * called "runway" — per the vocabulary, that word is reserved for the
-   * average, and the single worst case is an attention item with a name.
-   */
-  const soonestDry = useMemo(() => {
-    let worst: { name: string; months: number } | null = null;
-    for (const s of naturalOrder) {
-      const m = s.blendedMonthsRunway;
-      if (m === null) continue;
-      if (worst === null || m < worst.months) {
-        worst = { name: s.employee.name, months: m };
-      }
-    }
-    return worst;
-  }, [naturalOrder]);
-
   return (
     <>
       <Header
@@ -203,25 +177,7 @@ export default function RunwayPage() {
             />
           ) : (
             <div className="space-y-4">
-              {soonestDry && (
-                <p className="text-sm text-slate-700">
-                  {soonestDry.months < 0 ? (
-                    <>
-                      <span className="font-semibold text-red-800">{soonestDry.name}</span>
-                      &apos;s payroll accounts are already short — their burn exceeds what is
-                      left on them.
-                    </>
-                  ) : (
-                    <>
-                      Soonest to run dry:{" "}
-                      <span className="font-semibold text-[#0c2340]">{soonestDry.name}</span>,
-                      ~{soonestDry.months.toFixed(1)} months at current burn.
-                      {naturalOrder.length > 1 && <> Everyone else lasts longer.</>}
-                    </>
-                  )}
-                </p>
-              )}
-              {netPositionImports.length === 0 ? (
+              {netPositionImports.length === 0 && (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   No Net Position Reports uploaded yet.{" "}
                   <Link href="/upload" className="font-medium underline hover:text-amber-950">
@@ -229,24 +185,7 @@ export default function RunwayPage() {
                   </Link>{" "}
                   or enter balances manually on each account row.
                 </p>
-              ) : (
-                latestReportAsOf && (
-                  <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                    Net Position balances as of{" "}
-                    <span className="font-medium text-slate-800">{latestReportAsOf}</span>
-                    .{" "}
-                    <Link href="/upload" className="font-medium underline hover:text-slate-900">
-                      Upload a newer file
-                    </Link>{" "}
-                    to refresh.
-                  </p>
-                )
               )}
-              <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                <span className="font-medium text-slate-700">Landmark</span> = not my account;
-                add an optional fund end date to estimate balance and runway.
-                <span className="font-medium text-slate-700"> Eye</span> = hide the fund from this view, without changing totals.
-              </p>
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div className="flex flex-wrap items-end gap-5">
                   <PersonnelGroupFilter
@@ -334,7 +273,6 @@ export default function RunwayPage() {
                   />
                 );
               })}
-              <RunwayIndicatorLegend />
             </div>
           )}
         </div>
