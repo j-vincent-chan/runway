@@ -4,7 +4,6 @@ import { svgToPngBlob } from "@/lib/projections/changeImagePng";
 import { insertChangeRequest } from "@/lib/supabase/changeRequests";
 import { getSupabase } from "@/lib/supabase/client";
 import { WORKSPACE_STORAGE_BUCKET } from "@/lib/supabase/workspace";
-import { generateId } from "@/lib/utils/parse";
 
 export type LockInResult =
   | { ok: true; requestId: string; emailOk: boolean; emailError?: string; recipients?: string[] }
@@ -24,7 +23,10 @@ export async function submitLockIn(input: {
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: "Cloud sync is not configured." };
 
-  const requestId = generateId();
+  // change_requests.id is a Postgres uuid column — generateId()'s
+  // timestamp-plus-random string (used for entities living in the workspace
+  // JSON blob) doesn't satisfy that type.
+  const requestId = crypto.randomUUID();
   const imagePaths: string[] = [];
 
   try {
