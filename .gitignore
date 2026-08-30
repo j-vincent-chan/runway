@@ -50,3 +50,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Claude Code: shared project config is committed, personal overrides are not
+.claude/settings.local.json

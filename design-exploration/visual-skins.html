@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Runway — Visual Skin Exploration</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Geist:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Lora:wght@500;600&family=SF+Pro+Display:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Exploration chrome (not part of themes) ── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Inter", system-ui, sans-serif;
+      background: #0f1115;
+      color: #e8eaed;
+      line-height: 1.45;
+    }
+    .exp {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+    .exp-kicker {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #8b919a;
+      margin: 0 0 8px;
+    }
+    .exp h1 {
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+      color: #fff;
+    }
+    .exp-lead {
+      max-width: 62ch;
+      color: #a8aeb8;
+      font-size: 15px;
+      margin: 0 0 28px;
+    }
+    .exp-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid #2a2f38;
+      border-radius: 8px;
+      background: #16191f;
+      color: #b8bec8;
+      font-size: 12px;
+      margin-bottom: 32px;
+    }
+    .exp-note strong { color: #fff; font-weight: 600; }
+
+    .theme-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .theme-card {
+      text-align: left;
+      border: 1px solid #2a2f38;
+      background: #16191f;
+      border-radius: 12px;
+      padding: 14px 16px;
+      cursor: pointer;
+      color: inherit;
+      font: inherit;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .theme-card:hover { border-color: #4a5160; background: #1a1e26; }
+    .theme-card[aria-selected="true"] {
+      border-color: #7c8cff;
+      background: #1a2030;
+      box-shadow: inset 0 0 0 1px #7c8cff55;
+    }
+    .theme-card .name {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .theme-card .refs {
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #7a8290;
+      margin-bottom: 8px;
+    }
+    .theme-card .blurb {
+      font-size: 12px;
+      color: #9aa1ac;
+      margin: 0;
+    }
+    .swatches {
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+    }
+    .swatches i {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.12);
+      display: block;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .controls label {
+      font-size: 12px;
+      color: #8b919a;
+      margin-right: 4px;
+    }
+    .seg {
+      display: inline-flex;
+      border: 1px solid #2a2f38;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #16191f;
+    }
+    .seg button {
+      border: 0;
+      background: transparent;
+      color: #a8aeb8;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+    .seg button[aria-pressed="true"] {
+      background: #2a3140;
+      color: #fff;
+    }
+    .mode-disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    .philosophy {
+      border: 1px solid #2a2f38;
+      border-radius: 12px;
+      background: #16191f;
+      padding: 16px 18px;
+      margin-bottom: 20px;
+    }
+    .philosophy h2 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .philosophy p {
+      margin: 0;
+      font-size: 13px;
+      color: #a8aeb8;
+      max-width: 80ch;
+    }
+    .philosophy .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .philosophy .tags span {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #222732;
+      color: #b4bbc6;
+    }
+
+    .preview-shell {
+      border: 1px solid #2a2f38;
+      border-radius: 14px;
+      overflow: hidden;
+      background: #0a0c10;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .preview-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      background: #12151c;
+      border-bottom: 1px solid #2a2f38;
+      font-size: 12px;
+      color: #8b919a;
+    }
+    .preview-bar .dots { display: flex; gap: 6px; }
+    .preview-bar .dots span {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: #3a4150;
+    }
+    .preview-frame {
+      height: min(72vh, 820px);
+      overflow: auto;
+      background: var(--bg);
+    }
+
+    .compare-section {
+      margin-top: 56px;
+      padding-top: 32px;
+      border-top: 1px solid #2a2f38;
+    }
+    .compare-section h2 {
+      font-size: 18px;
+      margin: 0 0 8px;
+      color: #fff;
+    }
+    .compare-section .sub {
+      font-size: 13px;
+      color: #8b919a;
+      margin: 0 0 20px;
+    }
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    .compare-item {
+      border: 1px solid #2a2f38;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #12151c;
+    }
+    .compare-item header {
+      padding: 10px 12px;
+      border-bottom: 1px solid #2a2f38;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e8eaed;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .compare-item header span {
+      font-weight: 400;
+      color: #8b919a;
+      font-size: 11px;
+    }
+    .compare-scale {
+      height: 220px;
+      overflow: hidden;
+      position: relative;
+      pointer-events: none;
+    }
+    .compare-scale .app {
+      transform: scale(0.42);
+      transform-origin: top left;
+      width: 238%;
+      height: 238%;
+    }
+
+    /* ═══════════════════════════════════════════════
+       Shared app structure — themes only change tokens
+       ═══════════════════════════════════════════════ */
+    .app {
+      display: grid;
+      grid-template-columns: var(--sidebar-w) 1fr;
+      min-height: 100%;
+      font-family: var(--font);
+      font-size: var(--fs-base);
+      color: var(--text);
+      background: var(--bg);
+      letter-spacing: var(--tracking, 0);
+    }
+    .sidebar {
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      border-right: var(--sidebar-border);
+      display: flex;
+      flex-direction: column;
+      padding: var(--sidebar-pad);
+      gap: 4px;
+    }
+    .brand {
+      padding: var(--brand-pad);
+      border-bottom: var(--divider);
+      margin-bottom: 8px;
+    }
+    .brand .product {
+      font-family: var(--font-display, var(--font));
+      font-weight: var(--brand-weight, 650);
+      font-size: var(--brand-size, 18px);
+      letter-spacing: var(--brand-tracking, -0.02em);
+      color: var(--sidebar-heading);
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+    .brand .alpha {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.65;
+      vertical-align: super;
+    }
+    .brand .tagline {
+      margin-top: 4px;
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--sidebar-muted);
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: var(--nav-pad);
+      border-radius: var(--nav-radius);
+      color: var(--sidebar-text);
+      font-size: var(--fs-nav);
+      font-weight: 500;
+      border: var(--nav-border, 0);
+    }
+    .nav-item.active {
+      background: var(--nav-active-bg);
+      color: var(--nav-active-text);
+      box-shadow: var(--nav-active-shadow, none);
+    }
+    .nav-item .ico {
+      width: 16px; height: 16px; opacity: 0.85;
+      flex-shrink: 0;
+    }
+    .sidebar-foot {
+      margin-top: auto;
+      padding-top: 12px;
+      border-top: var(--divider);
+      font-size: 10px;
+      line-height: 1.4;
+      color: var(--sidebar-muted);
+    }
+
+    .main { display: flex; flex-direction: column; min-width: 0; }
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: var(--topbar-pad);
+      background: var(--topbar-bg);
+      border-bottom: var(--topbar-border);
+      backdrop-filter: var(--topbar-blur, none);
+    }
+    .topbar h1 {
+      margin: 0;
+      font-family: var(--font-display, var(--font));
+      font-size: var(--fs-h1);
+      font-weight: var(--h1-weight, 600);
+      letter-spacing: var(--h1-tracking, -0.03em);
+      color: var(--text-strong);
+      line-height: 1.15;
+    }
+    .topbar .sub {
+      margin: 4px 0 0;
+      font-size: var(--fs-sub);
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+    .topbar-actions { display: flex; gap: 8px; align-items: center; }
+    .btn {
+      font-family: inherit;
+      font-size: var(--fs-btn);
+      font-weight: 500;
+      padding: var(--btn-pad);
+      border-radius: var(--btn-radius);
+      border: var(--btn-border);
+      background: var(--btn-bg);
+      color: var(--btn-text);
+      cursor: default;
+    }
+    .btn.primary {
+      background: var(--accent);
+      color: var(--accent-text);
+      border: var(--btn-primary-border, 0);
+      box-shadow: var(--btn-primary-shadow, none);
+    }
+    .btn.ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: var(--btn-ghost-border, 1px solid transparent);
+    }
+
+    .content {
+      padding: var(--content-pad);
+      display: flex;
+      flex-direction: column;
+      gap: var(--stack-gap);
+    }
+
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--kpi-gap);
+    }
+    .kpi {
+      background: var(--card-bg);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow);
+      padding: var(--kpi-pad);
+    }
+    .kpi .label {
+      font-size: var(--fs-label);
+      font-weight: var(--label-weight, 500);
+      letter-spacing: var(--label-tracking, 0.06em);
+      text-transform: var(--label-transform, uppercase);
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .kpi .value {
+      font-family: var(--font-mono, var(--font));
+      font-size: var(--fs-kpi);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text-strong);
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi .hint {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--text-faint);
+    }
+
+    .panel {
+      background: var(--card-bg);
+      border: var(--card-border);
+      border-radius: var(--card-radius);
+      box-shadow: var(--card-shadow);
+      overflow: hidden;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: var(--toolbar-pad);
+      border-bottom: var(--divider-soft);
+      background: var(--toolbar-bg);
+    }
+    .tool-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tool-label {
+      font-size: 11px;
+      color: var(--text-faint);
+      font-weight: 500;
+    }
+    .pills {
+      display: inline-flex;
+      padding: var(--pills-pad, 2px);
+      border-radius: var(--pills-radius);
+      background: var(--pills-bg);
+      border: var(--pills-border, 0);
+      gap: var(--pills-gap, 0);
+    }
+    .pill {
+      font-size: 12px;
+      font-weight: 500;
+      padding: var(--pill-pad);
+      border-radius: var(--pill-radius);
+      color: var(--text-muted);
+      background: transparent;
+      border: 0;
+    }
+    .pill.on {
+      background: var(--pill-on-bg);
+      color: var(--pill-on-text);
+      box-shadow: var(--pill-on-shadow, none);
+    }
+
+    .grid-wrap { overflow: auto; }
+    table.tl {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: var(--fs-table);
+    }
+    table.tl th, table.tl td {
+      padding: var(--cell-pad);
+      text-align: left;
+      white-space: nowrap;
+      border-bottom: var(--row-border);
+      border-right: var(--col-border);
+    }
+    table.tl thead th {
+      background: var(--thead-bg);
+      color: var(--thead-text);
+      font-size: var(--fs-th);
+      font-weight: 600;
+      letter-spacing: var(--th-tracking, 0.04em);
+      text-transform: var(--th-transform, uppercase);
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    table.tl thead .yr {
+      text-align: center;
+      border-bottom: var(--yr-border, var(--row-border));
+    }
+    table.tl tbody tr:hover td {
+      background: var(--row-hover);
+    }
+    .emp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 550;
+      color: var(--text-strong);
+    }
+    .av {
+      width: 22px; height: 22px;
+      border-radius: var(--av-radius);
+      background: var(--av-bg);
+      color: var(--av-text);
+      display: grid;
+      place-items: center;
+      font-size: 9px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .fund {
+      padding-left: 30px !important;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+    .scope {
+      color: var(--text-faint);
+      font-size: 11px;
+    }
+    .bar-cell { min-width: 64px; }
+    .bar {
+      height: var(--bar-h);
+      border-radius: var(--bar-radius);
+      background: var(--bar-track);
+      overflow: hidden;
+      position: relative;
+    }
+    .bar > i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+    }
+    .bar-meta {
+      margin-top: 3px;
+      font-family: var(--font-mono, var(--font));
+      font-size: 10px;
+      color: var(--text-faint);
+      font-variant-numeric: tabular-nums;
+    }
+    .bar.c1 > i { background: var(--alloc-1); }
+    .bar.c2 > i { background: var(--alloc-2); }
+    .bar.c3 > i { background: var(--alloc-3); }
+    .future {
+      background: var(--future-bg);
+      background-image: var(--future-pattern);
+    }
+
+    /* ═══════════════ THEME TOKENS ═══════════════ */
+
+    /* 1. Signal Dense — Linear-inspired */
+    .theme-signal {
+      --font: "Inter", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      --fs-base: 13px;
+      --fs-nav: 13px;
+      --fs-h1: 18px;
+      --fs-sub: 12px;
+      --fs-btn: 12px;
+      --fs-label: 10px;
+      --fs-kpi: 22px;
+      --fs-table: 12px;
+      --fs-th: 10px;
+      --h1-weight: 560;
+      --h1-tracking: -0.02em;
+      --label-tracking: 0.04em;
+      --tracking: -0.01em;
+      --sidebar-w: 200px;
+      --sidebar-pad: 10px;
+      --brand-pad: 8px 8px 14px;
+      --brand-size: 15px;
+      --brand-weight: 600;
+      --nav-pad: 6px 8px;
+      --nav-radius: 6px;
+      --topbar-pad: 14px 18px;
+      --content-pad: 14px 18px 20px;
+      --stack-gap: 12px;
+      --kpi-gap: 10px;
+      --kpi-pad: 12px 14px;
+      --toolbar-pad: 10px 12px;
+      --cell-pad: 8px 10px;
+      --btn-pad: 5px 10px;
+      --btn-radius: 6px;
+      --card-radius: 8px;
+      --pills-radius: 6px;
+      --pill-pad: 4px 8px;
+      --pill-radius: 4px;
+      --av-radius: 6px;
+      --bar-h: 18px;
+      --bar-radius: 4px;
+    }
+    .theme-signal.mode-dark {
+      --bg: #0f0f10;
+      --text: #d4d4d8;
+      --text-strong: #ececef;
+      --text-muted: #a1a1aa;
+      --text-faint: #71717a;
+      --sidebar-bg: #0a0a0b;
+      --sidebar-text: #a1a1aa;
+      --sidebar-heading: #fafafa;
+      --sidebar-muted: #52525b;
+      --sidebar-border: 1px solid #1c1c1f;
+      --divider: 1px solid #1c1c1f;
+      --divider-soft: 1px solid #1c1c1f;
+      --nav-active-bg: #1a1a1d;
+      --nav-active-text: #fafafa;
+      --nav-active-shadow: inset 0 0 0 1px #27272a;
+      --topbar-bg: #0f0f10;
+      --topbar-border: 1px solid #1c1c1f;
+      --card-bg: #131316;
+      --card-border: 1px solid #232326;
+      --card-shadow: none;
+      --toolbar-bg: #131316;
+      --accent: #5e6ad2;
+      --accent-text: #fff;
+      --btn-bg: #1a1a1d;
+      --btn-text: #e4e4e7;
+      --btn-border: 1px solid #27272a;
+      --pills-bg: #0a0a0b;
+      --pills-border: 1px solid #232326;
+      --pill-on-bg: #5e6ad2;
+      --pill-on-text: #fff;
+      --thead-bg: #0a0a0b;
+      --thead-text: #a1a1aa;
+      --th-transform: uppercase;
+      --row-border: 1px solid #1c1c1f;
+      --col-border: 1px solid #1c1c1f;
+      --row-hover: #18181b;
+      --av-bg: #27272a;
+      --av-text: #e4e4e7;
+      --bar-track: #1c1c1f;
+      --alloc-1: #5e6ad2;
+      --alloc-2: #26b5ce;
+      --alloc-3: #f2994a;
+      --future-bg: #111113;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #1c1c1f 3px, #1c1c1f 4px);
+    }
+    .theme-signal.mode-light {
+      --bg: #f7f7f8;
+      --text: #3f3f46;
+      --text-strong: #18181b;
+      --text-muted: #71717a;
+      --text-faint: #a1a1aa;
+      --sidebar-bg: #ffffff;
+      --sidebar-text: #52525b;
+      --sidebar-heading: #18181b;
+      --sidebar-muted: #a1a1aa;
+      --sidebar-border: 1px solid #e4e4e7;
+      --divider: 1px solid #e4e4e7;
+      --divider-soft: 1px solid #ececef;
+      --nav-active-bg: #f4f4f5;
+      --nav-active-text: #18181b;
+      --nav-active-shadow: inset 0 0 0 1px #e4e4e7;
+      --topbar-bg: #ffffff;
+      --topbar-border: 1px solid #e4e4e7;
+      --card-bg: #ffffff;
+      --card-border: 1px solid #e4e4e7;
+      --card-shadow: none;
+      --toolbar-bg: #ffffff;
+      --accent: #5e6ad2;
+      --accent-text: #fff;
+      --btn-bg: #fff;
+      --btn-text: #3f3f46;
+      --btn-border: 1px solid #e4e4e7;
+      --pills-bg: #f4f4f5;
+      --pills-border: 1px solid #e4e4e7;
+      --pill-on-bg: #5e6ad2;
+      --pill-on-text: #fff;
+      --thead-bg: #fafafa;
+      --thead-text: #71717a;
+      --row-border: 1px solid #ececef;
+      --col-border: 1px solid #f4f4f5;
+      --row-hover: #fafafa;
+      --av-bg: #e4e4e7;
+      --av-text: #3f3f46;
+      --bar-track: #f4f4f5;
+      --alloc-1: #5e6ad2;
+      --alloc-2: #0e8c9e;
+      --alloc-3: #d97706;
+      --future-bg: #fafafa;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #ececef 3px, #ececef 4px);
+    }
+
+    /* 2. Atlas Soft — Stripe-inspired */
+    .theme-atlas {
+      --font: "Inter", system-ui, sans-serif;
+      --font-display: "Inter", system-ui, sans-serif;
+      --font-mono: "Inter", system-ui, sans-serif;
+      --fs-base: 14px;
+      --fs-nav: 13.5px;
+      --fs-h1: 22px;
+      --fs-sub: 13px;
+      --fs-btn: 13px;
+      --fs-label: 12px;
+      --fs-kpi: 26px;
+      --fs-table: 13px;
+      --fs-th: 11px;
+      --h1-weight: 600;
+      --label-transform: none;
+      --label-tracking: 0;
+      --label-weight: 500;
+      --th-transform: none;
+      --th-tracking: 0;
+      --sidebar-w: 220px;
+      --sidebar-pad: 14px;
+      --brand-pad: 10px 10px 16px;
+      --brand-size: 17px;
+      --nav-pad: 8px 10px;
+      --nav-radius: 8px;
+      --topbar-pad: 20px 24px 16px;
+      --content-pad: 8px 24px 28px;
+      --stack-gap: 16px;
+      --kpi-gap: 14px;
+      --kpi-pad: 16px 18px;
+      --toolbar-pad: 12px 16px;
+      --cell-pad: 10px 12px;
+      --btn-pad: 7px 12px;
+      --btn-radius: 8px;
+      --card-radius: 12px;
+      --pills-radius: 8px;
+      --pill-pad: 5px 10px;
+      --pill-radius: 6px;
+      --av-radius: 999px;
+      --bar-h: 22px;
+      --bar-radius: 6px;
+    }
+    .theme-atlas.mode-light {
+      --bg: #f6f9fc;
+      --text: #425466;
+      --text-strong: #0a2540;
+      --text-muted: #697386;
+      --text-faint: #8792a2;
+      --sidebar-bg: #0a2540;
+      --sidebar-text: #adbdcc;
+      --sidebar-heading: #ffffff;
+      --sidebar-muted: #6b7c93;
+      --sidebar-border: 0;
+      --divider: 1px solid rgba(255,255,255,0.08);
+      --divider-soft: 1px solid #e6ebf1;
+      --nav-active-bg: #635bff;
+      --nav-active-text: #fff;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --card-bg: #ffffff;
+      --card-border: 1px solid #e6ebf1;
+      --card-shadow: 0 2px 5px rgba(50,50,93,0.04), 0 1px 2px rgba(0,0,0,0.04);
+      --toolbar-bg: #fff;
+      --accent: #635bff;
+      --accent-text: #fff;
+      --btn-primary-shadow: 0 1px 2px rgba(50,50,93,0.12);
+      --btn-bg: #fff;
+      --btn-text: #0a2540;
+      --btn-border: 1px solid #d8dee4;
+      --pills-bg: #f0f3f7;
+      --pill-on-bg: #fff;
+      --pill-on-text: #0a2540;
+      --pill-on-shadow: 0 1px 2px rgba(50,50,93,0.08);
+      --thead-bg: #f6f9fc;
+      --thead-text: #697386;
+      --row-border: 1px solid #eef2f6;
+      --col-border: 1px solid #eef2f6;
+      --row-hover: #fafbfc;
+      --av-bg: #e7ecf3;
+      --av-text: #0a2540;
+      --bar-track: #f0f3f7;
+      --alloc-1: #635bff;
+      --alloc-2: #00d4ff;
+      --alloc-3: #ff5f64;
+      --future-bg: #fafbfc;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, #eef2f6 4px, #eef2f6 5px);
+    }
+    .theme-atlas.mode-dark {
+      --bg: #0a2540;
+      --text: #c1c9d2;
+      --text-strong: #f6f9fc;
+      --text-muted: #93a0b0;
+      --text-faint: #6b7c93;
+      --sidebar-bg: #071b30;
+      --sidebar-text: #93a0b0;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #54657a;
+      --sidebar-border: 0;
+      --divider: 1px solid rgba(255,255,255,0.08);
+      --divider-soft: 1px solid rgba(255,255,255,0.08);
+      --nav-active-bg: #635bff;
+      --nav-active-text: #fff;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --card-bg: #0f2e4d;
+      --card-border: 1px solid rgba(255,255,255,0.08);
+      --card-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      --toolbar-bg: #0f2e4d;
+      --accent: #7a73ff;
+      --accent-text: #fff;
+      --btn-bg: transparent;
+      --btn-text: #f6f9fc;
+      --btn-border: 1px solid rgba(255,255,255,0.16);
+      --pills-bg: rgba(0,0,0,0.25);
+      --pill-on-bg: #635bff;
+      --pill-on-text: #fff;
+      --thead-bg: #0c2742;
+      --thead-text: #93a0b0;
+      --row-border: 1px solid rgba(255,255,255,0.06);
+      --col-border: 1px solid rgba(255,255,255,0.06);
+      --row-hover: rgba(255,255,255,0.03);
+      --av-bg: #1a3a5c;
+      --av-text: #f6f9fc;
+      --bar-track: rgba(0,0,0,0.25);
+      --alloc-1: #7a73ff;
+      --alloc-2: #00d4ff;
+      --alloc-3: #ff8a8e;
+      --future-bg: rgba(0,0,0,0.15);
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(255,255,255,0.04) 4px, rgba(255,255,255,0.04) 5px);
+    }
+
+    /* 3. Terminal — Vercel-inspired */
+    .theme-terminal {
+      --font: "Inter", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      --fs-base: 13px;
+      --fs-nav: 13px;
+      --fs-h1: 20px;
+      --fs-sub: 13px;
+      --fs-btn: 13px;
+      --fs-label: 11px;
+      --fs-kpi: 24px;
+      --fs-table: 12.5px;
+      --fs-th: 11px;
+      --h1-weight: 600;
+      --label-transform: none;
+      --label-tracking: 0;
+      --th-transform: none;
+      --th-tracking: 0;
+      --sidebar-w: 210px;
+      --sidebar-pad: 12px;
+      --brand-pad: 8px 8px 16px;
+      --brand-size: 16px;
+      --nav-pad: 7px 10px;
+      --nav-radius: 6px;
+      --topbar-pad: 18px 20px;
+      --content-pad: 12px 20px 24px;
+      --stack-gap: 14px;
+      --kpi-gap: 12px;
+      --kpi-pad: 14px;
+      --toolbar-pad: 10px 14px;
+      --cell-pad: 9px 12px;
+      --btn-pad: 6px 12px;
+      --btn-radius: 6px;
+      --card-radius: 8px;
+      --pills-radius: 6px;
+      --pill-pad: 4px 10px;
+      --pill-radius: 4px;
+      --av-radius: 999px;
+      --bar-h: 16px;
+      --bar-radius: 2px;
+    }
+    .theme-terminal.mode-dark {
+      --bg: #000000;
+      --text: #a1a1a1;
+      --text-strong: #ededed;
+      --text-muted: #888;
+      --text-faint: #666;
+      --sidebar-bg: #000;
+      --sidebar-text: #888;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #555;
+      --sidebar-border: 1px solid #333;
+      --divider: 1px solid #333;
+      --divider-soft: 1px solid #222;
+      --nav-active-bg: #111;
+      --nav-active-text: #fff;
+      --topbar-bg: #000;
+      --topbar-border: 1px solid #333;
+      --card-bg: #0a0a0a;
+      --card-border: 1px solid #333;
+      --card-shadow: none;
+      --toolbar-bg: #0a0a0a;
+      --accent: #fff;
+      --accent-text: #000;
+      --btn-bg: #000;
+      --btn-text: #ededed;
+      --btn-border: 1px solid #333;
+      --btn-primary-border: 1px solid #fff;
+      --pills-bg: #000;
+      --pills-border: 1px solid #333;
+      --pill-on-bg: #fff;
+      --pill-on-text: #000;
+      --thead-bg: #000;
+      --thead-text: #888;
+      --row-border: 1px solid #222;
+      --col-border: 1px solid #1a1a1a;
+      --row-hover: #111;
+      --av-bg: #222;
+      --av-text: #ededed;
+      --bar-track: #1a1a1a;
+      --alloc-1: #fff;
+      --alloc-2: #888;
+      --alloc-3: #444;
+      --future-bg: #050505;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #1a1a1a 3px, #1a1a1a 4px);
+    }
+    .theme-terminal.mode-light {
+      --bg: #fafafa;
+      --text: #666;
+      --text-strong: #000;
+      --text-muted: #666;
+      --text-faint: #999;
+      --sidebar-bg: #fff;
+      --sidebar-text: #666;
+      --sidebar-heading: #000;
+      --sidebar-muted: #999;
+      --sidebar-border: 1px solid #eaeaea;
+      --divider: 1px solid #eaeaea;
+      --divider-soft: 1px solid #eaeaea;
+      --nav-active-bg: #000;
+      --nav-active-text: #fff;
+      --topbar-bg: #fff;
+      --topbar-border: 1px solid #eaeaea;
+      --card-bg: #fff;
+      --card-border: 1px solid #eaeaea;
+      --card-shadow: none;
+      --toolbar-bg: #fff;
+      --accent: #000;
+      --accent-text: #fff;
+      --btn-bg: #fff;
+      --btn-text: #000;
+      --btn-border: 1px solid #eaeaea;
+      --pills-bg: #fafafa;
+      --pills-border: 1px solid #eaeaea;
+      --pill-on-bg: #000;
+      --pill-on-text: #fff;
+      --thead-bg: #fafafa;
+      --thead-text: #666;
+      --row-border: 1px solid #eaeaea;
+      --col-border: 1px solid #f2f2f2;
+      --row-hover: #fafafa;
+      --av-bg: #eee;
+      --av-text: #000;
+      --bar-track: #f2f2f2;
+      --alloc-1: #000;
+      --alloc-2: #666;
+      --alloc-3: #bbb;
+      --future-bg: #fafafa;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #eaeaea 3px, #eaeaea 4px);
+    }
+
+    /* 4. Quiet Desk — Notion-inspired */
+    .theme-quiet {
+      --font: "Inter", system-ui, sans-serif;
+      --font-display: "Lora", "Source Serif 4", Georgia, serif;
+      --fs-base: 14px;
+      --fs-nav: 14px;
+      --fs-h1: 26px;
+      --fs-sub: 14px;
+      --fs-btn: 13px;
+      --fs-label: 12px;
+      --fs-kpi: 28px;
+      --fs-table: 13px;
+      --fs-th: 12px;
+      --h1-weight: 600;
+      --h1-tracking: -0.02em;
+      --label-transform: none;
+      --label-tracking: 0;
+      --th-transform: none;
+      --th-tracking: 0;
+      --sidebar-w: 236px;
+      --sidebar-pad: 8px;
+      --brand-pad: 12px 12px 8px;
+      --brand-size: 18px;
+      --brand-weight: 600;
+      --nav-pad: 6px 10px;
+      --nav-radius: 6px;
+      --topbar-pad: 28px 36px 8px;
+      --content-pad: 8px 36px 40px;
+      --stack-gap: 18px;
+      --kpi-gap: 12px;
+      --kpi-pad: 14px 16px;
+      --toolbar-pad: 8px 12px;
+      --cell-pad: 10px 12px;
+      --btn-pad: 5px 10px;
+      --btn-radius: 6px;
+      --card-radius: 8px;
+      --pills-radius: 6px;
+      --pill-pad: 3px 8px;
+      --pill-radius: 4px;
+      --av-radius: 4px;
+      --bar-h: 20px;
+      --bar-radius: 3px;
+    }
+    .theme-quiet.mode-light {
+      --bg: #ffffff;
+      --text: #37352f;
+      --text-strong: #37352f;
+      --text-muted: #787774;
+      --text-faint: #9b9a97;
+      --sidebar-bg: #f7f6f3;
+      --sidebar-text: #37352f;
+      --sidebar-heading: #37352f;
+      --sidebar-muted: #9b9a97;
+      --sidebar-border: 0;
+      --divider: 1px solid rgba(55,53,47,0.09);
+      --divider-soft: 1px solid rgba(55,53,47,0.09);
+      --nav-active-bg: rgba(55,53,47,0.08);
+      --nav-active-text: #37352f;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --card-bg: #fff;
+      --card-border: 1px solid rgba(55,53,47,0.09);
+      --card-shadow: none;
+      --toolbar-bg: transparent;
+      --accent: #2383e2;
+      --accent-text: #fff;
+      --btn-bg: transparent;
+      --btn-text: #37352f;
+      --btn-border: 1px solid rgba(55,53,47,0.16);
+      --pills-bg: rgba(55,53,47,0.06);
+      --pill-on-bg: #fff;
+      --pill-on-text: #37352f;
+      --pill-on-shadow: 0 0 0 1px rgba(55,53,47,0.12);
+      --thead-bg: #f7f6f3;
+      --thead-text: #787774;
+      --row-border: 1px solid rgba(55,53,47,0.09);
+      --col-border: 1px solid rgba(55,53,47,0.06);
+      --row-hover: rgba(55,53,47,0.03);
+      --av-bg: #e3e2de;
+      --av-text: #37352f;
+      --bar-track: rgba(55,53,47,0.06);
+      --alloc-1: #2383e2;
+      --alloc-2: #0f7b6c;
+      --alloc-3: #d9730d;
+      --future-bg: #fafafa;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, rgba(55,53,47,0.06) 4px, rgba(55,53,47,0.06) 5px);
+    }
+    .theme-quiet.mode-dark {
+      --bg: #191919;
+      --text: #ffffffcf;
+      --text-strong: #fff;
+      --text-muted: #ffffff99;
+      --text-faint: #ffffff66;
+      --sidebar-bg: #202020;
+      --sidebar-text: #ffffffbf;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #ffffff66;
+      --sidebar-border: 0;
+      --divider: 1px solid #ffffff14;
+      --divider-soft: 1px solid #ffffff14;
+      --nav-active-bg: #ffffff14;
+      --nav-active-text: #fff;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --card-bg: #202020;
+      --card-border: 1px solid #ffffff14;
+      --card-shadow: none;
+      --toolbar-bg: transparent;
+      --accent: #529cca;
+      --accent-text: #fff;
+      --btn-bg: transparent;
+      --btn-text: #fff;
+      --btn-border: 1px solid #ffffff22;
+      --pills-bg: #ffffff12;
+      --pill-on-bg: #ffffff18;
+      --pill-on-text: #fff;
+      --thead-bg: #202020;
+      --thead-text: #ffffff99;
+      --row-border: 1px solid #ffffff12;
+      --col-border: 1px solid #ffffff0a;
+      --row-hover: #ffffff08;
+      --av-bg: #333;
+      --av-text: #fff;
+      --bar-track: #ffffff12;
+      --alloc-1: #529cca;
+      --alloc-2: #4dab9a;
+      --alloc-3: #ffb454;
+      --future-bg: #151515;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, #ffffff0a 4px, #ffffff0a 5px);
+    }
+
+    /* 5. Clarity — Apple-inspired */
+    .theme-clarity {
+      --font: "SF Pro Display", "Inter", system-ui, -apple-system, sans-serif;
+      --fs-base: 14px;
+      --fs-nav: 13px;
+      --fs-h1: 28px;
+      --fs-sub: 14px;
+      --fs-btn: 13px;
+      --fs-label: 12px;
+      --fs-kpi: 30px;
+      --fs-table: 13px;
+      --fs-th: 11px;
+      --h1-weight: 650;
+      --h1-tracking: -0.035em;
+      --label-transform: none;
+      --label-tracking: -0.01em;
+      --label-weight: 500;
+      --th-transform: none;
+      --th-tracking: -0.01em;
+      --sidebar-w: 240px;
+      --sidebar-pad: 16px;
+      --brand-pad: 12px 8px 20px;
+      --brand-size: 20px;
+      --brand-weight: 700;
+      --brand-tracking: -0.04em;
+      --nav-pad: 9px 12px;
+      --nav-radius: 10px;
+      --topbar-pad: 28px 32px 12px;
+      --content-pad: 8px 32px 40px;
+      --stack-gap: 20px;
+      --kpi-gap: 16px;
+      --kpi-pad: 18px 20px;
+      --toolbar-pad: 12px 16px;
+      --cell-pad: 12px 14px;
+      --btn-pad: 8px 14px;
+      --btn-radius: 980px;
+      --card-radius: 16px;
+      --pills-radius: 980px;
+      --pill-pad: 6px 14px;
+      --pill-radius: 980px;
+      --av-radius: 999px;
+      --bar-h: 24px;
+      --bar-radius: 8px;
+    }
+    .theme-clarity.mode-light {
+      --bg: #f5f5f7;
+      --text: #1d1d1f;
+      --text-strong: #1d1d1f;
+      --text-muted: #6e6e73;
+      --text-faint: #86868b;
+      --sidebar-bg: rgba(255,255,255,0.72);
+      --sidebar-text: #1d1d1f;
+      --sidebar-heading: #1d1d1f;
+      --sidebar-muted: #86868b;
+      --sidebar-border: 1px solid rgba(0,0,0,0.06);
+      --divider: 1px solid rgba(0,0,0,0.06);
+      --divider-soft: 1px solid rgba(0,0,0,0.05);
+      --nav-active-bg: #0071e3;
+      --nav-active-text: #fff;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --topbar-blur: saturate(180%) blur(20px);
+      --card-bg: #ffffff;
+      --card-border: 0;
+      --card-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      --toolbar-bg: #fff;
+      --accent: #0071e3;
+      --accent-text: #fff;
+      --btn-bg: #e8e8ed;
+      --btn-text: #1d1d1f;
+      --btn-border: 0;
+      --pills-bg: #e8e8ed;
+      --pill-on-bg: #fff;
+      --pill-on-text: #1d1d1f;
+      --pill-on-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      --thead-bg: #fbfbfd;
+      --thead-text: #6e6e73;
+      --row-border: 1px solid #f0f0f2;
+      --col-border: 1px solid #f5f5f7;
+      --row-hover: #fbfbfd;
+      --av-bg: #e8e8ed;
+      --av-text: #1d1d1f;
+      --bar-track: #f0f0f2;
+      --alloc-1: #0071e3;
+      --alloc-2: #34c759;
+      --alloc-3: #ff9f0a;
+      --future-bg: #fbfbfd;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 5px, #f0f0f2 5px, #f0f0f2 6px);
+    }
+    .theme-clarity.mode-dark {
+      --bg: #000000;
+      --text: #f5f5f7;
+      --text-strong: #f5f5f7;
+      --text-muted: #a1a1a6;
+      --text-faint: #6e6e73;
+      --sidebar-bg: #1c1c1e;
+      --sidebar-text: #f5f5f7;
+      --sidebar-heading: #f5f5f7;
+      --sidebar-muted: #6e6e73;
+      --sidebar-border: 1px solid #2c2c2e;
+      --divider: 1px solid #2c2c2e;
+      --divider-soft: 1px solid #2c2c2e;
+      --nav-active-bg: #0a84ff;
+      --nav-active-text: #fff;
+      --topbar-bg: transparent;
+      --topbar-border: 0;
+      --card-bg: #1c1c1e;
+      --card-border: 0;
+      --card-shadow: none;
+      --toolbar-bg: #1c1c1e;
+      --accent: #0a84ff;
+      --accent-text: #fff;
+      --btn-bg: #2c2c2e;
+      --btn-text: #f5f5f7;
+      --btn-border: 0;
+      --pills-bg: #2c2c2e;
+      --pill-on-bg: #3a3a3c;
+      --pill-on-text: #f5f5f7;
+      --thead-bg: #1c1c1e;
+      --thead-text: #a1a1a6;
+      --row-border: 1px solid #2c2c2e;
+      --col-border: 1px solid #2c2c2e;
+      --row-hover: #2c2c2e;
+      --av-bg: #3a3a3c;
+      --av-text: #f5f5f7;
+      --bar-track: #2c2c2e;
+      --alloc-1: #0a84ff;
+      --alloc-2: #30d158;
+      --alloc-3: #ffd60a;
+      --future-bg: #111;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 5px, #2c2c2e 5px, #2c2c2e 6px);
+    }
+
+    /* 6. Workbench — Figma-inspired */
+    .theme-workbench {
+      --font: "Inter", system-ui, sans-serif;
+      --fs-base: 12.5px;
+      --fs-nav: 12.5px;
+      --fs-h1: 16px;
+      --fs-sub: 12px;
+      --fs-btn: 12px;
+      --fs-label: 10px;
+      --fs-kpi: 20px;
+      --fs-table: 12px;
+      --fs-th: 10px;
+      --h1-weight: 600;
+      --h1-tracking: -0.01em;
+      --label-tracking: 0.02em;
+      --sidebar-w: 208px;
+      --sidebar-pad: 8px;
+      --brand-pad: 8px 8px 12px;
+      --brand-size: 14px;
+      --nav-pad: 6px 8px;
+      --nav-radius: 6px;
+      --topbar-pad: 10px 14px;
+      --content-pad: 10px 14px 16px;
+      --stack-gap: 10px;
+      --kpi-gap: 8px;
+      --kpi-pad: 10px 12px;
+      --toolbar-pad: 8px 10px;
+      --cell-pad: 6px 8px;
+      --btn-pad: 4px 8px;
+      --btn-radius: 6px;
+      --card-radius: 8px;
+      --pills-radius: 6px;
+      --pill-pad: 3px 7px;
+      --pill-radius: 4px;
+      --av-radius: 4px;
+      --bar-h: 16px;
+      --bar-radius: 3px;
+      --pills-gap: 2px;
+    }
+    .theme-workbench.mode-light {
+      --bg: #f5f5f5;
+      --text: #333;
+      --text-strong: #000;
+      --text-muted: #666;
+      --text-faint: #999;
+      --sidebar-bg: #2c2c2c;
+      --sidebar-text: #ccc;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #888;
+      --sidebar-border: 0;
+      --divider: 1px solid #3d3d3d;
+      --divider-soft: 1px solid #e5e5e5;
+      --nav-active-bg: #0d99ff;
+      --nav-active-text: #fff;
+      --topbar-bg: #ffffff;
+      --topbar-border: 1px solid #e5e5e5;
+      --card-bg: #ffffff;
+      --card-border: 1px solid #e5e5e5;
+      --card-shadow: none;
+      --toolbar-bg: #fafafa;
+      --accent: #0d99ff;
+      --accent-text: #fff;
+      --btn-bg: #fff;
+      --btn-text: #333;
+      --btn-border: 1px solid #e5e5e5;
+      --pills-bg: #eee;
+      --pill-on-bg: #fff;
+      --pill-on-text: #000;
+      --pill-on-shadow: 0 0 0 1px #e5e5e5;
+      --thead-bg: #2c2c2c;
+      --thead-text: #ccc;
+      --th-transform: uppercase;
+      --row-border: 1px solid #eee;
+      --col-border: 1px solid #f0f0f0;
+      --row-hover: #f9f9f9;
+      --av-bg: #e5e5e5;
+      --av-text: #333;
+      --bar-track: #f0f0f0;
+      --alloc-1: #0d99ff;
+      --alloc-2: #9747ff;
+      --alloc-3: #ffcd29;
+      --future-bg: #fafafa;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #eee 3px, #eee 4px);
+    }
+    .theme-workbench.mode-dark {
+      --bg: #1e1e1e;
+      --text: #ccc;
+      --text-strong: #fff;
+      --text-muted: #999;
+      --text-faint: #777;
+      --sidebar-bg: #2c2c2c;
+      --sidebar-text: #ccc;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #888;
+      --sidebar-border: 0;
+      --divider: 1px solid #3d3d3d;
+      --divider-soft: 1px solid #333;
+      --nav-active-bg: #0d99ff;
+      --nav-active-text: #fff;
+      --topbar-bg: #2c2c2c;
+      --topbar-border: 1px solid #3d3d3d;
+      --card-bg: #2c2c2c;
+      --card-border: 1px solid #3d3d3d;
+      --card-shadow: none;
+      --toolbar-bg: #252525;
+      --accent: #0d99ff;
+      --accent-text: #fff;
+      --btn-bg: #333;
+      --btn-text: #eee;
+      --btn-border: 1px solid #444;
+      --pills-bg: #1e1e1e;
+      --pill-on-bg: #0d99ff;
+      --pill-on-text: #fff;
+      --thead-bg: #252525;
+      --thead-text: #999;
+      --row-border: 1px solid #333;
+      --col-border: 1px solid #333;
+      --row-hover: #333;
+      --av-bg: #444;
+      --av-text: #fff;
+      --bar-track: #1e1e1e;
+      --alloc-1: #0d99ff;
+      --alloc-2: #9747ff;
+      --alloc-3: #ffcd29;
+      --future-bg: #222;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 3px, #333 3px, #333 4px);
+    }
+
+    /* 7. Lab Ledger — tailored hybrid for Runway */
+    .theme-ledger {
+      --font: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+      --font-display: "IBM Plex Sans", system-ui, sans-serif;
+      --fs-base: 13.5px;
+      --fs-nav: 13px;
+      --fs-h1: 20px;
+      --fs-sub: 12.5px;
+      --fs-btn: 12.5px;
+      --fs-label: 10px;
+      --fs-kpi: 24px;
+      --fs-table: 12.5px;
+      --fs-th: 10px;
+      --h1-weight: 600;
+      --h1-tracking: -0.02em;
+      --label-tracking: 0.05em;
+      --sidebar-w: 216px;
+      --sidebar-pad: 12px;
+      --brand-pad: 8px 8px 14px;
+      --brand-size: 17px;
+      --brand-weight: 650;
+      --nav-pad: 7px 10px;
+      --nav-radius: 7px;
+      --topbar-pad: 16px 20px;
+      --content-pad: 14px 20px 22px;
+      --stack-gap: 14px;
+      --kpi-gap: 12px;
+      --kpi-pad: 14px 16px;
+      --toolbar-pad: 10px 14px;
+      --cell-pad: 8px 10px;
+      --btn-pad: 6px 11px;
+      --btn-radius: 7px;
+      --card-radius: 10px;
+      --pills-radius: 7px;
+      --pill-pad: 4px 9px;
+      --pill-radius: 5px;
+      --av-radius: 7px;
+      --bar-h: 20px;
+      --bar-radius: 4px;
+    }
+    .theme-ledger.mode-light {
+      --bg: #f3f5f7;
+      --text: #334155;
+      --text-strong: #0c2340;
+      --text-muted: #64748b;
+      --text-faint: #94a3b8;
+      --sidebar-bg: #0c2340;
+      --sidebar-text: #cbd5e1;
+      --sidebar-heading: #ffffff;
+      --sidebar-muted: #7c8ea3;
+      --sidebar-border: 0;
+      --divider: 1px solid rgba(255,255,255,0.1);
+      --divider-soft: 1px solid #e2e8f0;
+      --nav-active-bg: #028488;
+      --nav-active-text: #fff;
+      --topbar-bg: #ffffff;
+      --topbar-border: 1px solid #e2e8f0;
+      --card-bg: #ffffff;
+      --card-border: 1px solid #e2e8f0;
+      --card-shadow: 0 1px 2px rgba(12,35,64,0.04);
+      --toolbar-bg: #fff;
+      --accent: #028488;
+      --accent-text: #fff;
+      --btn-bg: #fff;
+      --btn-text: #0c2340;
+      --btn-border: 1px solid #d0d7de;
+      --pills-bg: #eef2f6;
+      --pill-on-bg: #0c2340;
+      --pill-on-text: #fff;
+      --thead-bg: #0c2340;
+      --thead-text: #e2e8f0;
+      --th-transform: uppercase;
+      --row-border: 1px solid #eef2f6;
+      --col-border: 1px solid #f1f5f9;
+      --row-hover: #f8fafc;
+      --av-bg: #dbe7f0;
+      --av-text: #0c2340;
+      --bar-track: #eef2f6;
+      --alloc-1: #028488;
+      --alloc-2: #89d1b2;
+      --alloc-3: #b2c9f2;
+      --future-bg: #f8fafc;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, #e2e8f0 4px, #e2e8f0 5px);
+    }
+    .theme-ledger.mode-dark {
+      --bg: #0a1628;
+      --text: #cbd5e1;
+      --text-strong: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-faint: #64748b;
+      --sidebar-bg: #07101c;
+      --sidebar-text: #94a3b8;
+      --sidebar-heading: #fff;
+      --sidebar-muted: #64748b;
+      --sidebar-border: 1px solid #1e2d42;
+      --divider: 1px solid #1e2d42;
+      --divider-soft: 1px solid #1e2d42;
+      --nav-active-bg: #028488;
+      --nav-active-text: #fff;
+      --topbar-bg: #0f1c2e;
+      --topbar-border: 1px solid #1e2d42;
+      --card-bg: #0f1c2e;
+      --card-border: 1px solid #1e2d42;
+      --card-shadow: none;
+      --toolbar-bg: #0f1c2e;
+      --accent: #2aa8ad;
+      --accent-text: #042428;
+      --btn-bg: transparent;
+      --btn-text: #e2e8f0;
+      --btn-border: 1px solid #2a3d55;
+      --pills-bg: #07101c;
+      --pill-on-bg: #028488;
+      --pill-on-text: #fff;
+      --thead-bg: #07101c;
+      --thead-text: #94a3b8;
+      --row-border: 1px solid #1e2d42;
+      --col-border: 1px solid #162536;
+      --row-hover: #132033;
+      --av-bg: #1e2d42;
+      --av-text: #e2e8f0;
+      --bar-track: #162536;
+      --alloc-1: #2aa8ad;
+      --alloc-2: #89d1b2;
+      --alloc-3: #b2c9f2;
+      --future-bg: #0a1628;
+      --future-pattern: repeating-linear-gradient(-45deg, transparent, transparent 4px, #1e2d42 4px, #1e2d42 5px);
+    }
+  </style>
+</head>
+<body>
+  <div class="exp">
+    <p class="exp-kicker">Design exploration · not wired into the app</p>
+    <h1>Visual skins for Runway</h1>
+    <p class="exp-lead">
+      Seven distinct directions for the same Timeline screen. Functionality, IA, and content are unchanged—
+      only typography, density, color, chrome, and component styling vary. Pick a direction; implementation comes later.
+    </p>
+    <div class="exp-note">
+      <strong>Read-only exploration.</strong> This file lives under <code>design-exploration/</code> and does not modify the application UI.
+    </div>
+
+    <div class="theme-grid" id="themeGrid" role="listbox" aria-label="Theme directions"></div>
+
+    <div class="controls">
+      <label>Preview mode</label>
+      <div class="seg" id="modeSeg" role="group" aria-label="Light or dark">
+        <button type="button" data-mode="light" aria-pressed="true">Light</button>
+        <button type="button" data-mode="dark" aria-pressed="false">Dark</button>
+      </div>
+      <label style="margin-left:8px">Screen</label>
+      <div class="seg" id="screenSeg" role="group" aria-label="Representative screen">
+        <button type="button" data-screen="timeline" aria-pressed="true">Timeline</button>
+        <button type="button" data-screen="runway" aria-pressed="false">Runway</button>
+      </div>
+    </div>
+
+    <div class="philosophy" id="philosophy"></div>
+
+    <div class="preview-shell">
+      <div class="preview-bar">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <span id="previewLabel">Signal Dense · Timeline · Light</span>
+      </div>
+      <div class="preview-frame" id="previewFrame"></div>
+    </div>
+
+    <section class="compare-section">
+      <h2>Side-by-side thumbnails</h2>
+      <p class="sub">Same Timeline chrome at reduced scale. Click a card above to enlarge that direction in the live preview.</p>
+      <div class="compare-grid" id="compareGrid"></div>
+    </section>
+  </div>
+
+  <script>
+    const THEMES = [
+      {
+        id: "signal",
+        name: "Signal Dense",
+        refs: "Linear · Raycast",
+        blurb: "Compact, highly polished, information-first. Tight rhythm, hairline borders, violet accent as a precision signal—not decoration.",
+        philosophy: "Treat the Timeline like a professional instrument panel: maximize signal per pixel without feeling cramped. Hierarchy comes from weight and contrast, not large empty regions. Ideal when planners live in the grid for long sessions.",
+        traits: ["Dense spacing", "Hairline borders", "Violet accent", "Tabular mono for numbers", "Minimal shadow"],
+        swatches: ["#0f0f10", "#5e6ad2", "#26b5ce", "#ececef"],
+        defaultMode: "dark",
+      },
+      {
+        id: "atlas",
+        name: "Atlas Soft",
+        refs: "Stripe · Mercury",
+        blurb: "Clean, sophisticated enterprise UI. Soft elevation, navy authority, indigo accents, approachable copy hierarchy.",
+        philosophy: "Finance tools should feel trustworthy and calm. Cards float gently on a cool canvas; the navy sidebar carries institutional weight while indigo CTAs guide action. Slightly roomier than Linear—optimized for clarity over maximum density.",
+        traits: ["Soft card elevation", "Indigo accent", "Navy authority", "Sentence-case labels", "Approachable type"],
+        swatches: ["#f6f9fc", "#0a2540", "#635bff", "#00d4ff"],
+        defaultMode: "light",
+      },
+      {
+        id: "terminal",
+        name: "Terminal",
+        refs: "Vercel · GitHub",
+        blurb: "Monochrome, crisp, technical. Near-zero color; structure from 1px borders and black/white contrast alone.",
+        philosophy: "Remove color as a crutch. Allocation “bars” become grayscale ramps; primary actions invert to white-on-black. The UI feels like infrastructure documentation—precise, opinionated, and modern. Strong fit if Runway should feel like an engineering tool.",
+        traits: ["Monochrome", "1px borders", "Sharp contrast", "No soft shadows", "Data as typography"],
+        swatches: ["#000000", "#ffffff", "#333333", "#888888"],
+        defaultMode: "dark",
+      },
+      {
+        id: "quiet",
+        name: "Quiet Desk",
+        refs: "Notion · Craft",
+        blurb: "Calm, warm, content-focused. Soft paper surfaces, restrained blue accent, serif display for page titles.",
+        philosophy: "Planning is cognitive work—reduce chrome noise. Warm neutrals and soft active states make the grid feel like a document you edit, not a dashboard you monitor. Best when narrative context and notes matter as much as the matrix.",
+        traits: ["Warm paper", "Serif titles", "Low chrome", "Soft selection", "Document feel"],
+        swatches: ["#ffffff", "#f7f6f3", "#37352f", "#2383e2"],
+        defaultMode: "light",
+      },
+      {
+        id: "clarity",
+        name: "Clarity",
+        refs: "Apple · Arc",
+        blurb: "Spacious, premium, exceptionally clean. Large type, pill controls, soft materials, generous whitespace.",
+        philosophy: "Let the data breathe. Large titles and pill-shaped controls communicate confidence and polish. Density is traded for legibility and a consumer-grade feel—powerful for executive review, less optimal for power-user grid editing.",
+        traits: ["Spacious rhythm", "Pill controls", "Large H1", "Soft materials", "Blue system accent"],
+        swatches: ["#f5f5f7", "#1d1d1f", "#0071e3", "#ffffff"],
+        defaultMode: "light",
+      },
+      {
+        id: "workbench",
+        name: "Workbench",
+        refs: "Figma · Pitch",
+        blurb: "Modern tool chrome: dark utility sidebar, bright functional accent, slightly expressive allocation colors.",
+        philosophy: "Runway is a workspace, not a brochure. Tool-like density, dark left rail, and a vivid cyan accent echo design/product tools. Allocation colors can be more expressive (cyan / violet / yellow) because the chrome stays neutral and utilitarian.",
+        traits: ["Tool chrome", "Cyan accent", "Expressive alloc colors", "Compact toolbar", "Utility dark rail"],
+        swatches: ["#2c2c2c", "#0d99ff", "#9747ff", "#ffcd29"],
+        defaultMode: "light",
+      },
+      {
+        id: "ledger",
+        name: "Lab Ledger",
+        refs: "Hybrid · ImmunoX cues",
+        blurb: "Tailored for academic finance: navy trust + teal action + Linear density + Stripe card clarity, with ImmunoX mint/periwinkle in data.",
+        philosophy: "Keep institutional recognition (navy / teal) but upgrade craft: tighter type scale, clearer table header contrast, restrained elevation, and brand-adjacent allocation colors (teal, mint, periwinkle) instead of generic chart rainbows. Built specifically for lab personnel funding—not a generic SaaS restyle.",
+        traits: ["Navy + teal heritage", "IBM Plex", "Dense but calm", "Brand alloc colors", "Academic trust"],
+        swatches: ["#0c2340", "#028488", "#89d1b2", "#b2c9f2"],
+        defaultMode: "light",
+      },
+    ];
+
+    const ICONS = {
+      dashboard: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>',
+      timeline: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+      projections: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 3 5-6"/></svg>',
+      runway: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg>',
+      employees: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+      upload: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg>',
+      settings: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>',
+    };
+
+    let state = { theme: "signal", mode: "dark", screen: "timeline" };
+
+    function nav(active) {
+      const items = [
+        ["dashboard", "Dashboard"],
+        ["timeline", "Timeline"],
+        ["projections", "Projections"],
+        ["runway", "Runway"],
+        ["employees", "Employees"],
+        ["upload", "Upload"],
+      ];
+      return items.map(([k, label]) =>
+        `<div class="nav-item${k === active ? " active" : ""}">${ICONS[k]}<span>${label}</span></div>`
+      ).join("") + `<div style="flex:1"></div><div class="nav-item">${ICONS.settings}<span>Settings</span></div>`;
+    }
+
+    function bar(cls, pct, meta) {
+      return `<div class="bar-cell"><div class="bar ${cls}"><i style="width:${pct}%"></i></div><div class="bar-meta">${meta}</div></div>`;
+    }
+
+    function timelineApp() {
+      return `
+      <div class="app">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="product">Runway<span class="alpha">α</span></div>
+            <div class="tagline">Personnel Funding Planner</div>
+          </div>
+          ${nav("timeline")}
+          <div class="sidebar-foot">Planning estimates only. Confirm with your finance/post-award analyst.</div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div>
+              <h1>Timeline</h1>
+              <p class="sub">Interactive personnel funding plan (actual payroll through this month)</p>
+            </div>
+            <div class="topbar-actions">
+              <button class="btn ghost">Alerts</button>
+              <button class="btn primary">Export</button>
+            </div>
+          </header>
+          <div class="content">
+            <div class="kpi-row">
+              <div class="kpi">
+                <div class="label">Total Monthly Salary + Benefits</div>
+                <div class="value">$184,260</div>
+                <div class="hint">Planning estimate · Aug 2026</div>
+              </div>
+              <div class="kpi">
+                <div class="label">FY Projected Personnel Cost</div>
+                <div class="value">$2.11M</div>
+                <div class="hint">Includes known off-ramps</div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="toolbar">
+                <div class="tool-group">
+                  <span class="tool-label">Display</span>
+                  <div class="pills">
+                    <span class="pill">%</span>
+                    <span class="pill on">$</span>
+                    <span class="pill">Both</span>
+                  </div>
+                </div>
+                <div class="tool-group">
+                  <span class="tool-label">Personnel</span>
+                  <div class="pills">
+                    <span class="pill on">All</span>
+                    <span class="pill">Research</span>
+                    <span class="pill">Data</span>
+                  </div>
+                </div>
+                <div class="tool-group">
+                  <span class="tool-label">Range</span>
+                  <div class="pills">
+                    <span class="pill on">FY26</span>
+                    <span class="pill">12 mo</span>
+                    <span class="pill">Custom</span>
+                  </div>
+                </div>
+              </div>
+              <div class="grid-wrap">
+                <table class="tl">
+                  <thead>
+                    <tr>
+                      <th rowspan="2">Employee / Funding Source</th>
+                      <th rowspan="2">Scope</th>
+                      <th class="yr" colspan="4">FY 2026</th>
+                    </tr>
+                    <tr>
+                      <th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><div class="emp"><span class="av">MK</span> Maya Chen</div></td>
+                      <td class="scope">Research development</td>
+                      ${bar("c1", 100, "$14.2k")}
+                      ${bar("c1", 100, "$14.2k")}
+                      ${bar("c1", 100, "$14.2k")}
+                      <td class="future">${bar("c1", 100, "$14.2k")}</td>
+                    </tr>
+                    <tr>
+                      <td class="fund">Start-up · 445123-AA</td>
+                      <td class="scope">60%</td>
+                      ${bar("c1", 60, "$8.5k")}
+                      ${bar("c1", 60, "$8.5k")}
+                      ${bar("c1", 55, "$7.8k")}
+                      <td class="future">${bar("c1", 50, "$7.1k")}</td>
+                    </tr>
+                    <tr>
+                      <td class="fund">R01 Projects · 778901-BB</td>
+                      <td class="scope">40%</td>
+                      ${bar("c2", 40, "$5.7k")}
+                      ${bar("c2", 40, "$5.7k")}
+                      ${bar("c2", 45, "$6.4k")}
+                      <td class="future">${bar("c2", 50, "$7.1k")}</td>
+                    </tr>
+                    <tr>
+                      <td><div class="emp"><span class="av">JR</span> Jordan Ruiz</div></td>
+                      <td class="scope">Data management</td>
+                      ${bar("c3", 100, "$9.8k")}
+                      ${bar("c3", 100, "$9.8k")}
+                      ${bar("c3", 80, "$7.8k")}
+                      <td class="future">${bar("c3", 0, "—")}</td>
+                    </tr>
+                    <tr>
+                      <td class="fund">Endowment · 112044-CC</td>
+                      <td class="scope">100%</td>
+                      ${bar("c3", 100, "$9.8k")}
+                      ${bar("c3", 100, "$9.8k")}
+                      ${bar("c3", 80, "$7.8k")}
+                      <td class="future">${bar("c3", 0, "Off-ramp")}</td>
+                    </tr>
+                    <tr>
+                      <td><div class="emp"><span class="av">AL</span> Aisha Patel</div></td>
+                      <td class="scope">Project management</td>
+                      ${bar("c2", 100, "$11.4k")}
+                      ${bar("c2", 100, "$11.4k")}
+                      ${bar("c1", 100, "$11.4k")}
+                      <td class="future">${bar("c1", 100, "$11.4k")}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function runwayApp() {
+      return `
+      <div class="app">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="product">Runway<span class="alpha">α</span></div>
+            <div class="tagline">Personnel Funding Planner</div>
+          </div>
+          ${nav("runway")}
+          <div class="sidebar-foot">Planning estimates only. Confirm with your finance/post-award analyst.</div>
+        </aside>
+        <div class="main">
+          <header class="topbar">
+            <div>
+              <h1>Runway</h1>
+              <p class="sub">Months of payroll coverage remaining by account</p>
+            </div>
+            <div class="topbar-actions">
+              <button class="btn ghost">Hidden accounts</button>
+              <button class="btn primary">Refresh balances</button>
+            </div>
+          </header>
+          <div class="content">
+            <div class="toolbar" style="border: var(--card-border); border-radius: var(--card-radius); background: var(--card-bg); box-shadow: var(--card-shadow);">
+              <div class="tool-group">
+                <span class="tool-label">Personnel</span>
+                <div class="pills">
+                  <span class="pill on">All</span>
+                  <span class="pill">Research</span>
+                  <span class="pill">Data</span>
+                </div>
+              </div>
+              <div class="tool-group">
+                <span class="tool-label">Sort</span>
+                <div class="pills">
+                  <span class="pill on">Lowest runway</span>
+                  <span class="pill">Name</span>
+                </div>
+              </div>
+            </div>
+            <div class="panel" style="padding: var(--kpi-pad);">
+              <div class="emp" style="margin-bottom: 10px;"><span class="av">MK</span> Maya Chen · 3 accounts</div>
+              <div class="hint" style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">Combined net balance · $42.6k · $14.2k/mo shared burn</div>
+              <div class="bar c1" style="height:10px; margin-bottom:14px;"><i style="width:38%"></i></div>
+              <table class="tl">
+                <thead>
+                  <tr>
+                    <th>Chartstring</th><th>Account</th><th>Net balance</th><th>% · Mo. burn</th><th>Runway</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>445123-AA</td><td>Start-up</td><td>$28,400</td><td>60% · $8.5k</td><td><strong>3.3 mo</strong></td>
+                  </tr>
+                  <tr>
+                    <td>778901-BB</td><td>R01 Projects</td><td>$14,200</td><td>40% · $5.7k</td><td><strong>2.5 mo</strong></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="panel" style="padding: var(--kpi-pad);">
+              <div class="emp" style="margin-bottom: 10px;"><span class="av">JR</span> Jordan Ruiz · 1 account</div>
+              <div class="hint" style="color:var(--text-muted); font-size:12px; margin-bottom:10px;">Combined net balance · $19.6k · $9.8k/mo shared burn</div>
+              <div class="bar c3" style="height:10px; margin-bottom:8px;"><i style="width:20%"></i></div>
+              <div class="bar-meta" style="margin-bottom:0;">~2.0 months · Endowment 112044-CC</div>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    function renderApp(themeId, mode, screen) {
+      const html = screen === "runway" ? runwayApp() : timelineApp();
+      return `<div class="theme-${themeId} mode-${mode}">${html}</div>`;
+    }
+
+    function renderThemeCards() {
+      const grid = document.getElementById("themeGrid");
+      grid.innerHTML = THEMES.map((t) => `
+        <button type="button" class="theme-card" role="option" data-theme="${t.id}" aria-selected="${t.id === state.theme}">
+          <div class="name">${t.name}</div>
+          <div class="refs">${t.refs}</div>
+          <p class="blurb">${t.blurb}</p>
+          <div class="swatches">${t.swatches.map((c) => `<i style="background:${c}"></i>`).join("")}</div>
+        </button>
+      `).join("");
+      grid.querySelectorAll(".theme-card").forEach((el) => {
+        el.addEventListener("click", () => {
+          const t = THEMES.find((x) => x.id === el.dataset.theme);
+          state.theme = t.id;
+          state.mode = t.defaultMode;
+          sync();
+        });
+      });
+    }
+
+    function renderPhilosophy() {
+      const t = THEMES.find((x) => x.id === state.theme);
+      document.getElementById("philosophy").innerHTML = `
+        <h2>${t.name}</h2>
+        <p>${t.philosophy}</p>
+        <div class="tags">${t.traits.map((x) => `<span>${x}</span>`).join("")}</div>
+      `;
+    }
+
+    function renderPreview() {
+      const t = THEMES.find((x) => x.id === state.theme);
+      document.getElementById("previewFrame").innerHTML = renderApp(state.theme, state.mode, state.screen);
+      document.getElementById("previewLabel").textContent =
+        `${t.name} · ${state.screen === "timeline" ? "Timeline" : "Runway"} · ${state.mode === "dark" ? "Dark" : "Light"}`;
+      document.querySelectorAll("#modeSeg button").forEach((b) => {
+        b.setAttribute("aria-pressed", b.dataset.mode === state.mode ? "true" : "false");
+      });
+      document.querySelectorAll("#screenSeg button").forEach((b) => {
+        b.setAttribute("aria-pressed", b.dataset.screen === state.screen ? "true" : "false");
+      });
+      document.querySelectorAll(".theme-card").forEach((el) => {
+        el.setAttribute("aria-selected", el.dataset.theme === state.theme ? "true" : "false");
+      });
+    }
+
+    function renderCompare() {
+      const grid = document.getElementById("compareGrid");
+      grid.innerHTML = THEMES.map((t) => {
+        const mode = t.defaultMode;
+        return `
+          <div class="compare-item">
+            <header>${t.name}<span>${mode}</span></header>
+            <div class="compare-scale">${renderApp(t.id, mode, "timeline")}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function sync() {
+      renderPhilosophy();
+      renderPreview();
+    }
+
+    document.getElementById("modeSeg").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-mode]");
+      if (!btn) return;
+      state.mode = btn.dataset.mode;
+      sync();
+    });
+    document.getElementById("screenSeg").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-screen]");
+      if (!btn) return;
+      state.screen = btn.dataset.screen;
+      sync();
+    });
+
+    renderThemeCards();
+    renderCompare();
+    sync();
+  </script>
+</body>
+</html>
