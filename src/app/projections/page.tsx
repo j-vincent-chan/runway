@@ -34,7 +34,7 @@ import { useWorkspace } from "@/context/WorkspaceContext";
 import { ByPersonView } from "@/components/projections/ByPersonView";
 import { ByAccountView } from "@/components/projections/ByAccountView";
 import { RuleEditor } from "@/components/projections/RuleEditor";
-import { formatCurrency, formatPercent, generateId } from "@/lib/utils/parse";
+import { formatCurrency, generateId } from "@/lib/utils/parse";
 import { countAllHiddenFunds } from "@/lib/funding/visibility";
 import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
