@@ -25,10 +25,14 @@ import { cn } from "@/lib/utils/cn";
 
 export type StatusSortKey = "person" | "status" | "effective" | "submitted" | "updated";
 
-/** Workflow order, not alphabetical — sorting by status should walk the pipeline. */
+/**
+ * Priority order for status: In Progress (actively being worked on) comes first,
+ * then Pending (awaiting work), then Completed (done). Within each status,
+ * oldest first so the item waiting longest gets attention.
+ */
 const STATUS_ORDER: Record<ChangeRequestStatus, number> = {
-  pending: 0,
-  in_progress: 1,
+  in_progress: 0,
+  pending: 1,
   completed: 2,
 };
 
@@ -278,8 +282,8 @@ export function ChangeRequestList({
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [sort, setSort] = useState<{ key: StatusSortKey; dir: "asc" | "desc" }>({
-    key: "submitted",
-    dir: "desc",
+    key: "status",
+    dir: "asc",
   });
 
   const sorted = useMemo(() => {
@@ -287,7 +291,7 @@ export function ChangeRequestList({
     rows.sort((a, b) => {
       const av = sortValue(a, sort.key);
       const bv = sortValue(b, sort.key);
-      if (av === bv) return a.createdAt < b.createdAt ? 1 : -1;
+      if (av === bv) return a.createdAt < b.createdAt ? -1 : 1;
       const cmp = av < bv ? -1 : 1;
       return sort.dir === "asc" ? cmp : -cmp;
     });
@@ -298,7 +302,9 @@ export function ChangeRequestList({
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : // Dates read newest-first on the first click; names read A–Z.
+        : // Status defaults to priority order (asc). Dates read oldest-first when
+          // sorting by status (urgency), but newest-first for other date columns.
+          // Names read A–Z.
           { key, dir: key === "person" || key === "status" ? "asc" : "desc" }
     );
   }
