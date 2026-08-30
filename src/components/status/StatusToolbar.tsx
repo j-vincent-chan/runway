@@ -41,7 +41,12 @@ export function StatusToolbar({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-3">
-      <nav className="flex flex-wrap items-center gap-1" aria-label="Filter requests by status">
+      {/* The app's one segmented-control idiom (Employees, Projections,
+          Settings) rather than a page-local tab style. */}
+      <nav
+        className="inline-flex flex-wrap gap-0.5 rounded-lg border border-rule bg-surface p-0.5"
+        aria-label="Filter requests by status"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -49,14 +54,21 @@ export function StatusToolbar({
             aria-pressed={filter === tab.id}
             onClick={() => onFilterChange(tab.id)}
             className={cn(
-              "type-row inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+              "type-row inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               filter === tab.id
-                ? "bg-inset font-medium text-ink"
+                ? "bg-[#0c2340] font-medium text-white"
                 : "text-muted hover:bg-inset hover:text-ink"
             )}
           >
             {tab.label}
-            <span className="type-mono tabular text-muted">{tab.count}</span>
+            <span
+              className={cn(
+                "type-mono tabular",
+                filter === tab.id ? "text-white/70" : "text-muted"
+              )}
+            >
+              {tab.count}
+            </span>
           </button>
         ))}
       </nav>
