@@ -3,7 +3,6 @@
 import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
 import { useApp } from "@/context/AppContext";
-import { KpiRow } from "@/components/timeline/KpiRow";
 import { TimelineGrid } from "@/components/timeline/TimelineGrid";
 
 export default function TimelinePage() {
@@ -28,7 +27,6 @@ export default function TimelinePage() {
                 months—that is a handoff, not a mix-up.
               </p>
             )}
-            <KpiRow />
             <div className="flex min-w-0 items-start">
               <TimelineGrid />
             </div>

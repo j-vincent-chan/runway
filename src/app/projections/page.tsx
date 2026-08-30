@@ -39,7 +39,6 @@ import { countAllHiddenFunds } from "@/lib/funding/visibility";
 import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
-import { PageStatRow } from "@/components/layout/PageStatRow";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
 import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
@@ -338,36 +337,6 @@ export default function ProjectionsPage() {
               </ul>
             </div>
           )}
-
-          <PageStatRow
-            stats={[
-              {
-                label: "Origin month",
-                value: formatMonthLabel(result.originMonth),
-                basis: "Where actuals end and projection begins",
-              },
-              {
-                label: "Projected burn at origin",
-                value: formatCurrency(originBurn),
-                // Deliberately not "monthly payroll burn": this is
-                // allocation-weighted across the projected distribution, a
-                // different measure from the Dashboard's current-month total.
-                basis: "Across the projected distribution",
-              },
-              {
-                label: "People with a coverage gap",
-                value: String(gapCount),
-                basis: "Under their planning scope this month",
-                tone: gapCount > 0 ? "caution" : "neutral",
-              },
-              {
-                label: "Off-ramp rules",
-                value: String(ruleCount),
-                basis: "Distribution changes you have set",
-              },
-            ]}
-          />
-
 
           <div className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="shrink-0 border-b border-slate-200 px-4 py-3">
