@@ -513,18 +513,24 @@ export const DEFAULT_SETTINGS: AppSettings = {
   unhiddenAccountBalanceKeys: [],
 };
 
-/** Soft bar fills — pair with dark text in timeline cells */
+/**
+ * Bar fills for the Distributions grid — pair with dark text in timeline
+ * cells. Deliberately deeper than the original pastels so adjacent segments
+ * read apart from each other and from the white grid ground; lightness is
+ * held even across hues so no fund looks emphasized, and dark ink text on
+ * any of them stays comfortably past 4.5:1.
+ */
 export const FUNDING_COLORS = [
-  "#c8daf0",
-  "#d4e2f4",
-  "#c5e6d5",
-  "#e2d8f0",
-  "#f5ddd0",
-  "#c9e9ee",
-  "#e4eaf2",
-  "#fdecc8",
-  "#dce4fc",
-  "#d4f1f9",
-  "#ede4f7",
-  "#f8e0ec",
+  "#a3c4e8",
+  "#b6cdea",
+  "#9cd2b4",
+  "#cbb2e2",
+  "#f0c096",
+  "#96d2dc",
+  "#c2cbdd",
+  "#ecd28f",
+  "#b4c4f2",
+  "#a4dcec",
+  "#d5c2ec",
+  "#eec2d8",
 ];

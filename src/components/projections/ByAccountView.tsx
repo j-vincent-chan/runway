@@ -220,9 +220,9 @@ function AccountBlock({
   const dryMonth = dryIndex === null ? null : months[dryIndex] ?? null;
   return (
     <>
-      <tr className="bg-[#0c2340] text-white">
+      <tr className="border-t border-rule-strong bg-inset text-ink">
         <td
-          className="sticky left-0 z-10 cursor-pointer bg-[#0c2340] px-2 py-1.5 font-semibold"
+          className="sticky left-0 z-10 cursor-pointer bg-inset px-2 py-1.5 font-semibold"
           style={{
             width: PROJECTION_LABEL_COL,
             minWidth: PROJECTION_LABEL_COL,
@@ -244,8 +244,8 @@ function AccountBlock({
               className={cn(
                 "shrink-0 rounded p-0.5",
                 notMine
-                  ? "bg-sky-200/90 text-sky-900 ring-1 ring-sky-100/60"
-                  : "text-white/50 hover:bg-white/15 hover:text-white"
+                  ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90"
+                  : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
               )}
               title={
                 notMine
@@ -274,7 +274,7 @@ function AccountBlock({
               />
             </span>
             {isPlanned && (
-              <span className="shrink-0 rounded bg-white/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-teal-100">
+              <span className="shrink-0 rounded bg-teal-100 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-teal-800">
                 PLANNED
               </span>
             )}
@@ -284,7 +284,7 @@ function AccountBlock({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
                 title={`Show ${hiddenCount} hidden person row${hiddenCount === 1 ? "" : "s"} on this account`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -298,7 +298,7 @@ function AccountBlock({
           </div>
         </td>
         <td
-          className="sticky z-10 bg-[#0c2340] text-center align-middle text-[9px] tabular-nums text-teal-100"
+          className="sticky z-10 bg-inset text-center align-middle text-[9px] tabular-nums text-ink-2"
           style={{
             left: PROJECTION_LABEL_COL,
             width: PROJECTION_SCOPE_COL,
@@ -316,10 +316,10 @@ function AccountBlock({
             key={month}
             className={cn(
               "text-center text-[10px] tabular-nums",
-              projected && "bg-white/10 text-white/80",
+              projected && "text-muted",
               // Quieter than the fill it sits above: the number reaching zero
               // is already the statement, the tint only has to group the run.
-              empty && "bg-red-500/15 text-red-100",
+              empty && "bg-red-500/15 text-red-800",
               // A hard edge on the month it crosses zero, matching the same
               // mark on the people's cells directly below.
               i === dryIndex && "allocation-bar--dry-start"

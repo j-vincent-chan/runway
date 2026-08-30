@@ -245,10 +245,13 @@ function EmployeeBlock({
     <>
       <tr
         id={deepLinkAnchorId("person", personKey)}
-        className={cn("bg-[#0c2340] text-white", deepLinked && DEEP_LINK_HIGHLIGHT)}
+        className={cn(
+          "border-t border-rule-strong bg-inset text-ink",
+          deepLinked && DEEP_LINK_HIGHLIGHT
+        )}
       >
         <td
-          className="sticky left-0 z-10 cursor-pointer bg-[#0c2340] px-2 py-1.5 font-semibold"
+          className="sticky left-0 z-10 cursor-pointer bg-inset px-2 py-1.5 font-semibold"
           style={{
             width: PROJECTION_LABEL_COL,
             minWidth: PROJECTION_LABEL_COL,
@@ -266,13 +269,13 @@ function EmployeeBlock({
               name={emp.name}
               photoUrl={getEmployeePhotoUrlFor(settings, emp)}
               size="xs"
-              className="ring-white/40"
+              className="ring-slate-300"
             />
             <span className="truncate" title={emp.name}>
               {emp.name.toUpperCase()}
             </span>
             {emp.employeeId && (
-              <span className="shrink-0 text-[9px] font-normal text-white/60" title="HR employee ID">
+              <span className="shrink-0 text-[9px] font-normal text-muted" title="HR employee ID">
                 · {emp.employeeId}
               </span>
             )}
@@ -291,7 +294,7 @@ function EmployeeBlock({
                   "ml-auto inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50",
                   locked
                     ? "bg-amber-300/90 text-[#0c2340] hover:bg-amber-200"
-                    : "bg-white/15 hover:bg-white/25"
+                    : "bg-slate-200/80 hover:bg-slate-300/80"
                 )}
                 title={
                   locked
@@ -317,7 +320,7 @@ function EmployeeBlock({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
                 title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -331,7 +334,7 @@ function EmployeeBlock({
           </div>
         </td>
         <td
-          className="sticky z-10 bg-[#0c2340] text-center align-middle text-[10px] tabular-nums text-teal-100"
+          className="sticky z-10 bg-inset text-center align-middle text-[10px] tabular-nums text-ink-2"
           style={{
             left: PROJECTION_LABEL_COL,
             width: PROJECTION_SCOPE_COL,
@@ -348,7 +351,7 @@ function EmployeeBlock({
               key={m}
               className={cn(
                 "text-center text-[10px]",
-                projected && "bg-white/10 text-white/80",
+                projected && "text-muted",
                 c?.status === "overallocated" && "bg-red-500/20",
                 c?.status === "underallocated" && "bg-amber-500/20"
               )}

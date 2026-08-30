@@ -58,7 +58,7 @@ export function EmployeeScopeEditor({
       type="button"
       className={cn(
         "px-1 py-0.5 text-[11px] font-medium underline-offset-2 hover:underline",
-        hasCustomScope ? "text-teal-200" : "text-white/70",
+        hasCustomScope ? "text-teal-700" : "text-muted",
         className
       )}
       title={

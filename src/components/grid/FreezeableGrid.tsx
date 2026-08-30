@@ -53,5 +53,5 @@ export function FreezeableGrid({
 }
 
 export function freezeTheadClass(frozen: boolean): string {
-  return cn("timeline-thead text-white", frozen && "sticky top-0 z-30");
+  return cn("timeline-thead text-ink", frozen && "sticky top-0 z-30");
 }

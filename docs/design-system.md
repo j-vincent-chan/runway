@@ -48,6 +48,7 @@ Rules:
 - **Unattributed / uncategorized money renders as hatched grey** so it reads as a hole, not a category.
 - Teams get no color assignment. Color on a team means its runway state, nothing else.
 - Categorical color is permitted in exactly one place: the funding-exposure band. Cap at five named sources plus "other", ordered identically in every period.
+- **One sanctioned exception:** the Distributions/Projections grid's per-fund bar fills. There, color is data furniture — it distinguishes funds within one person's stacked monthly bars, where a label cannot fit. The palette (`FUNDING_COLORS`) holds lightness even across hues so no fund reads as emphasized, keeps dark ink text ≥4.5:1 on every fill, and must keep adjacent fills distinguishable from each other and the white grid ground. It never appears outside the grids.
 - Never define a color only inside a media query or theme block. Full light palette on bare `:root`; redefine tokens under `@media (prefers-color-scheme: dark)` guarded so an explicit light setting wins; redefine again for an explicit dark setting.
 
 ## Type

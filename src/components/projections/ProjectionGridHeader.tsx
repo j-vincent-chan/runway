@@ -29,15 +29,15 @@ export function ProjectionGridHeader({
       <tr>
         <th
           rowSpan={2}
-          className="timeline-th-sticky sticky left-0 z-40 border-r border-white px-3 py-2 text-left align-middle"
+          className="timeline-th-sticky sticky left-0 z-40 border-r border-rule px-3 py-2 text-left align-middle"
         >
-          <span className="block text-[11px] font-semibold leading-tight tracking-wide text-white">
+          <span className="block text-[11px] font-semibold leading-tight tracking-wide text-ink">
             {label}
           </span>
         </th>
         <th
           rowSpan={2}
-          className="timeline-th-sticky sticky z-40 border-r border-white px-1 text-center align-middle"
+          className="timeline-th-sticky sticky z-40 border-r border-rule px-1 text-center align-middle"
           style={{
             left: PROJECTION_LABEL_COL,
             width: PROJECTION_SCOPE_COL,
@@ -45,7 +45,7 @@ export function ProjectionGridHeader({
             maxWidth: PROJECTION_SCOPE_COL,
           }}
         >
-          <span className="inline-block text-[9px] font-semibold uppercase leading-none tracking-wide text-teal-100/90">
+          <span className="inline-block text-[9px] font-semibold uppercase leading-none tracking-wide text-muted">
             {scopeLabel}
           </span>
         </th>
@@ -53,7 +53,7 @@ export function ProjectionGridHeader({
           <th
             key={group.year}
             colSpan={group.months.length}
-            className="timeline-th-year px-1 py-1.5 text-center text-[10px] font-semibold tracking-wide text-teal-200/95"
+            className="timeline-th-year px-1 py-1.5 text-center text-[10px] font-semibold tracking-wide text-muted"
           >
             {group.year}
           </th>
@@ -67,7 +67,7 @@ export function ProjectionGridHeader({
               key={m}
               className={cn(
                 "timeline-th-month px-1 py-2 text-center text-[10px] font-medium uppercase",
-                projected ? "text-slate-400/90" : "text-slate-200/95"
+                projected ? "text-muted/70" : "text-ink-2"
               )}
               title={projected ? `${m} · Projected` : m}
             >

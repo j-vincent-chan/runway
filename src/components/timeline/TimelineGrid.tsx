@@ -274,15 +274,15 @@ export function TimelineGrid() {
             <tr>
               <th
                 rowSpan={2}
-                className="timeline-th-sticky sticky left-0 z-40 border-r border-white px-3 py-2 text-left align-middle"
+                className="timeline-th-sticky sticky left-0 z-40 border-r border-rule px-3 py-2 text-left align-middle"
               >
-                <span className="block text-[11px] font-semibold leading-tight tracking-wide text-white">
+                <span className="block text-[11px] font-semibold leading-tight tracking-wide text-ink">
                   EMPLOYEE / Funding Source
                 </span>
               </th>
               <th
                 rowSpan={2}
-                className="timeline-th-sticky sticky z-40 border-r border-white px-1 text-center align-middle"
+                className="timeline-th-sticky sticky z-40 border-r border-rule px-1 text-center align-middle"
                 style={{
                   left: LABEL_COL_WIDTH,
                   width: APPT_COL_WIDTH,
@@ -290,7 +290,7 @@ export function TimelineGrid() {
                   maxWidth: APPT_COL_WIDTH,
                 }}
               >
-                <span className="inline-block text-[9px] font-semibold uppercase leading-none tracking-wide text-teal-100/90">
+                <span className="inline-block text-[9px] font-semibold uppercase leading-none tracking-wide text-muted">
                   Scope
                 </span>
               </th>
@@ -298,7 +298,7 @@ export function TimelineGrid() {
                 <th
                   key={group.year}
                   colSpan={group.months.length}
-                  className="timeline-th-year px-1 py-1.5 text-center text-[10px] font-semibold tracking-wide text-teal-200/95"
+                  className="timeline-th-year px-1 py-1.5 text-center text-[10px] font-semibold tracking-wide text-muted"
                 >
                   {group.year}
                 </th>
@@ -308,7 +308,7 @@ export function TimelineGrid() {
               {months.map((m) => (
                 <th
                   key={m}
-                  className="timeline-th-month px-1 py-2 text-center text-[10px] font-medium uppercase text-slate-200/95"
+                  className="timeline-th-month px-1 py-2 text-center text-[10px] font-medium uppercase text-ink-2"
                   title={m}
                 >
                   {formatMonthShort(m).toUpperCase()}
@@ -423,9 +423,11 @@ function EmployeeRows({
 
   return (
     <>
-      <tr className="bg-[#0c2340] text-white">
+      {/* Light inset band with a hairline, not the old navy block — the same
+          heavy device the Dashboard dropped in its first review pass. */}
+      <tr className="border-t border-rule-strong bg-inset text-ink">
         <td
-          className="sticky left-0 z-10 cursor-pointer bg-[#0c2340] px-2 py-1.5 font-semibold"
+          className="sticky left-0 z-10 cursor-pointer bg-inset px-2 py-1.5 font-semibold"
           style={{ width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH, maxWidth: LABEL_COL_WIDTH }}
           onClick={onToggle}
         >
@@ -436,13 +438,13 @@ function EmployeeRows({
                 name={emp.name}
                 photoUrl={getEmployeePhotoUrlFor(settings, emp)}
                 size="xs"
-                className="ring-white/40"
+                className="ring-slate-300"
               />
               <span className="truncate" title={emp.name}>
                 {emp.name.toUpperCase()}
               </span>
               {emp.employeeId && (
-                <span className="shrink-0 text-[9px] font-normal text-white/60" title="HR employee ID">
+                <span className="shrink-0 text-[9px] font-normal text-muted" title="HR employee ID">
                   · {emp.employeeId}
                 </span>
               )}
@@ -450,7 +452,7 @@ function EmployeeRows({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
                 title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -464,7 +466,7 @@ function EmployeeRows({
           </div>
         </td>
         <td
-          className="sticky z-10 bg-[#0c2340] text-center align-middle"
+          className="sticky z-10 bg-inset text-center align-middle"
           style={{ left: LABEL_COL_WIDTH, width: APPT_COL_WIDTH, minWidth: APPT_COL_WIDTH }}
         >
           <EmployeeScopeEditor
