@@ -5,30 +5,25 @@ import { Check } from "lucide-react";
 const ITEMS: {
   label: string;
   requiresPayroll?: boolean;
-  requiresPortfolio?: boolean;
   requiresNetPosition?: boolean;
   requiresPositionSalary?: boolean;
-  /** Account Balances works with Net Position and/or MyPortfolio */
-  requiresAccountBalances?: boolean;
 }[] = [
-  { label: "Timeline", requiresPayroll: true },
+  { label: "Distributions", requiresPayroll: true },
   { label: "Employees", requiresPayroll: true },
-  { label: "MyPortfolio Accounts", requiresPayroll: true },
+  { label: "Accounts", requiresPayroll: true },
   { label: "Gaps & Alerts", requiresPayroll: true },
   { label: "Salary + benefits calculations", requiresPayroll: true },
   { label: "FY salary rates on roster", requiresPositionSalary: true },
-  { label: "Runway context", requiresPortfolio: true },
-  { label: "Account Balances", requiresAccountBalances: true },
+  { label: "Runway context", requiresNetPosition: true },
+  { label: "Account Balances", requiresNetPosition: true },
 ];
 
 export function WhatThisPowersCard({
   hasPayroll,
-  hasPortfolio,
   hasNetPosition = false,
   hasPositionSalary = false,
 }: {
   hasPayroll: boolean;
-  hasPortfolio: boolean;
   hasNetPosition?: boolean;
   hasPositionSalary?: boolean;
 }) {
@@ -37,15 +32,11 @@ export function WhatThisPowersCard({
       <h3 className="text-sm font-semibold text-[#0c2340]">What This Powers</h3>
       <ul className="mt-3 space-y-2">
         {ITEMS.map((item) => {
-          const active = item.requiresAccountBalances
-            ? hasNetPosition || hasPortfolio
-            : item.requiresNetPosition
-              ? hasNetPosition
-              : item.requiresPositionSalary
-                ? hasPositionSalary
-                : item.requiresPortfolio
-                  ? hasPortfolio
-                  : Boolean(item.requiresPayroll && hasPayroll);
+          const active = item.requiresNetPosition
+            ? hasNetPosition
+            : item.requiresPositionSalary
+              ? hasPositionSalary
+              : Boolean(item.requiresPayroll && hasPayroll);
           return (
             <li key={item.label} className="flex items-center gap-2 text-sm">
               <span

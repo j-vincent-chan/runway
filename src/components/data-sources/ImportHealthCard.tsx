@@ -4,7 +4,6 @@ import { Circle } from "lucide-react";
 import type {
   NetPositionReportImport,
   PayrollReportSnapshot,
-  PortfolioReportImport,
   PositionSalaryReportImport,
 } from "@/types";
 import {
@@ -14,14 +13,12 @@ import {
 
 export function ImportHealthCard({
   snapshot,
-  portfolioImports,
   netPositionImports = [],
   positionSalaryImports = [],
   payrollImportCount = 0,
   pendingWarningCount = 0,
 }: {
   snapshot: PayrollReportSnapshot | null;
-  portfolioImports: PortfolioReportImport[];
   netPositionImports?: NetPositionReportImport[];
   positionSalaryImports?: PositionSalaryReportImport[];
   payrollImportCount?: number;
@@ -37,7 +34,6 @@ export function ImportHealthCard({
   const lastImportAt = (() => {
     const times: string[] = [];
     if (snapshot) times.push(snapshot.uploadedAt);
-    for (const imp of portfolioImports) times.push(imp.uploadedAt);
     for (const imp of netPositionImports) times.push(imp.uploadedAt);
     for (const imp of positionSalaryImports) times.push(imp.uploadedAt);
     if (times.length === 0) return null;
@@ -56,14 +52,6 @@ export function ImportHealthCard({
               : `${Math.max(payrollImportCount, snapshot ? 1 : 0)} file${
                   Math.max(payrollImportCount, snapshot ? 1 : 0) === 1 ? "" : "s"
                 }`}
-          </span>
-        </li>
-        <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">MyPortfolio files</span>
-          <span className="font-medium text-[#0c2340]">
-            {portfolioImports.length === 0
-              ? "None"
-              : `${portfolioImports.length} file${portfolioImports.length === 1 ? "" : "s"}`}
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">

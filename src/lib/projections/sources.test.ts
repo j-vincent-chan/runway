@@ -26,7 +26,7 @@ describe("projectionSourceLabel", () => {
     expect(label).toBe("Chan lab startup · 7030720");
   });
 
-  it("falls back to MyPortfolio title and project number", () => {
+  it("falls back to the report project title and project number", () => {
     const label = projectionSourceLabel(
       source(),
       DEFAULT_SETTINGS,

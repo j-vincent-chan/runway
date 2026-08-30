@@ -268,7 +268,7 @@ function EmployeesPageContent() {
                 <thead className="bg-[#0c2340] text-xs text-white">
                   <tr>
                     <th className="px-3 py-2">Employee</th>
-                    <th className="min-w-[10.5rem] px-3 py-2">Personnel group</th>
+                    <th className="min-w-[10.5rem] px-3 py-2">Team</th>
                     <th className="min-w-[9rem] px-3 py-2">Start date</th>
                     {view === "alumni" && <th className="min-w-[7rem] px-3 py-2">End date</th>}
                     <th className="px-3 py-2">Your scope %</th>

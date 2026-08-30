@@ -22,16 +22,21 @@ import {
 import {
   coverageOptionsFromSettings,
   getEffectiveExpectedPercent,
-  isRunwayFundAssumedOk,
 } from "@/lib/funding/visibility";
 import { employeePersonKey } from "@/lib/employees/stableKey";
+import { buildSharedAccountBurnIndex } from "@/lib/runway/calculate";
+import {
+  effectiveAssumedEndDate,
+  estimateBalanceFromAssumedEnd,
+  monthsUntilAssumedEnd,
+} from "@/lib/runway/assumedEndDate";
 import { filterEmployeesForPlanning } from "@/lib/employees/roster";
 import {
   getEmployeeEndDate,
   getEmployeeStartDate,
 } from "@/lib/employees/profile";
 import { calculateEmployeeAccountMonthlyBurn } from "@/lib/runway/calculate";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 import { hasPercentEffort } from "@/lib/utils/parse";
 import {
   getProjectionOriginMonth,
@@ -86,7 +91,7 @@ export interface ProjectionStaleness {
   originMonth: string;
   lastPayrollMonth: string | null;
   payrollStale: boolean;
-  portfolioRunDate?: string;
+  balanceAsOf?: string;
   balancesStale: boolean;
 }
 
@@ -318,19 +323,37 @@ function actualSpendTowardCap(
   return sum;
 }
 
+/**
+ * Opening balance per account root.
+ *
+ * An account marked "not my account" opens at the estimate its end date
+ * implies — burn x months remaining — not at the balance on file. The balance
+ * on file is the wrong number for these twice over: some of it is restricted
+ * to other uses, and some accounts run a deliberate deficit that rolls up into
+ * a parent we have no sight of. Paired with counting their burn in the
+ * simulation, the band draws down and reaches zero exactly at the end date.
+ */
 function openingBalances(
   sources: FundingSource[],
   settings: AppSettings,
-  portfolio: Map<string, MergedPortfolioBalance>
+  balances: Map<string, AccountBalance>,
+  assumedOkEstimates: Map<string, number>
 ): Map<string, number> {
   const remaining = new Map<string, number>();
   const balanceMap = new Map<string, number>();
-  for (const [k, v] of portfolio) balanceMap.set(k, v.balance);
+  for (const [k, v] of balances) balanceMap.set(k, v.balance);
 
   for (const fs of sources) {
     const key = chartstringKeyForFundingSource(fs);
     const root = chartRoot(key);
     if (remaining.has(root)) continue;
+
+    const estimate = assumedOkEstimates.get(root);
+    if (estimate !== undefined) {
+      remaining.set(root, Math.max(0, estimate));
+      continue;
+    }
+
     const planned = (settings.plannedFundingSources ?? []).find((p) => p.chartstringKey === key);
     const chart = fs.accountString ?? fs.rawName;
     const matched = findBalanceForChartstring(chart, balanceMap);
@@ -342,35 +365,111 @@ function openingBalances(
   return remaining;
 }
 
-function isAssumedOkKey(
+/**
+ * Estimated opening balance for every root someone has marked "not my
+ * account", keyed by chart root. Reuses the same burn index and estimate the
+ * Runway page shows per account, so the chart and that page cannot disagree.
+ *
+ * Where two people mark the same root with different end dates, the later one
+ * wins — the account is funded until the last person stops drawing on it.
+ */
+function assumedOkOpeningEstimates(
+  snapshot: PayrollReportSnapshot,
+  workingPlan: WorkingPlan | null,
+  sources: FundingSource[],
   settings: AppSettings,
-  emp: Employee,
-  chartstringKey: string,
-  sources: FundingSource[]
-): boolean {
-  const fs = lookupFundingSource(sources, chartstringKey);
-  if (!fs) return false;
-  return isRunwayFundAssumedOk(settings, emp.id, fs.id);
+  estimateOriginMonth: string,
+  originBurnByRoot: Map<string, number>
+): Map<string, number> {
+  const burnIndex = buildSharedAccountBurnIndex(snapshot, workingPlan, sources, settings);
+  const monthsByRoot = new Map<string, number>();
+
+  for (const fs of sources) {
+    const root = chartRoot(chartstringKeyForFundingSource(fs));
+    if (monthsByRoot.has(root)) continue;
+    /**
+     * Marked accounts never fall back to the balance on file — that is the
+     * number this estimate exists to replace. A missing end date resolves to
+     * the same default every writer of the mark applies, rather than silently
+     * handing the account back to its real balance.
+     */
+    const endDate = effectiveAssumedEndDate(settings, root, estimateOriginMonth);
+    if (!endDate) continue;
+    // From today, matching computeEmployeeRunway's estimate origin. These two
+    // must use the same month or the chart and the Runway page report
+    // different balances for the same account.
+    const months = monthsUntilAssumedEnd(estimateOriginMonth, endDate);
+    if (months === null) continue;
+    monthsByRoot.set(root, months);
+  }
+
+  const estimates = new Map<string, number>();
+  for (const [root, months] of monthsByRoot) {
+    /**
+     * The projection's own origin-month burn, not the payroll index's.
+     *
+     * These are the same number in the ordinary case, and differ exactly when
+     * it matters: the payroll's current month can lag today, a rule can have
+     * already fired by origin, and the index drops any account whose
+     * current-month burn is <= 0 — a residual carrying a reversal, say. In all
+     * three the index says less than the grid is about to draw, so the account
+     * opened underfunded and read as dry while the cells beside it still
+     * showed effort charged to it.
+     *
+     * Funding it at the burn it will actually be charged is also what makes
+     * the comment above true: draw down what you opened with and the balance
+     * reaches zero on the end date, not before it.
+     */
+    const burn = originBurnByRoot.get(root) ?? burnIndex.get(root)?.combinedMonthlyBurn ?? 0;
+    estimates.set(root, estimateBalanceFromAssumedEnd(months, burn));
+  }
+  return estimates;
+}
+
+/**
+ * Origin-month burn per account root, from the projection's own seeded mix —
+ * % distribution x salary and benefits, the same personFundBurn the drawdown
+ * loop calls for every later month.
+ */
+function originBurnByRootFromMix(
+  employees: Employee[],
+  mix: Map<string, Map<string, number>>,
+  snapshot: PayrollReportSnapshot,
+  allocations: MonthlyAllocation[],
+  sources: FundingSource[],
+  settings: AppSettings,
+  refMonth: string
+): Map<string, number> {
+  const byRoot = new Map<string, number>();
+  for (const emp of employees) {
+    for (const [key, pct] of mix.get(emp.id) ?? []) {
+      const burn = personFundBurn(emp, key, pct, snapshot, allocations, sources, settings, refMonth);
+      if (burn <= 0) continue;
+      const root = chartRoot(key);
+      byRoot.set(root, (byRoot.get(root) ?? 0) + burn);
+    }
+  }
+  return byRoot;
 }
 
 export function detectStaleness(
   snapshot: PayrollReportSnapshot,
   originMonth: string,
-  portfolio: Map<string, MergedPortfolioBalance>
+  balances: Map<string, AccountBalance>
 ): ProjectionStaleness {
   const last = lastPayrollMonth(snapshot);
   const payrollStale = !last || originMonth > last;
-  let portfolioRunDate: string | undefined;
-  for (const row of portfolio.values()) {
-    if (!portfolioRunDate || row.reportRunDate > portfolioRunDate) portfolioRunDate = row.reportRunDate;
+  let balanceAsOf: string | undefined;
+  for (const row of balances.values()) {
+    if (!balanceAsOf || row.reportRunDate > balanceAsOf) balanceAsOf = row.reportRunDate;
   }
-  const portfolioMonth = portfolioRunDate?.slice(0, 7);
-  const balancesStale = Boolean(portfolioMonth && portfolioMonth < originMonth);
+  const balanceMonth = balanceAsOf?.slice(0, 7);
+  const balancesStale = Boolean(balanceMonth && balanceMonth < originMonth);
   return {
     originMonth,
     lastPayrollMonth: last,
     payrollStale,
-    portfolioRunDate,
+    balanceAsOf,
     balancesStale,
   };
 }
@@ -406,10 +505,10 @@ export function simulateProjections(input: {
   snapshot: PayrollReportSnapshot;
   workingPlan: WorkingPlan | null;
   settings: AppSettings;
-  portfolio: Map<string, MergedPortfolioBalance>;
+  balances: Map<string, AccountBalance>;
   now?: Date;
 }): ProjectionResult {
-  const { snapshot, workingPlan, settings, portfolio } = input;
+  const { snapshot, workingPlan, settings, balances } = input;
   const originMonth = getProjectionOriginMonth(input.now);
   const months = resolveHorizonMonths(
     originMonth,
@@ -434,7 +533,23 @@ export function simulateProjections(input: {
     ? mixFromAllocations(seedMonth, employees, allocations, idToKey)
     : new Map(employees.map((e) => [e.id, new Map<string, number>()]));
 
-  const remaining = openingBalances(sources, settings, portfolio);
+  const assumedOkEstimates = assumedOkOpeningEstimates(
+    snapshot,
+    workingPlan,
+    sources,
+    settings,
+    originMonth,
+    originBurnByRootFromMix(
+      employees,
+      mix,
+      snapshot,
+      allocations,
+      sources,
+      settings,
+      lastKnown ?? originMonth
+    )
+  );
+  const remaining = openingBalances(sources, settings, balances, assumedOkEstimates);
   const conflicts: ProjectionConflict[] = [];
   const pendingOff: PendingOff[] = [];
   const capSpent = new Map<string, number>();
@@ -608,7 +723,11 @@ export function simulateProjections(input: {
           percentEffort: pct,
           monthlyBurn: burn,
         });
-        if (!isAssumedOkKey(settings, emp, key, sources) && burn !== 0) {
+        // Assumed-OK burn counts. It used to be skipped, which — combined with
+        // opening at the real balance — drew a band that never declined: the
+        // infinite runway this is meant to rule out. The account now opens at
+        // its estimate and burns to zero at its end date.
+        if (burn !== 0) {
           const root = chartRoot(key);
           burnByRoot.set(root, (burnByRoot.get(root) ?? 0) + burn);
         }
@@ -704,7 +823,7 @@ export function simulateProjections(input: {
     months,
     states,
     conflicts: uniqueConflicts(conflicts),
-    staleness: detectStaleness(snapshot, originMonth, portfolio),
+    staleness: detectStaleness(snapshot, originMonth, balances),
     sources,
   };
 }

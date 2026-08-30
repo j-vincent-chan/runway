@@ -30,14 +30,14 @@ export default function RunwayPage() {
     workingPlan,
     fundingSources,
     settings,
-    mergedPortfolioBalances,
-    portfolioImports,
+    accountBalances,
+    netPositionImports,
     updateSettings,
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
     clearRunwayBurnOverride,
     toggleHiddenEmployeeFund,
-    toggleRunwayAssumedOkFund,
+    toggleNotMyAccount,
     setRunwayAssumedEndDate,
   } = useApp();
 
@@ -55,19 +55,19 @@ export default function RunwayPage() {
   };
 
   const totalHiddenFunds = countAllHiddenFunds(settings);
-  const latestPortfolioRunDate = [...portfolioImports]
+  const latestReportRunDate = [...netPositionImports]
     .map((imp) => imp.reportRunDate)
     .filter(Boolean)
     .sort()
     .at(-1);
-  const latestPortfolioAsOf = formatIsoDateDisplay(latestPortfolioRunDate);
+  const latestReportAsOf = formatIsoDateDisplay(latestReportRunDate);
 
   const sharedBurnIndex = useMemo(() => {
     if (!snapshot) return new Map();
     return buildSharedAccountBurnIndex(snapshot, workingPlan, fundingSources, settings);
   }, [snapshot, workingPlan, fundingSources, settings]);
 
-  const summaries = useMemo(() => {
+  const naturalOrder = useMemo(() => {
     if (!snapshot) return [];
     const rows = filterEmployeesByPersonnelGroups(
       filterEmployeesForPlanning(snapshot.employees, settings),
@@ -80,7 +80,7 @@ export default function RunwayPage() {
           workingPlan,
           fundingSources,
           settings,
-          mergedPortfolioBalances,
+          accountBalances,
           sharedBurnIndex,
           {
             revealHidden:
@@ -95,19 +95,61 @@ export default function RunwayPage() {
     workingPlan,
     fundingSources,
     settings,
-    mergedPortfolioBalances,
+    accountBalances,
     sharedBurnIndex,
     showHiddenFunds,
     revealHiddenForEmployees,
     employeeSort,
   ]);
 
+  /**
+   * Hiding an account changes that person's blended runway, which under the
+   * Urgency sort moves their row mid-click — so hiding a second account means
+   * hunting for it again. The order is captured once and held while you work,
+   * and re-taken only on an explicit change: a different sort, a new import,
+   * or a page refresh. Rows that appear later fall to the end rather than
+   * pushing existing ones around.
+   */
+  const orderKey = `${employeeSort}|${snapshot?.id ?? ""}`;
+  const [heldOrder, setHeldOrder] = useState<{ key: string; ids: string[] }>({
+    key: "",
+    ids: [],
+  });
+
+  // Adjusting state during render rather than in an effect: React re-renders
+  // immediately without committing the first pass, so the list never paints in
+  // one order and then jumps to another.
+  if (heldOrder.key !== orderKey && naturalOrder.length > 0) {
+    setHeldOrder({ key: orderKey, ids: naturalOrder.map((s) => s.employee.id) });
+  }
+
+  const frozenOrder = heldOrder.key === orderKey ? heldOrder.ids : null;
+  const setFrozenOrder = (ids: string[]) => setHeldOrder({ key: orderKey, ids });
+
+  const summaries = useMemo(() => {
+    if (!frozenOrder) return naturalOrder;
+    const rank = new Map(frozenOrder.map((id, i) => [id, i]));
+    return [...naturalOrder].sort(
+      (a, b) =>
+        (rank.get(a.employee.id) ?? Number.MAX_SAFE_INTEGER) -
+        (rank.get(b.employee.id) ?? Number.MAX_SAFE_INTEGER)
+    );
+  }, [naturalOrder, frozenOrder]);
+
+  /** True once the held order no longer matches what the sort would produce. */
+  const orderIsHeld = useMemo(
+    () =>
+      summaries.length > 1 &&
+      summaries.some((s, i) => s.employee.id !== naturalOrder[i]?.employee.id),
+    [summaries, naturalOrder]
+  );
+
   return (
     <>
       <Header
         ledgerTitle
         title="Runway"
-        subtitle="Months of payroll remaining by active account · balances from MyPortfolio or manual entry"
+        subtitle="Months of payroll remaining by active account · balances from your Net Position Report or manual entry"
       />
       <main className="flex-1 overflow-auto p-6">
         <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -120,19 +162,19 @@ export default function RunwayPage() {
             />
           ) : (
             <div className="space-y-4">
-              {portfolioImports.length === 0 ? (
+              {netPositionImports.length === 0 ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                  No MyPortfolio files uploaded yet.{" "}
+                  No Net Position Reports uploaded yet.{" "}
                   <Link href="/upload" className="font-medium underline hover:text-amber-950">
                     Upload balances on the Upload page
                   </Link>{" "}
                   or enter balances manually on each account row.
                 </p>
               ) : (
-                latestPortfolioAsOf && (
+                latestReportAsOf && (
                   <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs text-slate-600">
-                    MyPortfolio balances as of{" "}
-                    <span className="font-medium text-slate-800">{latestPortfolioAsOf}</span>
+                    Net Position balances as of{" "}
+                    <span className="font-medium text-slate-800">{latestReportAsOf}</span>
                     .{" "}
                     <Link href="/upload" className="font-medium underline hover:text-slate-900">
                       Upload a newer file
@@ -142,7 +184,7 @@ export default function RunwayPage() {
                 )
               )}
               <p className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-600">
-                <span className="font-medium text-slate-700">Shield</span> = external (not yours);
+                <span className="font-medium text-slate-700">Landmark</span> = external (not yours);
                 add an optional fund end date to estimate balance and runway.
                 <span className="font-medium text-slate-700"> Eye</span> = hide from timeline and totals.
               </p>
@@ -153,6 +195,16 @@ export default function RunwayPage() {
                     onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
                   />
                   <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+                  {orderIsHeld && (
+                    <button
+                      type="button"
+                      onClick={() => setFrozenOrder(naturalOrder.map((s) => s.employee.id))}
+                      title="Rows keep their positions while you hide accounts, so a hidden row's neighbours stay put."
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-[#12626e]"
+                    >
+                      Order held · re-sort now
+                    </button>
+                  )}
                 </div>
                 {totalHiddenFunds > 0 && (
                   <button
@@ -187,11 +239,9 @@ export default function RunwayPage() {
                     onToggleHidden={(fundingSourceId) =>
                       toggleHiddenEmployeeFund(summary.employee.id, fundingSourceId)
                     }
-                    onToggleAssumedOk={(fundingSourceId) =>
-                      toggleRunwayAssumedOkFund(summary.employee.id, fundingSourceId)
-                    }
-                    onAssumedEndDateChange={(fundingSourceId, endDate) =>
-                      setRunwayAssumedEndDate(summary.employee.id, fundingSourceId, endDate)
+                    onToggleAssumedOk={(chartstring) => toggleNotMyAccount(chartstring)}
+                    onAssumedEndDateChange={(chartstring, endDate) =>
+                      setRunwayAssumedEndDate(chartstring, endDate)
                     }
                     onBalanceChange={(chartstring, value) =>
                       setRunwayBalanceOverride(summary.employee.id, chartstring, value)

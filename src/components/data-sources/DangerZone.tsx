@@ -25,7 +25,7 @@ export function DangerZone({ onClearAll }: { onClearAll: () => void }) {
       {expanded && (
         <div className="border-t border-red-100 px-4 pb-4 pt-2">
           <p className="text-xs leading-relaxed text-red-900/75">
-            Clear all imported payroll and MyPortfolio data from this browser. Timeline edits,
+            Clear all imported payroll data from this browser. Timeline edits,
             scenarios, hidden funds, and planning scope are reset. Account aliases and types are kept.
           </p>
           <button

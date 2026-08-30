@@ -44,18 +44,18 @@ export function PersonnelGroupFilter({
   };
 
   const label = (() => {
-    if (allSelected) return "All personnel";
+    if (allSelected) return "All teams";
     if (value.length === 1) {
       if (value[0] === UNASSIGNED) return "Unassigned";
-      return groups.find((g) => g.id === value[0])?.label ?? "1 group";
+      return groups.find((g) => g.id === value[0])?.label ?? "1 team";
     }
-    return `${value.length} groups`;
+    return `${value.length} teams`;
   })();
 
   return (
     <div ref={ref} className="relative flex flex-col gap-1.5">
       <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        Personnel groups
+        Teams
       </span>
       <div className="flex items-center gap-1.5">
         <button
@@ -78,7 +78,7 @@ export function PersonnelGroupFilter({
             type="button"
             onClick={() => onChange([])}
             className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-            title="Clear filter — show all personnel"
+            title="Clear filter — show everyone"
           >
             <X className="h-3 w-3" />
             Clear
@@ -104,7 +104,7 @@ export function PersonnelGroupFilter({
             <Check
               className={cn("h-3.5 w-3.5 shrink-0", allSelected ? "text-teal-700" : "text-transparent")}
             />
-            All personnel
+            All teams
           </button>
           <div className="my-1 border-t border-slate-100" />
           {groups.map((g) => {

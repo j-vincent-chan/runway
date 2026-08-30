@@ -1,12 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils/cn";
-import { Link2, PencilLine, ShieldCheck } from "lucide-react";
+import { Link2, PencilLine, Landmark } from "lucide-react";
 
 export type RunwayIndicatorVariant =
   | "linked"
   | "manual"
-  | "portfolio"
+  | "report"
   | "missing"
   | "assumedOk"
   | "estimated";
@@ -14,7 +14,7 @@ export type RunwayIndicatorVariant =
 const STYLES: Record<RunwayIndicatorVariant, string> = {
   linked: "bg-violet-50 text-violet-700",
   manual: "bg-teal-50 text-teal-700",
-  portfolio: "bg-slate-100 text-slate-600",
+  report: "bg-slate-100 text-slate-600",
   missing: "bg-amber-50 text-amber-800",
   assumedOk: "bg-slate-100 text-slate-600",
   estimated: "bg-sky-50 text-sky-700",
@@ -37,7 +37,7 @@ export function RunwayIndicatorBadge({
       : variant === "manual"
         ? PencilLine
         : variant === "assumedOk"
-          ? ShieldCheck
+          ? Landmark
           : null;
 
   return (
@@ -68,7 +68,9 @@ export function RunwayIndicatorLegend() {
       <RunwayIndicatorBadge variant="manual" title="Manual override">
         Manual
       </RunwayIndicatorBadge>
-      <RunwayIndicatorBadge variant="portfolio">Portfolio</RunwayIndicatorBadge>
+      <RunwayIndicatorBadge variant="report" title="Balance from the latest Net Position Report">
+        Report
+      </RunwayIndicatorBadge>
       <RunwayIndicatorBadge variant="missing">Missing balance</RunwayIndicatorBadge>
       <RunwayIndicatorBadge variant="assumedOk" title="Not your account">
         External

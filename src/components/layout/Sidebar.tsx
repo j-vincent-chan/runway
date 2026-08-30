@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LineChart,
   Wallet,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
@@ -18,10 +19,11 @@ import { useApp } from "@/context/AppContext";
 
 const mainNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/timeline", label: "Timeline", icon: CalendarRange },
+  { href: "/timeline", label: "Distributions", icon: CalendarRange },
   { href: "/projections", label: "Projections", icon: LineChart },
   { href: "/runway", label: "Runway", icon: TrendingDown },
   { href: "/account-balances", label: "Account Balances", icon: Wallet },
+  { href: "/status", label: "Status", icon: ClipboardList },
   { href: "/employees", label: "Employees", icon: Users },
   { href: "/upload", label: "Upload", icon: Upload },
 ];
@@ -68,10 +70,13 @@ export function Sidebar() {
       </nav>
       <div className="mt-auto space-y-0 border-t border-white/10 p-3">
         <NavLink href="/settings" label="Settings" icon={Settings} />
-        <p className="mt-3 text-[10px] leading-snug text-slate-400">
+        {/* The post-award caveat is the one piece of compliance copy in the
+            app, and it sat at 10px — under the 14px body minimum, and under
+            the rule that nothing meaningful lives at 11px. */}
+        <p className="type-row mt-3 text-slate-300">
           Planning estimates only. Confirm with your finance/post-award analyst.
         </p>
-        <p className="mt-2 text-[10px] leading-snug text-slate-400">
+        <p className="type-mono mt-2 leading-snug text-slate-400">
           <a
             href="https://ocr.ucsf.edu/"
             target="_blank"

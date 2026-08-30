@@ -108,7 +108,7 @@ export function formatMonthDisplay(month: string): string {
   return `${MONTH_NAMES[parseInt(m, 10) - 1]}-${y?.slice(2)}`;
 }
 
-/** MyPortfolio report run dates (yyyy-MM-dd) → Jul 31, 2026 */
+/** Report run dates (yyyy-MM-dd) → Jul 31, 2026 */
 export function formatIsoDateDisplay(isoDate: string | undefined | null): string | null {
   if (!isoDate) return null;
   const d = parse(isoDate.slice(0, 10), "yyyy-MM-dd", new Date());

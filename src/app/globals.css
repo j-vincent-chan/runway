@@ -7,7 +7,6 @@
 :root {
   --navy: #0c2340;
   --teal: #00778b;
-  --background: #f4f6f8;
   /* ~10% UI scale (browser zoom 100% → 110%), cascades via rem-based Tailwind */
   font-size: 110%;
 
@@ -97,14 +96,19 @@
 }
 
 body {
-  background: var(--background);
-  color: #1e293b;
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 /*
  * Seven-step scale. Sizes are rem so they inherit the app's 110% UI scale;
- * the ratios are the specified 40 / 26 / 20 / 16 / 14 / 11.5 / 10.5.
+ * the ratios are the specified 40 / 26 / 20 / 16 / 14 / 11.5 / 10.5, except
+ * the caption step, raised to match the 11.5 mono step: every caption in the
+ * app carries meaning (severity labels, stat labels, section headings), and
+ * the accessibility rule "nothing meaningful lives at 11px" overrides the
+ * nominal 10.5 figure for that step. Case and tracking still distinguish it
+ * from plain mono metadata.
  */
 .type-verdict {
   font-size: 2.5rem;
@@ -143,8 +147,8 @@ body {
 
 .type-caption {
   font-family: var(--font-mono);
-  font-size: 0.65625rem;
-  line-height: 1rem;
+  font-size: 0.71875rem;
+  line-height: 1.125rem;
   text-transform: uppercase;
   letter-spacing: 0.11em;
 }
@@ -235,6 +239,32 @@ body {
   outline: 1px dashed #9f1239;
   outline-offset: -1px;
   color: #9f1239;
+}
+
+/*
+ * Months after an account's balance reaches zero, on the Projections grid.
+ *
+ * The edge carries the signal; the region only has to stop looking funded.
+ * A dense hatch across every unfunded month buried the percentage and made a
+ * long run of them the loudest thing on the page — which inverts the point,
+ * since the month it *starts* is the fact worth finding. So the fill fades
+ * back (the component lightens the account's own hue) and this adds a single
+ * hairline every 7px: enough to read as a pattern in greyscale or with a
+ * colour-vision deficiency, quiet enough to leave the number legible.
+ */
+.allocation-bar--unfunded {
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 6px,
+    rgba(149, 56, 43, 0.2) 6px,
+    rgba(149, 56, 43, 0.2) 7px
+  );
+}
+
+/* The exact month the money runs out — the one hard mark in the treatment. */
+.allocation-bar--dry-start {
+  box-shadow: inset 2px 0 0 0 #95382b;
 }
 
 .pattern-future-flat {

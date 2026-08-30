@@ -193,26 +193,6 @@ export interface Scenario {
   impactSummary?: string[];
 }
 
-export interface PortfolioBalanceRow {
-  chartstring: string;
-  balance: number;
-  projectTitle?: string;
-  fund: string;
-  dept: string;
-  project: string;
-  activity?: string;
-}
-
-export interface PortfolioReportImport {
-  id: string;
-  sourceFileName: string;
-  uploadedAt: string;
-  /** From Parameters → Report Run Date (used for duplicate chartstrings) */
-  reportRunDate: string;
-  sheetName: string;
-  rows: PortfolioBalanceRow[];
-}
-
 /** One account row from a Net Position Report (PI-tracked accounts over time). */
 export interface NetPositionAccountRow {
   /** fund-dept-project (codes only) */
@@ -293,7 +273,7 @@ export interface PositionSalaryReportImport {
   people: PositionSalaryPerson[];
 }
 
-/** One uploaded Payroll Funding Report (merged like MyPortfolio files). */
+/** One uploaded Payroll Funding Report (several fold into one snapshot). */
 export interface PayrollReportImport {
   id: string;
   sourceFileName: string;
@@ -451,6 +431,12 @@ export interface AppSettings {
   projectionRules?: ProjectionRule[];
   /** personKeys whose roster endDate should not zero projections */
   projectionIgnoreRosterEndDates?: string[];
+  /**
+   * personKeys whose projected distribution the PI has locked in. A locked
+   * person's rules cannot be added, edited, or removed until it is unlocked —
+   * the guard against changing a plan already handed to the analyst.
+   */
+  lockedDistributions?: string[];
   /** Hide the left navigation to give tables more width */
   sidebarHidden?: boolean;
   /** Hide the timeline insights column (gaps, coverage, cliffs) */
@@ -463,10 +449,12 @@ export interface AppSettings {
    */
   hiddenAccountBalanceKeys?: string[];
   /**
-   * Account Balances page: MyPortfolio accounts opted in for watching
-   * (fund-dept-project keys). Net Position accounts appear by default.
+   * Accounts the user has explicitly revealed even though every person
+   * charging them has the fund hidden on Runway/Timeline. Without this an
+   * account hidden everywhere on Runway could never be shown again from
+   * Settings, since the hide is derived rather than stored.
    */
-  watchedPortfolioAccountKeys?: string[];
+  unhiddenAccountBalanceKeys?: string[];
 }
 export interface WorkingPlan {
   snapshotId: string;
@@ -517,11 +505,12 @@ export const DEFAULT_SETTINGS: AppSettings = {
   plannedFundingSources: [],
   projectionRules: [],
   projectionIgnoreRosterEndDates: [],
+  lockedDistributions: [],
   sidebarHidden: false,
   analyticsPanelHidden: false,
   freezeGridHeader: true,
   hiddenAccountBalanceKeys: [],
-  watchedPortfolioAccountKeys: [],
+  unhiddenAccountBalanceKeys: [],
 };
 
 /** Soft bar fills — pair with dark text in timeline cells */

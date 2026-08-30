@@ -1,15 +1,70 @@
 import type { AppSettings } from "@/types";
-import { hiddenFundKey } from "@/lib/funding/visibility";
+import { normalizeChartstring } from "@/lib/funding/chartstring";
 import { roundCurrencyAmount } from "@/lib/utils/parse";
-import { differenceInCalendarDays, endOfMonth, isValid, parseISO } from "date-fns";
+import { differenceInCalendarDays, endOfMonth, format, isValid, parseISO } from "date-fns";
+import { fiscalYearEndMonth } from "@/lib/projections/horizon";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 
+/**
+ * End dates are keyed by account, not by person-and-fund. The account is the
+ * thing that ends; keying per person would give one account as many dates as
+ * it has people charging it.
+ */
 export function getRunwayAssumedEndDate(
   settings: AppSettings,
-  employeeId: string,
-  fundingSourceId: string
+  accountKey: string
 ): string | undefined {
-  const key = hiddenFundKey(employeeId, fundingSourceId);
-  return settings.runwayAssumedEndDates?.[key];
+  return settings.runwayAssumedEndDates?.[normalizeChartstring(accountKey)];
+}
+
+/**
+ * The end date an account marked "not my account" gets when none is given.
+ *
+ * Every such account must carry one: without it the account reads as never
+ * running out, and there is no such thing as infinite runway. Fiscal year end
+ * is the default because it is the horizon the money is actually budgeted
+ * against, and it forces a review each year rather than never.
+ *
+ * The last day of that month, not the first — `fiscalYearEndMonth` returns
+ * `yyyy-MM`, and anchoring to the 1st would cut the final month off the
+ * estimate. Full `yyyy-MM-dd` so a date input can display it.
+ */
+export function defaultAssumedEndDate(
+  fiscalYearStartMonth: number,
+  originMonth: string
+): string {
+  const fyEnd = fiscalYearEndMonth(originMonth, fiscalYearStartMonth);
+  const [y, m] = fyEnd.split("-").map(Number);
+  return format(endOfMonth(new Date(y!, m! - 1, 1)), "yyyy-MM-dd");
+}
+
+/**
+ * The end date an account marked "not my account" is measured against —
+ * whatever is stored, else the default every writer of that mark applies.
+ *
+ * Runway and Projections both used to read the stored date directly and bail
+ * when it was absent, which quietly handed the account back to its balance on
+ * file. That is the one number this whole mechanism exists to ignore: the
+ * balance is somebody else's, part of it is restricted, and some of these
+ * accounts run a deliberate deficit against a parent we cannot see. So a
+ * marked account with no stored date now falls to fiscal year end here rather
+ * than falling back to the balance there — the same rule toggleNotMyAccount,
+ * setAccountGroupForBalanceKey and backfillAssumedEndDates already apply when
+ * they write one.
+ *
+ * Returns undefined for an account that is not marked, so callers can use the
+ * presence of a date as the signal to estimate.
+ */
+export function effectiveAssumedEndDate(
+  settings: AppSettings,
+  accountKey: string,
+  originMonth: string
+): string | undefined {
+  if (!isNotMyAccountKey(settings, accountKey)) return undefined;
+  return (
+    getRunwayAssumedEndDate(settings, accountKey) ??
+    defaultAssumedEndDate(settings.fiscalYearStartMonth, originMonth)
+  );
 }
 
 /** Fractional months from end of planning month to the estimated end date. */
@@ -35,4 +90,32 @@ export function estimateBalanceFromAssumedEnd(
 ): number {
   if (sharedMonthlyBurn <= 0 || monthsRunway <= 0) return 0;
   return roundCurrencyAmount(sharedMonthlyBurn * monthsRunway);
+}
+
+/**
+ * Give every account marked "not mine" an end date it is missing.
+ *
+ * Workspaces saved before the date became required can hold accounts marked
+ * "not my account" with no horizon at all. Left alone they would keep reading
+ * as infinite forever, so they converge to the same default on load rather
+ * than behaving differently from anything marked afterwards.
+ *
+ * Returns the same object when there is nothing to add, so callers can skip a
+ * pointless settings write.
+ */
+export function backfillAssumedEndDates(
+  notMyAccountKeys: string[],
+  endDates: Record<string, string> | undefined,
+  fiscalYearStartMonth: number,
+  originMonth: string
+): Record<string, string> {
+  const current = { ...(endDates ?? {}) };
+  const missing = notMyAccountKeys
+    .map(normalizeChartstring)
+    .filter((key) => !current[key]);
+  if (missing.length === 0) return endDates ?? current;
+
+  const fallback = defaultAssumedEndDate(fiscalYearStartMonth, originMonth);
+  for (const key of missing) current[key] = fallback;
+  return current;
 }

@@ -1,4 +1,4 @@
-import type { FundingSourceTypeDef, PersonnelGroupDef } from "@/types";
+import type { AccountGroupDef, FundingSourceTypeDef, PersonnelGroupDef } from "@/types";
 
 /** Built-in personnel groups (seed + migration defaults). */
 export const DEFAULT_PERSONNEL_GROUPS: PersonnelGroupDef[] = [
@@ -58,9 +58,12 @@ export const DEFAULT_FUNDING_SOURCE_TYPES: FundingSourceTypeDef[] = [
   {
     id: "endowment",
     label: "Endowment",
-    pillClass: "bg-[#9ee0c4] text-[#134d32] ring-1 ring-[#9ee0c4]/50",
-    dotClass: "bg-[#047857]",
-    chartColor: "#047857",
+    // Not green. Categorical color is permitted in the exposure band, so this
+    // was not a rule break — but spending the reserved --healthy hue on a
+    // funding type weakens green's one meaning everywhere else it appears.
+    pillClass: "bg-[#f2d4ef] text-[#6b1566] ring-1 ring-[#f2d4ef]/50",
+    dotClass: "bg-[#a21caf]",
+    chartColor: "#a21caf",
     sortOrder: 2,
   },
   {
@@ -135,3 +138,37 @@ export function slugifyCatalogId(label: string): string {
     .slice(0, 48);
   return base || `item_${Date.now().toString(36)}`;
 }
+
+/**
+ * The two account groups every workspace has.
+ *
+ * "Not my account" is a fact about an account, not about one person's slice of
+ * it, so it lives here rather than per person-and-fund. Only this group is ever
+ * stored against an account: anything unassigned reads as "My accounts", which
+ * keeps one meaning per stored value instead of writing a row for every account
+ * just to say "normal".
+ */
+export const MY_ACCOUNTS_GROUP_ID = "myAccounts";
+export const NOT_MY_ACCOUNTS_GROUP_ID = "notMyAccounts";
+
+/** Structural, not a user tag — deleting it would leave marked accounts nowhere to sit. */
+export const UNDELETABLE_ACCOUNT_GROUP_IDS = [NOT_MY_ACCOUNTS_GROUP_ID];
+
+export const DEFAULT_ACCOUNT_GROUPS: AccountGroupDef[] = [
+  {
+    id: MY_ACCOUNTS_GROUP_ID,
+    label: "My accounts",
+    pillClass: "bg-[#ccfbf1] text-[#134e4a] ring-1 ring-[#ccfbf1]/50",
+    dotClass: "bg-[#0d9488]",
+    chartColor: "#0d9488",
+    sortOrder: 0,
+  },
+  {
+    id: NOT_MY_ACCOUNTS_GROUP_ID,
+    label: "Not my accounts",
+    pillClass: "bg-[#e2e8f0] text-[#334155] ring-1 ring-[#e2e8f0]/50",
+    dotClass: "bg-[#64748b]",
+    chartColor: "#64748b",
+    sortOrder: 1,
+  },
+];

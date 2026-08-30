@@ -23,17 +23,20 @@ import type {
   FundingSource,
   MonthlyCostRecord,
   PayrollReportSnapshot,
-  PersonnelType,
+  ProjectionHorizonPreset,
+  WorkingPlan,
 } from "@/types";
 import { formatMonthDisplay, hasPercentEffort } from "@/lib/utils/parse";
-import { format } from "date-fns";
+import { format, parse } from "date-fns";
 import {
   fiscalYearEndingYear,
   fiscalYearEndMonthYm,
   fiscalYearLabel,
-  fiscalYearStartMonthYm,
   shiftMonth,
 } from "@/lib/dashboard/month";
+import { simulateProjections } from "@/lib/projections/simulate";
+import { addMonthsYm } from "@/lib/projections/horizon";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 
 export type FundingChartKey = string;
 
@@ -42,26 +45,7 @@ export const UNATTRIBUTED_MIX_KEY = "unattributed";
 
 const COST_EPS = 0.005;
 
-export type FundingMixPeriod =
-  | "current_month"
-  | "ytd"
-  | "last_6m"
-  | "last_1y"
-  | "last_3y";
-
-export const FUNDING_MIX_PERIOD_OPTIONS: {
-  id: FundingMixPeriod;
-  label: string;
-  shortLabel: string;
-}[] = [
-  { id: "current_month", label: "Current month", shortLabel: "Month" },
-  { id: "ytd", label: "Avg of FYTD", shortLabel: "FYTD" },
-  { id: "last_6m", label: "Avg of last 6 months", shortLabel: "6 mo" },
-  { id: "last_1y", label: "Avg of last 1 year", shortLabel: "1 yr" },
-  { id: "last_3y", label: "Avg of last 3 years", shortLabel: "3 yr" },
-];
-
-function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
+export function categoryForFund(fs: FundingSource, settings: AppSettings): FundingChartKey {
   return getFundingSourceCategory(settings, fs) ?? "uncategorized";
 }
 
@@ -70,6 +54,7 @@ export interface PersonnelCostTrendPoint {
   label: string;
   total: number;
   headcount: number;
+  isProjected: boolean;
 }
 
 export interface YearlyCostPoint {
@@ -131,64 +116,36 @@ export interface FundingMixSlice {
   color: string;
 }
 
-export interface PersonnelTypeFundingMix {
-  personnelType: PersonnelType | "unassigned";
-  label: string;
-  slices: FundingMixSlice[];
-  total: number;
-}
+/** Deviation from the trailing-12-month average that earns an inline anomaly marker. Same kind of hand-picked, documented threshold as CRITICAL_MONTHS/UNATTRIBUTED_THRESHOLD elsewhere on the dashboard — a display heuristic, not a financial calculation. */
+export const ANOMALY_THRESHOLD = 0.2;
 
-/** Months included for a funding-mix period, ending at the planning month. */
-export function monthsForFundingMixPeriod(
-  period: FundingMixPeriod,
-  snapshot: PayrollReportSnapshot,
-  planningMonth: string,
-  fyStartMonth = 7
-): string[] {
-  const available = getAllMonths(snapshot).filter((m) => m <= planningMonth);
-  if (available.length === 0) return [];
-
-  switch (period) {
-    case "current_month":
-      return available.includes(planningMonth) ? [planningMonth] : [available[available.length - 1]!];
-    case "ytd": {
-      const fyStart = fiscalYearStartMonthYm(planningMonth, fyStartMonth);
-      const ytd = available.filter((m) => m >= fyStart && m <= planningMonth);
-      return ytd.length > 0 ? ytd : [available[available.length - 1]!];
-    }
-    case "last_6m":
-      return available.slice(-6);
-    case "last_1y":
-      return available.slice(-12);
-    case "last_3y":
-      return available.slice(-36);
-    default:
-      return [planningMonth];
+/** Months in `monthly` whose total deviates from `referenceAverage` by more than ANOMALY_THRESHOLD. Returns month -> signed deviation fraction (0.24 = 24% above, -0.18 = 18% below). Skipped entirely on too little data to mean anything. */
+export function flagAnomalousMonths(
+  monthly: PersonnelCostTrendPoint[],
+  referenceAverage: number,
+  minMonthsForSignal = 3
+): Map<string, number> {
+  const flagged = new Map<string, number>();
+  if (monthly.length < minMonthsForSignal || referenceAverage <= 0) return flagged;
+  for (const point of monthly) {
+    const deviation = (point.total - referenceAverage) / referenceAverage;
+    if (Math.abs(deviation) > ANOMALY_THRESHOLD) flagged.set(point.month, deviation);
   }
-}
-
-export function fundingMixPeriodCaption(
-  period: FundingMixPeriod,
-  months: string[],
-  planningMonth: string
-): string {
-  if (months.length === 0) return formatMonthDisplay(planningMonth);
-  if (period === "current_month" || months.length === 1) {
-    return formatMonthDisplay(months[0]!);
-  }
-  const first = formatMonthDisplay(months[0]!);
-  const last = formatMonthDisplay(months[months.length - 1]!);
-  const option = FUNDING_MIX_PERIOD_OPTIONS.find((o) => o.id === period);
-  const avgLabel = option?.label ?? "Average";
-  return `${avgLabel} · ${first}–${last} (${months.length} mo)`;
+  return flagged;
 }
 
 export function buildPersonnelCostTrend(
   snapshot: PayrollReportSnapshot,
   settings: AppSettings,
-  todayYm = format(new Date(), "yyyy-MM")
+  todayYm = format(new Date(), "yyyy-MM"),
+  projection?: {
+    workingPlan: WorkingPlan | null;
+    balances: Map<string, AccountBalance>;
+    horizonMonths: number;
+  }
 ): {
   monthly: PersonnelCostTrendPoint[];
+  monthlyProjected: PersonnelCostTrendPoint[];
   yearly: YearlyCostPoint[];
   planningMonth: string;
   groupBreakdown: PersonnelGroupBreakdown[];
@@ -209,7 +166,48 @@ export function buildPersonnelCostTrend(
       0
     ),
     headcount: planningHeadcountInMonth(employeeIds, month, snapshot.monthlyCosts, settings),
+    isProjected: false,
   }));
+
+  const monthlyProjected: PersonnelCostTrendPoint[] = projection
+    ? (() => {
+        /**
+         * `horizonMonths` is the Dashboard's own local scope control
+         * (6/12/24/48), a separate concept from settings.projectionHorizon's
+         * presets — which offer neither 36 nor 48. Use "custom" with an explicit
+         * end month rather than casting the number to a preset string:
+         * resolveHorizonMonths has no default branch, so an unrecognized preset
+         * silently falls back to 12 months.
+         */
+        const fixedHorizonSettings: AppSettings = {
+          ...settings,
+          projectionHorizon: {
+            preset: "custom" as ProjectionHorizonPreset,
+            customEndMonth: addMonthsYm(todayYm, projection.horizonMonths - 1),
+          },
+        };
+        const result = simulateProjections({
+          snapshot,
+          workingPlan: projection.workingPlan,
+          settings: fixedHorizonSettings,
+          balances: projection.balances,
+          now: parse(`${todayYm}-01`, "yyyy-MM-dd", new Date()),
+        });
+        const lastActualMonth = monthly[monthly.length - 1]?.month ?? todayYm;
+        return result.states
+          .map((state, i) => ({ state, month: result.months[i]! }))
+          .filter(({ month }) => month > lastActualMonth)
+          .map(({ state, month }) => ({
+            month,
+            label: formatMonthDisplay(month),
+            total: state.allocations.reduce((sum, a) => sum + a.monthlyBurn, 0),
+            headcount: new Set(
+              state.allocations.filter((a) => a.percentEffort > 0).map((a) => a.employeeId)
+            ).size,
+            isProjected: true,
+          }));
+      })()
+    : [];
 
   const byYear = new Map<
     number,
@@ -285,7 +283,7 @@ export function buildPersonnelCostTrend(
     settings
   );
 
-  return { monthly, yearly, planningMonth, groupBreakdown };
+  return { monthly, monthlyProjected, yearly, planningMonth, groupBreakdown };
 }
 
 export function employeeGroupKey(settings: AppSettings, employeeId: string): string {
@@ -309,7 +307,7 @@ function emptyGroupRow(
       shortLabel: "Unassigned",
       count: 0,
       cost: 0,
-      color: "#94a3b8",
+      color: "var(--muted)",
     };
   }
   const meta = getPersonnelTypeMeta(key, settings);
@@ -349,12 +347,22 @@ export function buildPersonnelGroupBreakdown(
     rows.set(key, prev);
   }
 
-  return [...rows.values()].filter((r) => r.count > 0 || r.cost > 0);
+  /**
+   * Sorted once, by cost descending, and every consumer holds this order —
+   * the two charts, the two lists beneath them, and the exposure matrix.
+   * Sorting each display by its own value put a team in a different position
+   * in each of the four, so the eye could not track one across them; rank
+   * differences are only readable as position differences if position means
+   * the same thing everywhere. Ties break by label so the order is stable.
+   */
+  return [...rows.values()]
+    .filter((r) => r.count > 0 || r.cost > 0)
+    .sort((a, b) => b.cost - a.cost || a.label.localeCompare(b.label));
 }
 
-function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
-  if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "#94a3b8" };
-  if (key === "uncategorized") return { name: "Uncategorized", color: "#94a3b8" };
+export function sliceMeta(key: FundingChartKey, settings: AppSettings): { name: string; color: string } {
+  if (key === UNATTRIBUTED_MIX_KEY) return { name: "No funding source", color: "var(--muted)" };
+  if (key === "uncategorized") return { name: "Uncategorized", color: "var(--muted)" };
   const meta = getAccountCategoryMeta(key, settings);
   return { name: meta.label, color: meta.chartColor };
 }
@@ -480,73 +488,3 @@ export function buildFundingMixForEmployees(
     });
 }
 
-export function buildFundingTypeMix(
-  snapshot: PayrollReportSnapshot,
-  fundingSources: FundingSource[],
-  settings: AppSettings,
-  period: FundingMixPeriod = "current_month"
-): {
-  planningMonth: string;
-  period: FundingMixPeriod;
-  months: string[];
-  periodCaption: string;
-  total: FundingMixSlice[];
-  byPersonnelType: PersonnelTypeFundingMix[];
-} {
-  const employees = filterEmployeesForPlanning(snapshot.employees, settings);
-  const planningMonth = getCurrentMonth(snapshot);
-  const months = monthsForFundingMixPeriod(
-    period,
-    snapshot,
-    planningMonth,
-    settings.fiscalYearStartMonth
-  );
-  const periodCaption = fundingMixPeriodCaption(period, months, planningMonth);
-
-  const total = buildFundingMixForEmployees(
-    employees,
-    months,
-    snapshot,
-    fundingSources,
-    settings
-  );
-
-  const personnelGroups = getPersonnelGroups(settings);
-  const groups: { personnelType: PersonnelType | "unassigned"; label: string; ids: string[] }[] = [
-    ...personnelGroups.map((t) => ({
-      personnelType: t.id as PersonnelType,
-      label: getPersonnelTypeMeta(t.id, settings).label,
-      ids: employees
-        .filter((e) => getEmployeePersonnelType(settings, e.id) === t.id)
-        .map((e) => e.id),
-    })),
-    {
-      personnelType: "unassigned" as const,
-      label: "Unassigned",
-      ids: employees
-        .filter((e) => !getEmployeePersonnelType(settings, e.id))
-        .map((e) => e.id),
-    },
-  ];
-
-  const byPersonnelType = groups
-    .map((g) => {
-      const slices = buildFundingMixForEmployees(
-        g.ids.map((id) => ({ id })),
-        months,
-        snapshot,
-        fundingSources,
-        settings
-      );
-      const groupTotal = slices.reduce((s, x) => s + x.value, 0);
-      return {
-        personnelType: g.personnelType,
-        label: g.label,
-        slices,
-        total: groupTotal,
-      };
-    })
-    .filter((g) => g.total > 0);
-
-  return { planningMonth, period, months, periodCaption, total, byPersonnelType };
-}

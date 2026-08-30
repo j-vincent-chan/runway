@@ -130,7 +130,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings(),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(result.originMonth).toBe("2026-08");
@@ -151,7 +151,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule] }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-09")).toBe(100);
@@ -183,7 +183,7 @@ describe("simulateProjections", () => {
         projectionRules: [rule],
         plannedFundingSources: [planned],
       }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-09")).toBe(0);
@@ -201,7 +201,7 @@ describe("simulateProjections", () => {
           "hr:1001": { endDate: "2026-09-30" },
         },
       }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-09")).toBe(100);
@@ -221,7 +221,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule], projectionHorizon: { preset: "6" } }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-08")).toBe(100);
@@ -239,7 +239,7 @@ describe("simulateProjections", () => {
       remainder: { kind: "uncovered" },
     };
     const snap = snapshot(["2026-07"]);
-    const portfolio = new Map([
+    const balances = new Map([
       [
         "7000-1-7030720-45",
         {
@@ -254,7 +254,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule], projectionHorizon: { preset: "6" } }),
-      portfolio,
+      balances,
       now,
     });
     expect(pctAt(result, "2026-08")).toBe(100);
@@ -277,7 +277,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule] }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(result.conflicts.length).toBeGreaterThan(0);
@@ -297,7 +297,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule] }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(result.staleness.payrollStale).toBe(true);
@@ -317,7 +317,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionRules: [rule], projectionHorizon: { preset: "6" } }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     // July $10k already counted; Aug $10k hits 20k >= 15k; off from Sep
@@ -377,7 +377,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionHorizon: { preset: "6" } }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-08", "7000-1-7702322-45", "v")).toBe(55.3);
@@ -412,7 +412,7 @@ describe("simulateProjections", () => {
       snapshot: snap,
       workingPlan: null,
       settings: settings({ projectionHorizon: { preset: "6" } }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(result.states.find((s) => s.month === "2026-08")?.coverageByEmployee.e1?.allocatedPercent).toBe(
@@ -445,7 +445,7 @@ describe("simulateProjections", () => {
         projectionHorizon: { preset: "6" },
         hiddenEmployeeFunds: ["e1|f2"],
       }),
-      portfolio: new Map(),
+      balances: new Map(),
       now,
     });
     expect(pctAt(result, "2026-08", "19900-44-146328d-45")).toBe(40);

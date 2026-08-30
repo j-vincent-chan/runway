@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Area, AreaChart, Bar, BarChart, Cell, Line } from "recharts";
+import { Area, AreaChart, Bar, BarChart, Cell, Line, ReferenceLine } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
 import { DerivedFigure } from "@/components/dashboard/DerivedFigure";
 import { monthLabelLong } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
+import { CAUTION_MONTHS, CRITICAL_MONTHS } from "@/lib/dashboard/attention";
+import { runwayMonthsLabel } from "@/lib/runway/calculate";
 import type { DashboardOverview, SparkPoint } from "@/lib/dashboard/overview";
 
 const SPARK_HEIGHT = 34;
@@ -48,6 +50,44 @@ function LineSpark({ points, label }: { points: SparkPoint[]; label: string }) {
   );
 }
 
+/**
+ * Balance history of the account that runs dry soonest — a zero line so a
+ * crossing into deficit is visible, and the line/endpoint turn critical when
+ * the current balance is already negative.
+ */
+function BalanceSpark({ points, label }: { points: SparkPoint[]; label: string }) {
+  if (points.length < 2) return <SparkPlaceholder />;
+  const data = withEndpoint(points);
+  const negative = points[points.length - 1]!.value < 0;
+  const color = negative ? "var(--critical)" : "var(--accent)";
+  return (
+    <div role="img" aria-label={label}>
+      <ChartResponsive height={SPARK_HEIGHT} className="mt-2">
+        <AreaChart data={data} margin={{ top: 3, right: 3, bottom: 0, left: 0 }}>
+          <ReferenceLine y={0} stroke="var(--rule-strong)" strokeDasharray="2 2" />
+          <Area
+            type="monotone"
+            dataKey="value"
+            stroke={color}
+            strokeWidth={1.5}
+            fill={color}
+            fillOpacity={0.1}
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="endpoint"
+            stroke="none"
+            dot={{ r: 2.75, fill: color, strokeWidth: 0 }}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ChartResponsive>
+    </div>
+  );
+}
+
 function BarSpark({ points, label }: { points: SparkPoint[]; label: string }) {
   if (points.length < 2) return <SparkPlaceholder />;
   const last = points.length - 1;
@@ -66,11 +106,19 @@ function BarSpark({ points, label }: { points: SparkPoint[]; label: string }) {
   );
 }
 
+/**
+ * Same footprint as a real spark, so a stat missing history doesn't shrink
+ * relative to its neighbours — the design system bans a flat line standing in
+ * for absent data, so this keeps the shape without drawing one. A faint
+ * baseline gives it a chart-like silhouette; the words above it keep the
+ * honesty a fabricated flat line would have given up.
+ */
 function SparkPlaceholder() {
   return (
-    <p className="type-mono mt-2 flex h-[34px] items-end text-muted">
-      Not enough history yet
-    </p>
+    <div className="relative mt-2 h-[34px]">
+      <p className="type-mono absolute inset-x-0 top-0 text-muted">Not enough history yet</p>
+      <span aria-hidden className="absolute inset-x-0 bottom-1 border-t border-dashed border-rule" />
+    </div>
   );
 }
 
@@ -89,27 +137,31 @@ function Anchor({
   valueNode?: React.ReactNode;
   comparison: React.ReactNode;
   comparisonTone?: "neutral" | "caution" | "critical" | "healthy";
-  spark: React.ReactNode;
+  spark?: React.ReactNode;
 }) {
   return (
     <div className="min-w-0 flex-1 px-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
       <Link
         href={href}
-        className="type-caption inline-flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="type-caption flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         {label}
       </Link>
+      {/* Shared context line, one mono row tall. Empty for the two stats that
+          scope themselves, filled by the runway carousel with the team it is
+          showing — reserved in all three so the figures sit on one baseline. */}
+      <p className="type-mono min-h-[1.125rem] text-ink-2" aria-hidden />
       <p className="type-stat mt-0.5 text-ink">{valueNode ?? value}</p>
       <p
         className={cn(
-          "type-row mt-1",
+          "mt-1 flex items-center gap-1.5 type-row",
           comparisonTone === "neutral" && "text-muted",
           comparisonTone === "caution" && "text-caution",
           comparisonTone === "critical" && "text-critical",
           comparisonTone === "healthy" && "text-healthy"
         )}
       >
-        {comparison}
+        <span className="min-w-0">{comparison}</span>
       </p>
       {spark}
     </div>
@@ -120,94 +172,202 @@ function signed(amount: number): string {
   return `${amount >= 0 ? "+" : "−"}${formatCurrency(Math.abs(amount))}`;
 }
 
-export function AnchorStats({ overview }: { overview: DashboardOverview }) {
+export function AnchorStats({
+  overview,
+  planningMonth,
+  horizonMonths,
+  priorRunwayMonths,
+  priorReportLabel,
+}: {
+  overview: DashboardOverview;
+  /** Names the month Monthly Payroll Burn is actually for — it's a single month now, not a window. */
+  planningMonth: string;
+  /** The Dashboard's own scope control — the runway figure never extrapolates past it. */
+  horizonMonths: number;
+  priorRunwayMonths: number | null;
+  priorReportLabel: string | null;
+}) {
   const {
     availableFunds,
     accountCount,
+    unpricedAccountCount,
+    fundsIncludeEstimated,
     fundsDelta,
     fundsPriorLabel,
     monthlyBurn,
-    burnMonthsUsed,
     burnDelta,
+    burnPriorLabel,
     runwayMonths,
-    runwayPriorMonths,
+    runwayLimitingLabel,
     runwayTargetMonth,
   } = overview;
 
-  const runwayDrop =
-    runwayMonths !== null && runwayPriorMonths !== null
-      ? runwayMonths - runwayPriorMonths
-      : null;
+  const runwayTone: "neutral" | "caution" | "critical" =
+    runwayMonths === null
+      ? "neutral"
+      : runwayMonths < CRITICAL_MONTHS
+        ? "critical"
+        : runwayMonths < CAUTION_MONTHS
+          ? "caution"
+          : "neutral";
+
+  // The month count itself is plain arithmetic — funds over burn — so it is
+  // shown in full at any horizon. Only the *date* is a projection claim, and
+  // that is suppressed past the window rather than extrapolated, which is what
+  // buildVerdict does too.
+  const beyondHorizon = runwayMonths !== null && runwayMonths > horizonMonths;
+
+
+  const fundsExplanation = [
+    `Balance on the ${accountCount} ${accountCount === 1 ? "account" : "accounts"} that both have payroll charged to them and have a balance on file, at the same figure Runway uses.`,
+    "Accounts nobody is paid from are left out, as are accounts you have hidden.",
+    fundsIncludeEstimated
+      ? "Includes an estimated balance for at least one account marked as not yours, worked out from the end date you set on Runway."
+      : null,
+    unpricedAccountCount > 0
+      ? `A further ${unpricedAccountCount} ${unpricedAccountCount === 1 ? "account carries" : "accounts carry"} payroll with no balance on file, so ${unpricedAccountCount === 1 ? "it counts" : "they count"} as $0 here — the real total is higher.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const runwayExplanation = [
+    "Available payroll divided by the combined monthly burn on those same accounts — an average across them, not a promise about any one person.",
+    beyondHorizon
+      ? `That lands past the ${horizonMonths}-month window in view, so the month count is shown but no exact date is — projecting one that far would go beyond what the scope covers.`
+      : "Individual people and accounts run dry sooner — those are listed under what needs attention.",
+    unpricedAccountCount > 0
+      ? `${unpricedAccountCount} ${unpricedAccountCount === 1 ? "account is" : "accounts are"} charged with no balance on file, counted at $0, so this reads shorter than the truth.`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <section aria-label="Funding inputs" className="flex flex-col divide-y divide-rule sm:flex-row sm:divide-x sm:divide-y-0">
       <Anchor
-        label="Available funds"
+        label="Available Payroll"
         href="/account-balances"
-        value={formatCurrency(availableFunds)}
-        comparison={
-          fundsDelta !== null && fundsPriorLabel ? (
-            <>
-              {accountCount} {accountCount === 1 ? "account" : "accounts"} ·{" "}
-              {signed(fundsDelta)} since the {fundsPriorLabel} report
-            </>
-          ) : (
-            <>
-              {accountCount} {accountCount === 1 ? "account" : "accounts"} · no prior report to
-              compare
-            </>
-          )
+        valueNode={
+          <DerivedFigure
+            value={formatCurrency(availableFunds)}
+            explanation={fundsExplanation}
+            className="type-stat text-ink"
+          />
         }
-        spark={<LineSpark points={overview.fundsSeries} label="Total balance by report period" />}
+        comparison={
+          <>
+            {accountCount} {accountCount === 1 ? "account" : "accounts"} with payroll ·{" "}
+            {unpricedAccountCount > 0 ? (
+              <Link href="/runway" className="underline decoration-dotted underline-offset-2">
+                {unpricedAccountCount} more {unpricedAccountCount === 1 ? "needs" : "need"} a
+                balance
+              </Link>
+            ) : fundsDelta !== null && fundsPriorLabel ? (
+              <>
+                {signed(fundsDelta)} since the {fundsPriorLabel} Net Position report
+              </>
+            ) : (
+              /* Names the report type: this compares Net Position periods,
+                 while the runway stat beside it compares payroll imports. One
+                 can have a prior report while the other does not, and calling
+                 both "the report" made the row contradict itself. */
+              <>no prior Net Position report to compare</>
+            )}
+          </>
+        }
+        spark={
+          <LineSpark
+            points={overview.fundsSeries}
+            label="Balance on the payroll accounts by report period"
+          />
+        }
       />
 
       <Anchor
-        label="Monthly burn"
+        label="Monthly Payroll Burn"
         href="/timeline"
-        value={formatCurrency(monthlyBurn)}
+        valueNode={
+          <DerivedFigure
+            value={formatCurrency(monthlyBurn)}
+            explanation={`Total personnel cost — salary and benefits — for ${monthLabelLong(planningMonth)}, the same current-month figure Avg payroll runway divides Available payroll by.`}
+            className="type-stat text-ink"
+          />
+        }
         comparison={
-          burnDelta !== null ? (
-            <>
-              {burnMonthsUsed}-mo avg · {signed(burnDelta)} vs the prior {burnMonthsUsed} months
-            </>
+          burnDelta !== null && burnPriorLabel ? (
+            <>{signed(burnDelta)} since {burnPriorLabel}</>
           ) : (
-            <>{burnMonthsUsed}-mo avg · not enough history to compare</>
+            <>no prior payroll month to compare</>
           )
         }
         spark={<BarSpark points={overview.burnSeries} label="Monthly personnel cost" />}
       />
 
+      {/* Always the all-accounts figure. This slot used to page through teams,
+          so the row's third stat changed its subject on click and showed
+          whatever the last reader left it on. Per-team runway is a table below,
+          sorted ascending. */}
       <Anchor
-        label="Runway"
+        label="Avg Payroll Runway"
         href="/runway"
         valueNode={
-          runwayMonths !== null ? (
+          runwayMonths === null ? (
+            <span className="text-muted">—</span>
+          ) : runwayMonths < 0 ? (
             <DerivedFigure
               projected
-              value={`${runwayMonths.toFixed(1)} mo`}
-              explanation="Available funds divided by the trailing monthly burn, at today's spending rate."
-              className="type-stat text-ink"
+              value="Already short"
+              explanation="Combined burn on your payroll accounts already exceeds what is left in them."
+              className="type-stat text-critical"
             />
           ) : (
-            <span className="text-muted">—</span>
+            <DerivedFigure
+              projected
+              value={runwayMonthsLabel(runwayMonths)}
+              explanation={runwayExplanation}
+              className="type-stat text-ink"
+            />
           )
         }
-        comparisonTone={runwayDrop !== null && runwayDrop < -0.5 ? "caution" : "neutral"}
+        comparisonTone={runwayTone}
         comparison={
-          runwayTargetMonth ? (
+          runwayMonths === null ? (
+            <>needs account balances to project</>
+          ) : (
             <>
-              runs out {monthLabelLong(runwayTargetMonth)}
-              {runwayPriorMonths !== null ? (
-                <> · was {runwayPriorMonths.toFixed(1)} last report</>
+              {runwayMonths < 0 ? (
+                <>overdrawn today</>
+              ) : beyondHorizon ? (
+                <>past the {horizonMonths}-month window</>
+              ) : runwayTargetMonth ? (
+                <>runs out {monthLabelLong(runwayTargetMonth)}</>
+              ) : null}
+              {priorRunwayMonths !== null && priorReportLabel ? (
+                /* "under", not "at": this re-runs today's balances against the
+                   previous payroll's burn. No runway was measured in that
+                   month — the balances behind it are the current ones. */
+                <>
+                  {" "}
+                  · was ~{priorRunwayMonths.toFixed(1)} mo under the {priorReportLabel} payroll
+                  report
+                </>
               ) : (
-                <> · no prior report to compare</>
+                <> · no prior payroll report to compare</>
               )}
             </>
-          ) : (
-            <>needs balances and a burn rate to project</>
           )
         }
-        spark={<LineSpark points={overview.runwaySeries} label="Months of runway by report period" />}
+        spark={
+          <BalanceSpark
+            points={overview.runwaySeries}
+            label={
+              runwayLimitingLabel
+                ? `Balance of ${runwayLimitingLabel}, the first to run dry`
+                : "Balance of the account that runs dry first"
+            }
+          />
+        }
       />
     </section>
   );

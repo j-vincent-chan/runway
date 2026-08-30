@@ -48,20 +48,20 @@ export function stripProjectFromAlias(value: string, projectNumber?: string): st
 export function resolveAliasBase(
   fs: FundingSource,
   customAlias?: string,
-  portfolioTitle?: string
+  accountTitle?: string
 ): string {
   const project = getProjectNumber(fs);
   if (customAlias?.trim()) return stripProjectFromAlias(customAlias, project);
-  if (portfolioTitle?.trim()) return stripProjectFromAlias(portfolioTitle, project);
+  if (accountTitle?.trim()) return stripProjectFromAlias(accountTitle, project);
   return stripProjectFromAlias(fs.alias, project) || defaultAliasBase(fs);
 }
 
 export function resolveDisplayAlias(
   fs: FundingSource,
   customAlias?: string,
-  portfolioTitle?: string
+  accountTitle?: string
 ): string {
   const project = getProjectNumber(fs);
-  const base = resolveAliasBase(fs, customAlias, portfolioTitle);
+  const base = resolveAliasBase(fs, customAlias, accountTitle);
   return formatDisplayAlias(base, project);
 }

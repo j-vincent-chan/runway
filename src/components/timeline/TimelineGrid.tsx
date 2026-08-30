@@ -12,6 +12,8 @@ import {
 } from "@/lib/funding/visibility";
 import { buildTimelineSegments } from "@/lib/timeline/mergeSegments";
 import { cn } from "@/lib/utils/cn";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
+import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
 import {
   formatCurrency,
   formatMonthDisplay,
@@ -20,7 +22,7 @@ import {
   hasPercentEffort,
 } from "@/lib/utils/parse";
 import type { Employee, FundingSource, MonthlyAllocation, PayrollReportSnapshot } from "@/types";
-import { ChevronDown, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import { TimelineToolbar } from "@/components/timeline/TimelineToolbar";
 import { FreezeableGrid, freezeTheadClass } from "@/components/grid/FreezeableGrid";
 import { AliasEditor } from "@/components/funding/AliasEditor";
@@ -163,9 +165,10 @@ export function TimelineGrid() {
     updateAllocation,
     updateFundingSourceAlias,
     toggleHiddenEmployeeFund,
+    toggleNotMyAccount,
     setEmployeePlanningScope,
     updateSettings,
-    portfolioTitlesByChartstring,
+    accountTitlesByChartstring,
   } = useApp();
   const [display, setDisplay] = useState<"percent" | "dollars" | "both">("percent");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -341,9 +344,10 @@ export function TimelineGrid() {
                   updateAllocation={updateAllocation}
                   updateFundingSourceAlias={updateFundingSourceAlias}
                   customAliases={settings.fundingSourceAliases}
-                  portfolioTitlesByChartstring={portfolioTitlesByChartstring}
+                  accountTitlesByChartstring={accountTitlesByChartstring}
                   settings={settings}
                   toggleHiddenEmployeeFund={toggleHiddenEmployeeFund}
+                  toggleNotMyAccount={toggleNotMyAccount}
                   showHiddenFunds={showHiddenFunds}
                   revealHiddenForEmployees={revealHiddenForEmployees}
                   onRevealHiddenForEmployee={(employeeId) =>
@@ -373,14 +377,16 @@ function EmployeeRows({
   updateAllocation,
   updateFundingSourceAlias,
   customAliases,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   settings,
   toggleHiddenEmployeeFund,
+  toggleNotMyAccount,
   showHiddenFunds,
   revealHiddenForEmployees,
   onRevealHiddenForEmployee,
   setEmployeePlanningScope,
 }: {
+  toggleNotMyAccount: (chartstring: string) => void;
   emp: Employee;
   sources: FundingSource[];
   months: string[];
@@ -393,7 +399,7 @@ function EmployeeRows({
   updateAllocation: (e: string, f: string, m: string, n: number) => void;
   updateFundingSourceAlias: (id: string, base: string) => void;
   customAliases: AppSettings["fundingSourceAliases"];
-  portfolioTitlesByChartstring: Map<string, string>;
+  accountTitlesByChartstring: Map<string, string>;
   settings: AppSettings;
   toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
   showHiddenFunds: boolean;
@@ -487,6 +493,11 @@ function EmployeeRows({
       {!isCollapsed &&
         sources.map((fs) => {
           const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const notMine = isNotMyAccountKey(
+            settings,
+            chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
+              (fs.accountString ?? fs.rawName)
+          );
           const segments = buildTimelineSegments(
             months,
             (month) => getAlloc(emp.id, fs.id, month),
@@ -525,12 +536,31 @@ function EmployeeRows({
                       <Eye className="h-3.5 w-3.5" />
                     )}
                   </button>
+                  {/* Same mark as Runway's landmark and the Settings account
+                      group — all three write one account-level value. */}
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5",
+                      notMine
+                        ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
+                        : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                    )}
+                    title={
+                      notMine
+                        ? "Apply runway to this account again"
+                        : "Not my account — count it only to its end date"
+                    }
+                    onClick={() => toggleNotMyAccount(fs.accountString ?? fs.rawName)}
+                  >
+                    <Landmark className="h-3.5 w-3.5" />
+                  </button>
                   <AliasEditor
                     source={fs}
                     customAlias={getAliasEntry(customAliases, fs)?.alias}
-                    portfolioTitle={
+                    accountTitle={
                       fs.accountString
-                        ? portfolioTitlesByChartstring.get(fs.accountString)
+                        ? accountTitlesByChartstring.get(fs.accountString)
                         : undefined
                     }
                     compact

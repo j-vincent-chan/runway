@@ -14,7 +14,6 @@ import type {
   PayrollReportImport,
   PayrollReportSnapshot,
   PersonnelGroupDef,
-  PortfolioReportImport,
   NetPositionReportImport,
   Scenario,
   WorkingPlan,
@@ -22,13 +21,19 @@ import type {
 } from "@/types";
 import { DEFAULT_SETTINGS } from "@/types";
 import { generateId, hasPercentEffort } from "@/lib/utils/parse";
-import { loadStateForAccount, saveState } from "@/lib/storage/localStorage";
+import { emptyState, loadStateForAccount, saveState } from "@/lib/storage/localStorage";
 import { readWorkbook, parsePayrollFundingWorkbook } from "@/lib/parsers/payrollFundingParser";
 import { getAllocations, applyAliases, getCurrentMonth } from "@/lib/calculations";
 import { refreshFundingSourceColors } from "@/lib/timeline/colors";
+import { isAccountActiveInMonth } from "@/lib/funding/employeeSources";
 import { stripProjectFromAlias, getProjectNumber } from "@/lib/funding/alias";
 import { fundingSourceKey, migrateAliasKeys } from "@/lib/funding/sourceKey";
-import { hiddenFundKey, withoutHiddenFundsForEmployee } from "@/lib/funding/visibility";
+import {
+  accountsHiddenForEveryone,
+  effectiveHiddenAccountKeys,
+  hiddenFundKey,
+  withoutHiddenFundsForEmployee,
+} from "@/lib/funding/visibility";
 import {
   mergePayrollSnapshots,
   mergeWorkingPlanAllocations,
@@ -39,12 +44,11 @@ import {
   payrollImportFromSnapshot,
 } from "@/lib/import/foldPayrollImports";
 import { migrateSnapshotIfNeeded } from "@/lib/import/migrateSnapshot";
-import { parseMyPortfolioFile } from "@/lib/parsers/myPortfolioParser";
 import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
-import { mergePortfolioBalances } from "@/lib/portfolio/mergeBalances";
-import { findPortfolioTitleForChartstring } from "@/lib/funding/chartstring";
+import { buildAccountBalances, type AccountBalance } from "@/lib/funding/accountBalances";
+import { chartstringFundDeptProject, findAccountTitleForChartstring } from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
   runwayBalanceValuesMatch,
@@ -62,7 +66,16 @@ import {
   OFFER_LETTER_MAX_BYTES,
   parseOfferLetterFile,
 } from "@/lib/employees/offerLetterParse";
-import { migrateCategoryKeys } from "@/lib/funding/accountCategory";
+import { migrateCategoryKeys, setCategoryForAccountKey } from "@/lib/funding/accountCategory";
+import {
+  migrateAssumedOkToAccountGroups,
+} from "@/lib/net-position/accountGroup";
+import {
+  NOT_MY_ACCOUNTS_GROUP_ID,
+  UNDELETABLE_ACCOUNT_GROUP_IDS,
+} from "@/lib/catalog/defaults";
+import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/assumedEndDate";
+import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import {
   deleteOfferLetterFile,
   getOfferLetterFile,
@@ -101,6 +114,11 @@ import {
   workspaceHasPlanningData,
 } from "@/lib/supabase/workspace";
 import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
+import {
+  getActiveWorkspaceOverride,
+  setActiveWorkspaceOverride,
+} from "@/lib/supabase/activeWorkspace";
+import { useWorkspace } from "@/context/WorkspaceContext";
 
 interface AppContextValue {
   snapshot: PayrollReportSnapshot | null;
@@ -128,13 +146,14 @@ interface AppContextValue {
   updateSettings: (s: Partial<AppSettings>) => void;
   updateFundingSourceAlias: (fundingSourceId: string, aliasBase: string) => void;
   setFundingSourceCategory: (fundingSourceId: string, category: AccountCategory | null) => void;
-  toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
-  toggleRunwayAssumedOkFund: (employeeId: string, fundingSourceId: string) => void;
-  setRunwayAssumedEndDate: (
-    employeeId: string,
-    fundingSourceId: string,
-    endDate: string | null
+  setFundingSourceCategoryForAccountKey: (
+    accountKey: string,
+    category: AccountCategory | null
   ) => void;
+  toggleHiddenEmployeeFund: (employeeId: string, fundingSourceId: string) => void;
+  /** Mark or unmark an account as one you don't control, by chartstring. */
+  toggleNotMyAccount: (chartstring: string) => void;
+  setRunwayAssumedEndDate: (accountKey: string, endDate: string | null) => void;
   unhideEmployeeFunds: (employeeId: string) => void;
   unhideAllEmployeeFunds: () => void;
   setEmployeePlanningScope: (employeeId: string, percent: number | null) => void;
@@ -160,15 +179,13 @@ interface AppContextValue {
   saveScenario: (name: string) => void;
   clearAll: () => void;
   fundingSources: ReturnType<typeof applyAliases>;
-  portfolioTitlesByChartstring: Map<string, string>;
-  portfolioImports: PortfolioReportImport[];
+  accountTitlesByChartstring: Map<string, string>;
   payrollImports: PayrollReportImport[];
   netPositionImports: NetPositionReportImport[];
   positionSalaryImports: PositionSalaryReportImport[];
-  mergedPortfolioBalances: ReturnType<typeof mergePortfolioBalances>;
-  parsePortfolioFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
-  importPortfolioFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
-  removePortfolioImport: (id: string) => void;
+  accountBalances: Map<string, AccountBalance>;
+  /** Explicit hides + accounts hidden on Runway for everyone, minus explicit reveals. */
+  hiddenAccountKeys: string[];
   importNetPositionFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   removeNetPositionImport: (id: string) => void;
   importPositionSalaryFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
@@ -197,6 +214,40 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+/**
+ * Lift legacy "not my account" marks onto their accounts, then give every
+ * marked account a horizon.
+ *
+ * Order matters: running the backfill first would key dates against a store
+ * about to be retired. Both hydrate paths call this — a signed-in workspace
+ * used to skip it entirely, so the same data behaved differently depending on
+ * whether cloud sync happened to be on.
+ */
+function applyAssumedEndDateRules(
+  settings: AppSettings,
+  snapshot: PayrollReportSnapshot | null
+): AppSettings {
+  const migrated = migrateAssumedOkToAccountGroups(settings, (fundingSourceId) => {
+    const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+    if (!fs) return null;
+    return chartstringFundDeptProject(fs.accountString ?? fs.rawName);
+  });
+  return {
+    ...migrated,
+    // Workspaces saved before the end date became required can hold accounts
+    // marked "not my account" with no horizon; those would keep reading as
+    // infinite runway until touched by hand.
+    runwayAssumedEndDates: backfillAssumedEndDates(
+      Object.entries(migrated.accountGroupByBalanceKey ?? {})
+        .filter(([, groupId]) => groupId === NOT_MY_ACCOUNTS_GROUP_ID)
+        .map(([key]) => key),
+      migrated.runwayAssumedEndDates,
+      migrated.fiscalYearStartMonth,
+      getProjectionOriginMonth()
+    ),
+  };
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [snapshot, setSnapshot] = useState<PayrollReportSnapshot | null>(null);
   const [workingPlan, setWorkingPlan] = useState<WorkingPlan | null>(null);
@@ -211,13 +262,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isMerge: boolean;
   } | null>(null);
   const [dataMigrated, setDataMigrated] = useState(false);
-  const [portfolioImports, setPortfolioImports] = useState<PortfolioReportImport[]>([]);
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
   const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
   const [positionSalaryImports, setPositionSalaryImports] = useState<PositionSalaryReportImport[]>([]);
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
+  const { activeOwner } = useWorkspace();
+  /**
+   * True while an analyst is inside a delegated PI workspace. Delegate mode
+   * is cloud-only: no local IndexedDB read/write, so the PI's payroll data
+   * never lands in the analyst's own browser slots (PRIVACY.md boundary).
+   */
+  const actingAsDelegate = activeOwner ? !activeOwner.isSelf : false;
   const userId = user?.id ?? null;
   const userIdRef = useRef(userId);
   userIdRef.current = userId;
@@ -228,9 +285,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!authReady) return;
     let cancelled = false;
     setLoading(true);
+    // A workspace switch must never let the previous workspace's debounced
+    // save land on the new target.
+    if (cloudSaveTimer.current) {
+      clearTimeout(cloudSaveTimer.current);
+      cloudSaveTimer.current = null;
+    }
+    // This effect owns the ambient override: asserting it from activeOwner
+    // here means the override and the workspace being hydrated can never
+    // disagree, whatever order the providers' effects ran in.
+    setActiveWorkspaceOverride(
+      activeOwner && !activeOwner.isSelf
+        ? { userId: activeOwner.userId, email: activeOwner.email }
+        : null
+    );
+    /**
+     * The owner this hydrate is for. The module override can flip mid-flight
+     * (WorkspaceContext restores a persisted delegate selection right after
+     * sign-in), so every fetch result is re-checked against it before any
+     * state or browser slot is written.
+     */
+    const expectedOwnerId = actingAsDelegate && activeOwner ? activeOwner.userId : userId;
+    const ownerStillCurrent = () =>
+      (getActiveWorkspaceOverride()?.userId ?? userId) === expectedOwnerId;
 
     async function hydrateLocal(s: Awaited<ReturnType<typeof loadStateForAccount>>) {
-      setPortfolioImports(s.portfolioImports ?? []);
       setNetPositionImports(s.netPositionImports ?? []);
       setPositionSalaryImports(s.positionSalaryImports ?? []);
       let normalizedAliases = s.snapshot
@@ -257,6 +336,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : { ...(s.settings.employeeProfiles ?? {}) },
       };
 
+      settingsLocal = applyAssumedEndDateRules(settingsLocal, s.snapshot);
+
       if (cancelled) return;
 
       let snap = s.snapshot ? refreshFundingSourceColors(s.snapshot) : null;
@@ -277,7 +358,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     async function hydrate() {
       const ownerEmail = user?.email ?? (user?.user_metadata?.email as string | undefined);
-      const s = await loadStateForAccount(userId, ownerEmail);
+      // Delegate mode never touches the analyst's own browser slots — the
+      // cloud copy of the PI's workspace is the only source and sink.
+      const s = actingAsDelegate ? emptyState() : await loadStateForAccount(userId, ownerEmail);
 
       if (!cloudSyncEnabled) {
         await hydrateLocal(s);
@@ -285,7 +368,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       let cloud = await fetchCloudWorkspace();
-      if (!workspaceHasPlanningData(cloud ?? {}) && isLabOwnerEmail(ownerEmail)) {
+      if (
+        !actingAsDelegate &&
+        !workspaceHasPlanningData(cloud ?? {}) &&
+        isLabOwnerEmail(ownerEmail)
+      ) {
         cloud = (await claimLegacyCloudWorkspace(ownerEmail)) ?? cloud;
       }
 
@@ -293,11 +380,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
       ]);
-      if (cancelled) return;
-      const workspace = pickWorkspace(s, cloud);
+      if (cancelled || !ownerStillCurrent()) return;
+      const workspace = actingAsDelegate
+        ? cloud
+          ? pickWorkspace(emptyState(), cloud)
+          : emptyState()
+        : pickWorkspace(s, cloud);
 
       // Persist recovered lab data into the owner browser slot immediately.
-      if (userId && workspaceHasPlanningData(workspace) && !workspaceHasPlanningData(s)) {
+      if (
+        !actingAsDelegate &&
+        userId &&
+        workspaceHasPlanningData(workspace) &&
+        !workspaceHasPlanningData(s)
+      ) {
         void saveState(workspace, userId);
       }
 
@@ -343,6 +439,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
+      settingsLocal = applyAssumedEndDateRules(settingsLocal, workspace.snapshot);
+
       settingsLocal = await syncCatalogFromCloud(settingsLocal);
 
       let snap = workspace.snapshot ? refreshFundingSourceColors(workspace.snapshot) : null;
@@ -353,8 +451,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plan = migrated.workingPlan;
         setDataMigrated(migrated.migrated);
       }
-      if (cancelled) return;
-      setPortfolioImports(workspace.portfolioImports ?? []);
+      if (cancelled || !ownerStillCurrent()) return;
       setNetPositionImports(workspace.netPositionImports ?? []);
       setPositionSalaryImports(workspace.positionSalaryImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
@@ -363,14 +460,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSettings(settingsLocal);
       setScenarios(workspace.scenarios ?? []);
       setLoading(false);
-      if (snap) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
+      // The backfill reads the analyst's local offer-letter blobs — wrong
+      // source and wrong target for a delegated workspace.
+      if (snap && !actingAsDelegate) void backfillOfferLettersToCloud(snap.employees, settingsLocal);
     }
 
     void hydrate();
     return () => {
       cancelled = true;
     };
-  }, [authReady, cloudSyncEnabled, userId, user?.email, user?.user_metadata?.email]);
+  }, [
+    authReady,
+    cloudSyncEnabled,
+    userId,
+    user?.email,
+    user?.user_metadata?.email,
+    activeOwner,
+    actingAsDelegate,
+  ]);
 
   useEffect(() => {
     if (loading) return;
@@ -380,17 +487,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       workingPlan,
       scenarios,
       settings,
-      portfolioImports,
       payrollImports,
       netPositionImports,
       positionSalaryImports,
       savedAt,
     };
-    void saveState(state, userIdRef.current);
+    // Delegate mode is cloud-only: the PI's data must not be cached into the
+    // analyst's own browser slot.
+    if (!actingAsDelegate) void saveState(state, userIdRef.current);
     if (!cloudSyncRef.current) return;
     if (cloudSaveTimer.current) clearTimeout(cloudSaveTimer.current);
+    // Belt and suspenders against a save closure surviving a workspace
+    // switch: capture the target at schedule time and re-check at fire time.
+    const scheduledOwnerId = getActiveWorkspaceOverride()?.userId ?? userIdRef.current;
     cloudSaveTimer.current = setTimeout(() => {
       if (!cloudSyncRef.current) return;
+      const currentOwnerId = getActiveWorkspaceOverride()?.userId ?? userIdRef.current;
+      if (currentOwnerId !== scheduledOwnerId) return;
       void saveCloudWorkspace(state);
     }, 1500);
     return () => {
@@ -401,18 +514,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     workingPlan,
     scenarios,
     settings,
-    portfolioImports,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
     loading,
     cloudSyncEnabled,
     userId,
+    actingAsDelegate,
   ]);
 
-  const mergedPortfolioBalances = useMemo(
-    () => mergePortfolioBalances(portfolioImports),
-    [portfolioImports]
+  // Runway resolves every balance through this map, so anything missing here
+  // is treated as $0.
+  const accountBalances = useMemo(
+    () => buildAccountBalances(netPositionImports),
+    [netPositionImports]
   );
 
   const snapshotForUi = useMemo(
@@ -420,19 +535,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, positionSalaryImports]
   );
 
-  const portfolioTitlesByChartstring = useMemo(() => {
+  /**
+   * Accounts hidden on Runway/Timeline for every person charging them, unioned
+   * with explicit hides and minus explicit reveals. Computed once here so
+   * Account Balances, Settings and the Dashboard cannot disagree about which
+   * accounts are hidden.
+   */
+  const hiddenAccountKeys = useMemo(() => {
+    if (!snapshot) return effectiveHiddenAccountKeys(settings, new Set<string>());
+    const currentMonth = getCurrentMonth(snapshot);
+    const currentAllocations = getAllocations(snapshot, workingPlan);
+    const pairs: { employeeId: string; fundingSourceId: string; accountKey: string }[] = [];
+    for (const emp of snapshot.employees) {
+      for (const fs of snapshot.fundingSources) {
+        if (!isAccountActiveInMonth(emp.id, fs.id, currentMonth, snapshot, currentAllocations)) continue;
+        const accountKey = normalizeAccountBalanceKey(
+          chartstringFundDeptProject(fs.accountString ?? fs.rawName) ?? fs.accountString ?? fs.rawName
+        );
+        pairs.push({ employeeId: emp.id, fundingSourceId: fs.id, accountKey });
+      }
+    }
+    return effectiveHiddenAccountKeys(settings, accountsHiddenForEveryone(pairs, settings));
+  }, [snapshot, workingPlan, settings]);
+
+  const accountTitlesByChartstring = useMemo(() => {
     const map = new Map<string, string>();
     if (!snapshot) return map;
     for (const fs of snapshot.fundingSources) {
       if (!fs.accountString) continue;
-      const title = findPortfolioTitleForChartstring(
+      const title = findAccountTitleForChartstring(
         fs.accountString,
-        mergedPortfolioBalances
+        accountBalances
       );
       if (title) map.set(fs.accountString, title);
     }
     return map;
-  }, [snapshot, mergedPortfolioBalances]);
+  }, [snapshot, accountBalances]);
 
   const allocations = useMemo(
     () => (snapshot ? getAllocations(snapshot, workingPlan) : []),
@@ -445,10 +583,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? applyAliases(
             snapshot.fundingSources,
             settings.fundingSourceAliases,
-            portfolioTitlesByChartstring
+            accountTitlesByChartstring
           )
         : [],
-    [snapshot, settings.fundingSourceAliases, portfolioTitlesByChartstring]
+    [snapshot, settings.fundingSourceAliases, accountTitlesByChartstring]
   );
 
   const parsePayrollFiles = useCallback(
@@ -631,32 +769,59 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const toggleRunwayAssumedOkFund = useCallback((employeeId: string, fundingSourceId: string) => {
-    const key = hiddenFundKey(employeeId, fundingSourceId);
+  /**
+   * "Not my account" is a property of the account, so the landmark mark writes the
+   * account group — the single place it is stored. Marking from Runway or the
+   * timeline and assigning the group in Settings are the same action.
+   */
+  const toggleNotMyAccount = useCallback((chartstring: string) => {
     setSettings((prev) => {
-      const assumed = new Set(prev.runwayAssumedOkFunds ?? []);
+      const root = chartstringFundDeptProject(chartstring) ?? chartstring;
+      const key = normalizeAccountBalanceKey(root);
+
+      const groups = { ...(prev.accountGroupByBalanceKey ?? {}) };
       const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
-      if (assumed.has(key)) {
-        assumed.delete(key);
+
+      if (groups[key] === NOT_MY_ACCOUNTS_GROUP_ID) {
+        delete groups[key];
         delete endDates[key];
       } else {
-        assumed.add(key);
+        groups[key] = NOT_MY_ACCOUNTS_GROUP_ID;
+        // Marking an account always gives it a horizon. Without one it would
+        // read as never running out, and there is no such thing as infinite
+        // runway — fiscal year end is editable, but it is never absent.
+        if (!endDates[key]) {
+          endDates[key] = defaultAssumedEndDate(
+            prev.fiscalYearStartMonth,
+            getProjectionOriginMonth()
+          );
+        }
       }
-      return {
-        ...prev,
-        runwayAssumedOkFunds: [...assumed],
-        runwayAssumedEndDates: endDates,
-      };
+      return { ...prev, accountGroupByBalanceKey: groups, runwayAssumedEndDates: endDates };
     });
   }, []);
 
   const setRunwayAssumedEndDate = useCallback(
-    (employeeId: string, fundingSourceId: string, endDate: string | null) => {
-      const key = hiddenFundKey(employeeId, fundingSourceId);
+    (accountKey: string, endDate: string | null) => {
+      const key = normalizeAccountBalanceKey(
+        chartstringFundDeptProject(accountKey) ?? accountKey
+      );
       setSettings((prev) => {
         const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
-        if (!endDate) delete endDates[key];
-        else endDates[key] = endDate;
+        const stillNotMine =
+          (prev.accountGroupByBalanceKey ?? {})[key] === NOT_MY_ACCOUNTS_GROUP_ID;
+        if (endDate) {
+          endDates[key] = endDate;
+        } else if (stillNotMine) {
+          // Clearing the field falls back to the default rather than emptying
+          // it. The requirement is held here, not defended in the input.
+          endDates[key] = defaultAssumedEndDate(
+            prev.fiscalYearStartMonth,
+            getProjectionOriginMonth()
+          );
+        } else {
+          delete endDates[key];
+        }
         return { ...prev, runwayAssumedEndDates: endDates };
       });
     },
@@ -1015,6 +1180,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot]
   );
 
+  /**
+   * Settings → Accounts assigns the type per account, which is the unit the
+   * Net Position Report reports on. Writing the account key and dropping the
+   * chartstrings beneath it keeps one account from ever showing two types.
+   */
+  const setFundingSourceCategoryForAccountKey = useCallback(
+    (accountKey: string, category: AccountCategory | null) => {
+      setSettings((prev) => ({
+        ...prev,
+        fundingSourceCategories: setCategoryForAccountKey(
+          prev.fundingSourceCategories,
+          accountKey,
+          category
+        ),
+      }));
+    },
+    []
+  );
+
   const saveScenario = useCallback(
     (name: string) => {
       if (!snapshot || !workingPlan) return;
@@ -1037,40 +1221,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [snapshot, workingPlan]
   );
-
-  const importPortfolioFiles = useCallback(async (files: File[]) => {
-    const warnings: ParseWarning[] = [];
-    const imports: PortfolioReportImport[] = [];
-
-    for (const file of files) {
-      try {
-        const result = await parseMyPortfolioFile(file);
-        imports.push(result.import);
-        warnings.push(...result.warnings);
-      } catch (err) {
-        warnings.push({
-          id: generateId(),
-          severity: "error",
-          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
-        });
-      }
-    }
-
-    if (imports.length > 0) {
-      setPortfolioImports((prev) => [...prev, ...imports]);
-    }
-
-    return { warnings };
-  }, []);
-
-  const parsePortfolioFile = useCallback(
-    async (file: File) => importPortfolioFiles([file]),
-    [importPortfolioFiles]
-  );
-
-  const removePortfolioImport = useCallback((id: string) => {
-    setPortfolioImports((prev) => prev.filter((p) => p.id !== id));
-  }, []);
 
   const importNetPositionFiles = useCallback(async (files: File[]) => {
     const warnings: ParseWarning[] = [];
@@ -1218,6 +1368,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const deleteAccountGroupDef = useCallback((id: string) => {
+    // Guarded here as well as in the UI: accounts carry this group to mean
+    // "not mine" on Runway, Timeline and Projections, so removing it would
+    // strand every marked account.
+    if (UNDELETABLE_ACCOUNT_GROUP_IDS.includes(id)) return;
     setSettings((prev) => {
       const groups = (prev.accountGroups ?? []).filter((g) => g.id !== id);
       const accountGroupByBalanceKey = { ...(prev.accountGroupByBalanceKey ?? {}) };
@@ -1235,9 +1389,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const key = normalizeAccountBalanceKey(accountKey);
       setSettings((prev) => {
         const map = { ...(prev.accountGroupByBalanceKey ?? {}) };
+        const wasNotMine = map[key] === NOT_MY_ACCOUNTS_GROUP_ID;
         if (groupId === null) delete map[key];
         else map[key] = groupId;
-        return { ...prev, accountGroupByBalanceKey: map };
+
+        /**
+         * Assigning the group here is the same act as the landmark mark on Runway or
+         * Timeline, so it must leave the account in the same state — including
+         * the horizon. Without this, marking from Settings produced an account
+         * with no end date until the next reload backfilled one, and in the
+         * meantime it fell back to its real balance.
+         */
+        const isNowNotMine = groupId === NOT_MY_ACCOUNTS_GROUP_ID;
+        if (!wasNotMine && !isNowNotMine) {
+          return { ...prev, accountGroupByBalanceKey: map };
+        }
+        const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
+        if (isNowNotMine) {
+          if (!endDates[key]) {
+            endDates[key] = defaultAssumedEndDate(
+              prev.fiscalYearStartMonth,
+              getProjectionOriginMonth()
+            );
+          }
+        } else {
+          delete endDates[key];
+        }
+        return { ...prev, accountGroupByBalanceKey: map, runwayAssumedEndDates: endDates };
       });
     },
     []
@@ -1251,11 +1429,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (balance === null || Number.isNaN(balance)) {
           delete overrides[key];
         } else {
-          const portfolioBalances = new Map<string, number>();
-          for (const [k, v] of mergedPortfolioBalances) {
-            portfolioBalances.set(k, v.balance);
+          const balanceByKey = new Map<string, number>();
+          for (const [k, v] of accountBalances) {
+            balanceByKey.set(k, v.balance);
           }
-          const match = findBalanceForChartstring(chartstring, portfolioBalances);
+          const match = findBalanceForChartstring(chartstring, balanceByKey);
           if (match !== undefined && runwayBalanceValuesMatch(balance, match.balance)) {
             delete overrides[key];
           } else {
@@ -1265,7 +1443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, runwayBalanceOverrides: overrides };
       });
     },
-    [mergedPortfolioBalances]
+    [accountBalances]
   );
 
   const setRunwayBurnOverride = useCallback(
@@ -1310,37 +1488,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const clearAll = useCallback(() => {
     setSettings((prev) => {
+      /**
+       * Clear what the confirmation promises to clear, and nothing else.
+       *
+       * This used to rebuild settings from DEFAULT_SETTINGS plus a list of
+       * fields to carry over, which silently dropped anything absent from that
+       * list — including the "fund ends" dates, whose accounts stayed marked
+       * "not my account" and were quietly refilled with fiscal year end on the
+       * next load, and the planning defaults that date is derived from.
+       *
+       * Starting from `prev` inverts it: a setting added later survives a
+       * clear unless someone deliberately adds it here.
+       */
       const keptSettings: AppSettings = {
-        ...DEFAULT_SETTINGS,
-        fundingSourceAliases: prev.fundingSourceAliases,
-        fundingSourceCategories: prev.fundingSourceCategories ?? {},
-        employeeProfiles: prev.employeeProfiles ?? {},
-        runwayBalanceOverrides: prev.runwayBalanceOverrides,
-        runwayBurnOverrides: prev.runwayBurnOverrides,
-        projectionHorizon: prev.projectionHorizon,
-        plannedFundingSources: prev.plannedFundingSources,
-        projectionRules: prev.projectionRules,
-        projectionIgnoreRosterEndDates: prev.projectionIgnoreRosterEndDates,
-        personnelGroups: prev.personnelGroups,
-        fundingSourceTypes: prev.fundingSourceTypes,
-        accountGroups: prev.accountGroups,
-        accountGroupByBalanceKey: prev.accountGroupByBalanceKey,
-        hiddenAccountBalanceKeys: prev.hiddenAccountBalanceKeys,
-        watchedPortfolioAccountKeys: prev.watchedPortfolioAccountKeys,
+        ...prev,
+        hiddenEmployeeFunds: DEFAULT_SETTINGS.hiddenEmployeeFunds,
+        employeePlanningScope: DEFAULT_SETTINGS.employeePlanningScope,
       };
-      void saveState(
-        {
-          snapshot: null,
-          workingPlan: null,
-          scenarios: [],
-          settings: keptSettings,
-          portfolioImports,
-          payrollImports: [],
-          netPositionImports,
-          positionSalaryImports,
-        },
-        userIdRef.current
-      );
+      // Never write a delegated workspace's state into the analyst's own
+      // local slot; the cloud save effect propagates the clear to the PI.
+      if (!actingAsDelegate) {
+        void saveState(
+          {
+            snapshot: null,
+            workingPlan: null,
+            scenarios: [],
+            settings: keptSettings,
+            payrollImports: [],
+            netPositionImports,
+            positionSalaryImports,
+          },
+          userIdRef.current
+        );
+      }
       return keptSettings;
     });
     setSnapshot(null);
@@ -1352,7 +1532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setPendingSnapshot(null);
     setPendingMergeInfo(null);
     setDataMigrated(false);
-  }, [portfolioImports, netPositionImports, positionSalaryImports]);
+  }, [netPositionImports, positionSalaryImports, actingAsDelegate]);
 
   const value: AppContextValue = {
     snapshot: snapshotForUi,
@@ -1375,8 +1555,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     updateSettings,
     updateFundingSourceAlias,
     setFundingSourceCategory,
+    setFundingSourceCategoryForAccountKey,
     toggleHiddenEmployeeFund,
-    toggleRunwayAssumedOkFund,
+    toggleNotMyAccount,
     setRunwayAssumedEndDate,
     unhideEmployeeFunds,
     unhideAllEmployeeFunds,
@@ -1396,15 +1577,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveScenario,
     clearAll,
     fundingSources,
-    portfolioTitlesByChartstring,
-    portfolioImports,
+    accountTitlesByChartstring,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
-    mergedPortfolioBalances,
-    parsePortfolioFile,
-    importPortfolioFiles,
-    removePortfolioImport,
+    accountBalances,
+    hiddenAccountKeys,
     importNetPositionFiles,
     removeNetPositionImport,
     importPositionSalaryFiles,

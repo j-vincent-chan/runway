@@ -40,7 +40,7 @@ export function PersonnelTypeLegend() {
   const groups = getPersonnelGroups(settings);
   return (
     <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-      <span className="font-medium text-slate-700">Personnel groups</span>
+      <span className="font-medium text-slate-700">Teams</span>
       {groups.map((t) => (
         <span key={t.id} className="inline-flex items-center gap-1.5">
           <span className={cn("h-3 w-3 rounded-full ring-1 ring-black/10", t.dotClass)} aria-hidden />
@@ -90,7 +90,7 @@ export function PersonnelTypeSelect({
           {value ? (
             <PersonnelTypePill type={value} />
           ) : (
-            <span className="text-xs text-slate-500">Select group</span>
+            <span className="text-xs text-slate-500">Select team</span>
           )}
         </span>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />

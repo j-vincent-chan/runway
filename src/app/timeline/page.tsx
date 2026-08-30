@@ -13,7 +13,7 @@ export default function TimelinePage() {
     <>
       <Header
         ledgerTitle
-        title="Timeline"
+        title="Distributions"
         subtitle="Interactive personnel funding plan (actual payroll through this month)"
       />
       <main className="p-4">

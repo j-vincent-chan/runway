@@ -17,17 +17,19 @@ import {
   normalizeChartstring,
 } from "@/lib/funding/chartstring";
 import { getRunwayFundingSources, isAccountActiveInMonth } from "@/lib/funding/employeeSources";
-import { isEmployeeFundHidden, isRunwayFundAssumedOk } from "@/lib/funding/visibility";
+import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
   estimateBalanceFromAssumedEnd,
-  getRunwayAssumedEndDate,
+  effectiveAssumedEndDate,
   monthsUntilAssumedEnd,
 } from "@/lib/runway/assumedEndDate";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { resolveDisplayAlias } from "@/lib/funding/alias";
 import { hasPercentEffort } from "@/lib/utils/parse";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
-export type RunwayBalanceSource = "portfolio" | "manual" | "estimated" | "none";
+import { getProjectionOriginMonth } from "@/lib/projections/horizon";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
+export type RunwayBalanceSource = "report" | "manual" | "estimated" | "none";
 
 export interface RunwayAccountLine {
   fundingSourceId: string;
@@ -35,8 +37,8 @@ export interface RunwayAccountLine {
   displayName: string;
   balance: number;
   balanceSource: RunwayBalanceSource;
-  portfolioRunDate?: string;
-  portfolioFile?: string;
+  balanceAsOf?: string;
+  balanceFile?: string;
   percentEffort: number;
   monthlyBurn: number;
   /** Sum of monthly burn for all personnel on this account (runway denominator) */
@@ -367,14 +369,14 @@ function averageMonthlyBurn(
 function resolveBalance(
   employeeId: string,
   chartstring: string,
-  portfolio: Map<string, MergedPortfolioBalance>,
+  balances: Map<string, AccountBalance>,
   overrides: AppSettings["runwayBalanceOverrides"]
-): Pick<RunwayAccountLine, "balance" | "balanceSource" | "portfolioRunDate" | "portfolioFile"> {
-  const portfolioBalances = new Map<string, number>();
-  for (const [k, v] of portfolio) {
-    portfolioBalances.set(k, v.balance);
+): Pick<RunwayAccountLine, "balance" | "balanceSource" | "balanceAsOf" | "balanceFile"> {
+  const balanceByKey = new Map<string, number>();
+  for (const [k, v] of balances) {
+    balanceByKey.set(k, v.balance);
   }
-  const match = findBalanceForChartstring(chartstring, portfolioBalances);
+  const match = findBalanceForChartstring(chartstring, balanceByKey);
 
   const overrideKey = runwayOverrideKey(employeeId, chartstring);
   const manual = overrides?.[overrideKey];
@@ -382,15 +384,15 @@ function resolveBalance(
     if (match !== undefined && runwayBalanceValuesMatch(manual, match.balance)) {
       const metaKey = normalizeChartstring(match.matchedKey);
       const meta =
-        portfolio.get(metaKey) ??
-        [...portfolio.values()].find((e) =>
+        balances.get(metaKey) ??
+        [...balances.values()].find((e) =>
           normalizeChartstring(e.chartstring) === metaKey
         );
       return {
         balance: match.balance,
-        balanceSource: "portfolio",
-        portfolioRunDate: meta?.reportRunDate,
-        portfolioFile: meta?.sourceFileName,
+        balanceSource: "report",
+        balanceAsOf: meta?.reportRunDate,
+        balanceFile: meta?.sourceFileName,
       };
     }
     return { balance: manual, balanceSource: "manual" };
@@ -399,15 +401,15 @@ function resolveBalance(
   if (match !== undefined) {
     const metaKey = normalizeChartstring(match.matchedKey);
     const meta =
-      portfolio.get(metaKey) ??
-      [...portfolio.values()].find((e) =>
+      balances.get(metaKey) ??
+      [...balances.values()].find((e) =>
         normalizeChartstring(e.chartstring) === metaKey
       );
     return {
       balance: match.balance,
-      balanceSource: "portfolio",
-      portfolioRunDate: meta?.reportRunDate,
-      portfolioFile: meta?.sourceFileName,
+      balanceSource: "report",
+      balanceAsOf: meta?.reportRunDate,
+      balanceFile: meta?.sourceFileName,
     };
   }
 
@@ -420,12 +422,23 @@ export function computeEmployeeRunway(
   workingPlan: WorkingPlan | null,
   fundingSources: FundingSource[],
   settings: AppSettings,
-  portfolio: Map<string, MergedPortfolioBalance>,
+  balances: Map<string, AccountBalance>,
   sharedBurnIndex: Map<string, SharedAccountBurn>,
-  options: { revealHidden: boolean }
+  options: { revealHidden: boolean; estimateOriginMonth?: string }
 ): EmployeeRunwaySummary {
   const allocations = getAllocations(snapshot, workingPlan);
   const currentMonth = getCurrentMonth(snapshot);
+  /**
+   * "How much is left on this account" is a question about now, so an assumed
+   * end date is measured from today's month — not the payroll planning month,
+   * which can be several months back and would count money already spent as
+   * still available.
+   *
+   * Only the estimate uses this. Burn and account activity still come from the
+   * planning month, because that is the last month with real payroll behind it.
+   * Injectable so tests do not depend on the wall clock.
+   */
+  const estimateOrigin = options.estimateOriginMonth ?? getProjectionOriginMonth();
   const activeSources = getRunwayFundingSources(
     employee.id,
     allocations,
@@ -443,7 +456,7 @@ export function computeEmployeeRunway(
   const burnMonths = [currentMonth];
   const accounts: RunwayAccountLine[] = activeSources.map((fs) => {
     const chartstring = fs.accountString ?? fs.rawName;
-    const bal = resolveBalance(employee.id, chartstring, portfolio, settings.runwayBalanceOverrides);
+    const bal = resolveBalance(employee.id, chartstring, balances, settings.runwayBalanceOverrides);
     const burn = resolveBurnAndPercent(
       employee.id,
       fs.id,
@@ -456,8 +469,12 @@ export function computeEmployeeRunway(
     const shared = sharedBurnIndex.get(root);
     const sharedMonthlyBurn = shared?.combinedMonthlyBurn ?? burn.monthlyBurn;
     const sharedContributorCount = shared?.contributors.length ?? (burn.monthlyBurn > 0 ? 1 : 0);
-    const isAssumedOk = isRunwayFundAssumedOk(settings, employee.id, fs.id);
-    const assumedEndDate = getRunwayAssumedEndDate(settings, employee.id, fs.id);
+    // Both read the account, not this person's slice of it: "not my money" and
+    // "the account ends here" are facts about the account itself.
+    const isAssumedOk = isNotMyAccountKey(settings, root);
+    // Resolves the default when none is stored, so a marked account never
+    // falls back to the balance on file — same rule Projections applies.
+    const assumedEndDate = effectiveAssumedEndDate(settings, root, estimateOrigin);
 
     let balance = bal.balance;
     let balanceSource = bal.balanceSource;
@@ -465,7 +482,7 @@ export function computeEmployeeRunway(
       sharedMonthlyBurn > 0 ? bal.balance / sharedMonthlyBurn : null;
 
     if (isAssumedOk && assumedEndDate) {
-      const monthsFromEnd = monthsUntilAssumedEnd(currentMonth, assumedEndDate);
+      const monthsFromEnd = monthsUntilAssumedEnd(estimateOrigin, assumedEndDate);
       if (monthsFromEnd !== null && sharedMonthlyBurn > 0) {
         monthsRunway = monthsFromEnd;
         balance = estimateBalanceFromAssumedEnd(monthsFromEnd, sharedMonthlyBurn);
@@ -480,8 +497,8 @@ export function computeEmployeeRunway(
       displayName: resolveDisplayAlias(fs, aliasEntry?.alias),
       balance,
       balanceSource,
-      portfolioRunDate: bal.portfolioRunDate,
-      portfolioFile: bal.portfolioFile,
+      balanceAsOf: bal.balanceAsOf,
+      balanceFile: bal.balanceFile,
       percentEffort: burn.percentEffort,
       monthlyBurn: burn.monthlyBurn,
       sharedMonthlyBurn,
@@ -495,7 +512,18 @@ export function computeEmployeeRunway(
     };
   });
 
-  const included = accounts.filter((a) => !a.isHidden && !a.isAssumedOk);
+  /**
+   * Assumed-OK accounts count, at the estimated balance their end date
+   * implies — `balance` above is already that estimate, not the real one.
+   * They used to be dropped entirely, which meant marking an account "not my
+   * account" removed its people's funding from the maths rather than valuing
+   * it differently.
+   *
+   * Hidden is a separate idea and still excluded: hidden means "don't show me
+   * this", assumed-OK means "count this differently". Collapsing the two into
+   * one filter is what produced the old behaviour.
+   */
+  const included = accounts.filter((a) => !a.isHidden);
   const seenRoots = new Set<string>();
   let totalBalance = 0;
   let totalMonthlyBurn = 0;

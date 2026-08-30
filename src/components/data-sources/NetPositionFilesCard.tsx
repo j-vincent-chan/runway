@@ -32,14 +32,14 @@ export function NetPositionFilesCard() {
       <div className="border-b border-slate-100 px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold uppercase tracking-wide text-[#0c2340]">
-            3. Net Position Reports
+            2. Net Position Reports
           </span>
           <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
             Optional
           </span>
         </div>
         <p className="mt-2 text-sm text-slate-600">
-          Track ending balances for specific accounts over time on Account Balances.
+          Supplies every account balance Runway spends against — run it against your payroll accounts. Powers Runway, projections, and Account Balances trends.
         </p>
       </div>
 

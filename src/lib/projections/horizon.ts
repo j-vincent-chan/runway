@@ -2,7 +2,12 @@ import { addMonths, format, parse } from "date-fns";
 import type { PayrollReportSnapshot, ProjectionHorizonSettings } from "@/types";
 import { getAllMonths } from "@/lib/calculations";
 
-export const MAX_PROJECTION_MONTHS = 36;
+/**
+ * Hard ceiling on any projected window. `monthsInclusive` stops here silently,
+ * so this must be at least the longest option the Dashboard's scope control
+ * offers — otherwise picking that option renders a shorter window than it says.
+ */
+export const MAX_PROJECTION_MONTHS = 48;
 
 export function addMonthsYm(ym: string, count: number): string {
   return format(addMonths(parse(`${ym}-01`, "yyyy-MM-dd", new Date()), count), "yyyy-MM");
@@ -43,7 +48,12 @@ export function fiscalYearEndMonth(origin: string, fiscalYearStartMonth: number)
   const [y, m] = origin.split("-").map(Number);
   const start = fiscalYearStartMonth;
   const fyEndMonth = start === 1 ? 12 : start - 1;
-  const fyEndYear = m >= start ? y + 1 : y;
+  /**
+   * A fiscal year starting in January ends that same December — it does not
+   * span a year boundary. `m >= start` is always true when start is 1, so the
+   * general rule alone pushed every calendar fiscal year a full year out.
+   */
+  const fyEndYear = start === 1 ? y : m! >= start ? y! + 1 : y;
   return `${fyEndYear}-${String(fyEndMonth).padStart(2, "0")}`;
 }
 

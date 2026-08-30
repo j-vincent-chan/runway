@@ -1,7 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Settings2,
+  Landmark,
+  Trash2,
+  SendHorizontal,
+  Lock,
+} from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
@@ -12,6 +22,13 @@ import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatPercent } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
+import { isEmployeeFundHidden, countHiddenFundsForEmployee } from "@/lib/funding/visibility";
+import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
+import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
+import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { AliasEditor } from "@/components/funding/AliasEditor";
+import { depletionMonthIndexForRoot, depletionRootOf } from "@/lib/projections/depletion";
+import { formatMonthLabel } from "@/lib/projections/horizon";
 import {
   mergeByPercent,
   isProjectedMonth,
@@ -28,15 +45,42 @@ export function ByPersonView({
   settings,
   result,
   displayMode,
-  portfolioTitlesByChartstring,
+  accountTitlesByChartstring,
   onEdit,
+  showHiddenFunds,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
+  onRemoveChartstring,
+  onLockIn,
+  onUnlock,
+  lockedPersonKeys,
+  lockInReady,
 }: {
   employees: Employee[];
   settings: AppSettings;
   result: ProjectionResult;
   displayMode: AppSettings["displayMode"];
-  portfolioTitlesByChartstring?: Map<string, string>;
+  accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
+  /** Same declutter model as Timeline — see the page-level state that owns this. */
+  showHiddenFunds: boolean;
+  /** Employee ids revealed for this session, same semantics as Timeline's per-row reveal. */
+  revealHidden: Set<string>;
+  onRevealHidden: (employeeId: string) => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
+  onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
+  /** Formal handoff to the analyst; false disables with an explanation. */
+  onLockIn: (employee: Employee) => void;
+  /** Releases the lock so the plan can be edited again. */
+  onUnlock: (employee: Employee) => void;
+  /** personKeys whose plan is locked — their rows render read-only. */
+  lockedPersonKeys: Set<string>;
+  lockInReady: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -47,7 +91,7 @@ export function ByPersonView({
   const aliasFor = (key: string) => {
     const fs = result.sources.find((s) => chartstringKeyForFundingSource(s) === key);
     if (!fs) return key;
-    return projectionSourceLabel(fs, settings, portfolioTitlesByChartstring);
+    return projectionSourceLabel(fs, settings, accountTitlesByChartstring);
   };
 
   return (
@@ -97,6 +141,17 @@ export function ByPersonView({
                 display={display}
                 isCollapsed={isCollapsed}
                 aliasFor={aliasFor}
+                accountTitlesByChartstring={accountTitlesByChartstring}
+                revealHidden={showHiddenFunds || revealHidden.has(emp.id)}
+                onRevealHidden={() => onRevealHidden(emp.id)}
+                onToggleHiddenFund={onToggleHiddenFund}
+                onToggleNotMyAccount={onToggleNotMyAccount}
+                onSaveAlias={onSaveAlias}
+                onRemoveChartstring={onRemoveChartstring}
+                onLockIn={onLockIn}
+                onUnlock={onUnlock}
+                locked={lockedPersonKeys.has(personKey)}
+                lockInReady={lockInReady}
                 onToggle={() =>
                   setCollapsed((p) => {
                     const n = new Set(p);
@@ -124,6 +179,17 @@ function EmployeeBlock({
   display,
   isCollapsed,
   aliasFor,
+  accountTitlesByChartstring,
+  revealHidden,
+  onRevealHidden,
+  onToggleHiddenFund,
+  onToggleNotMyAccount,
+  onSaveAlias,
+  onRemoveChartstring,
+  onLockIn,
+  onUnlock,
+  locked,
+  lockInReady,
   onToggle,
   onEdit,
 }: {
@@ -135,13 +201,36 @@ function EmployeeBlock({
   display: "percent" | "dollars" | "both";
   isCollapsed: boolean;
   aliasFor: (key: string) => string;
+  accountTitlesByChartstring?: Map<string, string>;
+  revealHidden: boolean;
+  onRevealHidden: () => void;
+  onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
+  onToggleNotMyAccount: (chartstring: string) => void;
+  onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
+  onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
+  onLockIn: (employee: Employee) => void;
+  onUnlock: (employee: Employee) => void;
+  locked: boolean;
+  lockInReady: boolean;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
 }) {
   const months = result.months;
+  /**
+   * Same rule getTimelineFundingSources applies: a hidden fund drops out of the
+   * grid unless revealed. The projection itself still counts it — hiding is a
+   * view concern on every page that offers it.
+   */
+  const visibleSources = sources.filter(
+    (fs) => revealHidden || !isEmployeeFundHidden(settings, emp.id, fs.id)
+  );
+  const hiddenCount = countHiddenFundsForEmployee(emp.id, settings);
   const barColors = useMemo(
-    () => colorsForEmployeeVisibleSources(sources, () => false),
-    [sources]
+    () =>
+      colorsForEmployeeVisibleSources(sources, (fs) =>
+        isEmployeeFundHidden(settings, emp.id, fs.id)
+      ),
+    [sources, settings, emp.id]
   );
 
   return (
@@ -175,6 +264,58 @@ function EmployeeBlock({
               <span className="shrink-0 text-[9px] font-normal text-white/60" title="HR employee ID">
                 · {emp.employeeId}
               </span>
+            )}
+            {/* Only a person whose plan differs from today's distribution has
+                anything to hand off, so the button follows the rules — except
+                once locked, when it must stay reachable to unlock. */}
+            {(locked ||
+              (settings.projectionRules ?? []).some((r) => r.personKey === personKey)) && (
+              <button
+                type="button"
+                // Unlocking is never gated: a locked person must always be
+                // recoverable, even signed out of cloud sync.
+                disabled={!locked && !lockInReady}
+                aria-pressed={locked}
+                className={cn(
+                  "ml-auto inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50",
+                  locked
+                    ? "bg-amber-300/90 text-[#0c2340] hover:bg-amber-200"
+                    : "bg-white/15 hover:bg-white/25"
+                )}
+                title={
+                  locked
+                    ? `${emp.name}'s distribution is locked in — click to unlock and edit it again`
+                    : lockInReady
+                      ? `Hand ${emp.name}'s distribution change to your analyst and lock it`
+                      : "Sign in with cloud sync to hand off changes to your analyst"
+                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (locked) onUnlock(emp);
+                  else onLockIn(emp);
+                }}
+              >
+                {locked ? (
+                  <Lock className="h-3 w-3" aria-hidden />
+                ) : (
+                  <SendHorizontal className="h-3 w-3" aria-hidden />
+                )}
+                {locked ? "Locked In" : "Lock In"}
+              </button>
+            )}
+            {hiddenCount > 0 && !revealHidden && (
+              <button
+                type="button"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-white/25"
+                title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRevealHidden();
+                }}
+              >
+                <EyeOff className="h-3 w-3" aria-hidden />
+                <span>({hiddenCount})</span>
+              </button>
             )}
           </div>
         </td>
@@ -213,7 +354,7 @@ function EmployeeBlock({
           );
         })}
       </tr>
-      {!isCollapsed && sources.length === 0 && (
+      {!isCollapsed && visibleSources.length === 0 && (
         <tr className="border-t border-slate-100">
           <td
             className="sticky left-0 z-10 bg-white px-3 py-2 pl-8 text-slate-500"
@@ -224,11 +365,30 @@ function EmployeeBlock({
         </tr>
       )}
       {!isCollapsed &&
-        sources.map((fs) => {
+        visibleSources.map((fs) => {
           const key = chartstringKeyForFundingSource(fs);
+          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const notMine = isNotMyAccountKey(
+            settings,
+            chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
+              (fs.accountString ?? fs.rawName)
+          );
+          /**
+           * The account's own depletion, shown on the person's row because
+           * that is where the distribution driving it is edited: change this
+           * person from 35% to 20% and the date moves out here, on the same
+           * selector the Dashboard's depletion chart reads.
+           */
+          const dryIndex = depletionMonthIndexForRoot(result, depletionRootOf(key));
+          const dryMonth = dryIndex === null ? null : months[dryIndex] ?? null;
           const chips = rulesForPair(settings, personKey, key).map((r) =>
             ruleChipLabel(r, aliasFor)
           );
+          /**
+           * Group by projected-ness *and* by whether the account still has
+           * money, so a merged run never straddles the month the balance hits
+           * zero — a single cell cannot be half funded.
+           */
           const segments = mergeByPercent(
             months,
             (month) => {
@@ -239,31 +399,124 @@ function EmployeeBlock({
                   ?.percentEffort ?? 0
               );
             },
-            (month) => isProjectedMonth(month, result.originMonth)
+            (month) =>
+              `${isProjectedMonth(month, result.originMonth)}|${
+                dryIndex !== null && months.indexOf(month) >= dryIndex
+              }`
           );
           return (
-            <tr key={fs.id} className="border-t border-slate-100 hover:bg-slate-50/50">
+            <tr
+              key={fs.id}
+              className={cn(
+                "border-t border-slate-100 hover:bg-slate-50/50",
+                hidden && "bg-slate-50/90"
+              )}
+            >
               <td
-                className="sticky left-0 z-10 bg-white px-1 py-0.5 pl-8"
+                className={cn(
+                  "sticky left-0 z-10 px-1 py-0.5 pl-4",
+                  hidden ? "bg-slate-50/90" : "bg-white"
+                )}
                 style={{
                   width: PROJECTION_LABEL_COL,
                   minWidth: PROJECTION_LABEL_COL,
                   maxWidth: PROJECTION_LABEL_COL,
                 }}
               >
-                <button
-                  type="button"
-                  className="block max-w-full truncate text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline"
-                  title={[aliasFor(key), ...chips].join(" · ")}
-                  onClick={() => onEdit(emp, fs)}
-                >
-                  {aliasFor(key)}
-                </button>
-                {chips[0] && (
-                  <p className="truncate text-[9px] text-slate-500" title={chips.join(" · ")}>
-                    {chips[0]}
-                  </p>
-                )}
+                {/* Eye and landmark first, same order as Timeline's fund row and
+                    the same two shared settings. Then a dedicated icon to open
+                    the distribution rule (a control Timeline has no equivalent
+                    of), and the rename input last. */}
+                <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
+                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                    )}
+                    title={
+                      hidden
+                        ? "Include this fund in your view and totals"
+                        : "Hide fund (not under your control)"
+                    }
+                    onClick={() => onToggleHiddenFund(emp.id, fs.id)}
+                  >
+                    {hidden ? (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    ) : (
+                      <Eye className="h-3.5 w-3.5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "shrink-0 rounded p-0.5",
+                      notMine
+                        ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
+                        : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                    )}
+                    title={
+                      notMine
+                        ? "Apply runway to this account again"
+                        : "Not my account — count it only to its end date"
+                    }
+                    onClick={() => onToggleNotMyAccount(fs.accountString ?? fs.rawName)}
+                  >
+                    <Landmark className="h-3.5 w-3.5" />
+                  </button>
+                  {/*
+                    A truncating text button here used to be the only way to
+                    open the distribution rule editor. It sat in the same flex
+                    row as the always-visible rename input below, competing for
+                    a shrinking share of a 300px column — the input is
+                    shrink-0 and fixed-width, so the button that opened the
+                    editor was squeezed toward zero width and became
+                    unclickable, with no visible sign that it was still there.
+                    A small icon, sized like its eye/landmark neighbours, cannot
+                    be squeezed the same way.
+                  */}
+                  <button
+                    type="button"
+                    disabled={locked}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    title={
+                      locked
+                        ? `Locked in — unlock ${emp.name}'s distribution to edit this rule`
+                        : `Edit distribution rule — ${[aliasFor(key), ...chips].join(" · ")}`
+                    }
+                    onClick={() => onEdit(emp, fs)}
+                  >
+                    <Settings2 className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={locked}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    title={
+                      locked
+                        ? `Locked in — unlock ${emp.name}'s distribution to remove accounts`
+                        : `Remove ${aliasFor(key)} from ${emp.name}'s list`
+                    }
+                    onClick={() => onRemoveChartstring(emp, fs)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  <AliasEditor
+                    source={fs}
+                    customAlias={getAliasEntry(settings.fundingSourceAliases, fs)?.alias}
+                    accountTitle={
+                      fs.accountString
+                        ? accountTitlesByChartstring?.get(fs.accountString)
+                        : undefined
+                    }
+                    compact
+                    onSave={(base) => onSaveAlias(fs.id, base)}
+                    className={cn("shrink-0", hidden && "opacity-50")}
+                  />
+                </div>
+                {/* No sub-line: the rule's effect is the effort change already
+                    drawn across these cells, and the account running dry is
+                    drawn on them too. Both stay in the row's hover text. */}
               </td>
               <td
                 className="sticky z-10 bg-white"
@@ -295,6 +548,12 @@ function EmployeeBlock({
                       projected={projected}
                       months={segment.months}
                       titlePrefix={`${emp.name} · ${aliasFor(key)}`}
+                      unfunded={
+                        dryIndex !== null && months.indexOf(segment.months[0]!) >= dryIndex
+                      }
+                      dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
+                      dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
+                      readOnly={locked}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

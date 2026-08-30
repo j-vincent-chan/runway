@@ -12,7 +12,7 @@ import {
   hasPercentEffort,
 } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
-import { ChevronDown, ChevronRight, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import { AssumedOkFundingCell } from "@/components/runway/AssumedOkFundingCell";
 import { RunwayIndicatorBadge } from "@/components/runway/RunwayIndicatorBadge";
 import type { RunwayAccountLine } from "@/lib/runway/calculate";
@@ -32,8 +32,8 @@ export function RunwayEmployeeSection({
   revealHidden: boolean;
   onRevealHidden: () => void;
   onToggleHidden: (fundingSourceId: string) => void;
-  onToggleAssumedOk: (fundingSourceId: string) => void;
-  onAssumedEndDateChange: (fundingSourceId: string, endDate: string | null) => void;
+  onToggleAssumedOk: (chartstring: string) => void;
+  onAssumedEndDateChange: (chartstring: string, endDate: string | null) => void;
   onBalanceChange: (chartstring: string, value: number | null) => void;
   onBurnChange: (fundingSourceId: string, percentEffort: number, monthlyBurn: number) => void;
   onBurnReset: (fundingSourceId: string) => void;
@@ -54,8 +54,8 @@ export function RunwayEmployeeSection({
   const assumedOkVisibleCount = accounts.filter((a) => !a.isHidden && a.isAssumedOk).length;
   const runwayVisibleCount = accounts.filter((a) => !a.isHidden && !a.isAssumedOk).length;
   const latestBalanceAsOf = accounts
-    .filter((a) => !a.isHidden && !a.isAssumedOk && a.balanceSource === "portfolio" && a.portfolioRunDate)
-    .map((a) => a.portfolioRunDate!)
+    .filter((a) => !a.isHidden && !a.isAssumedOk && a.balanceSource === "report" && a.balanceAsOf)
+    .map((a) => a.balanceAsOf!)
     .sort()
     .at(-1);
   const allVisibleAssumedOk =
@@ -248,9 +248,9 @@ export function RunwayEmployeeSection({
                               ? "Apply runway to this account again"
                               : "Not my account — assume they'll be fine; skip runway"
                           }
-                          onClick={() => onToggleAssumedOk(acct.fundingSourceId)}
+                          onClick={() => onToggleAssumedOk(acct.chartstring)}
                         >
-                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <Landmark className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
@@ -290,17 +290,17 @@ export function RunwayEmployeeSection({
                         hasEstimate={acct.balanceSource === "estimated"}
                         sharedMonthlyBurn={acct.sharedMonthlyBurn}
                         onEndDateChange={(d) =>
-                          onAssumedEndDateChange(acct.fundingSourceId, d)
+                          onAssumedEndDateChange(acct.chartstring, d)
                         }
                       />
                     ) : (
                       <BalanceInput
                         value={acct.balance}
                         source={acct.balanceSource}
-                        asOfDate={acct.portfolioRunDate}
-                        portfolioHint={
-                          acct.balanceSource === "portfolio"
-                            ? [acct.portfolioFile, formatIsoDateDisplay(acct.portfolioRunDate)]
+                        asOfDate={acct.balanceAsOf}
+                        reportHint={
+                          acct.balanceSource === "report"
+                            ? [acct.balanceFile, formatIsoDateDisplay(acct.balanceAsOf)]
                                 .filter(Boolean)
                                 .join(" · ")
                             : undefined
@@ -568,14 +568,14 @@ function BalanceInput({
   value,
   source,
   asOfDate,
-  portfolioHint,
+  reportHint,
   disabled,
   onCommit,
 }: {
   value: number;
-  source: "portfolio" | "manual" | "estimated" | "none";
+  source: "report" | "manual" | "estimated" | "none";
   asOfDate?: string;
-  portfolioHint?: string;
+  reportHint?: string;
   disabled?: boolean;
   onCommit: (value: number | null) => void;
 }) {
@@ -598,16 +598,16 @@ function BalanceInput({
           "w-[7.75rem] rounded-md border px-2 py-1 text-right text-sm font-semibold tabular-nums text-[#0c2340] shadow-sm",
           disabled && "cursor-not-allowed opacity-50",
           source === "manual" && "border-teal-500 bg-teal-50/50",
-          source === "portfolio" && "border-teal-200 bg-white",
+          source === "report" && "border-teal-200 bg-white",
           source === "none" && !disabled && "border-amber-300 bg-amber-50/80",
           source === "none" && disabled && "border-slate-200 bg-slate-50"
         )}
         title={
-          portfolioHint ??
+          reportHint ??
           (source === "manual"
             ? "Manual balance"
             : source === "none"
-              ? "Enter balance or upload MyPortfolio report"
+              ? "Enter balance or upload a Net Position Report"
               : undefined)
         }
         value={editing ? draft : displayValue}
@@ -637,16 +637,16 @@ function BalanceInput({
         }}
       />
       {!disabled && source !== "none" && (
-        <p className="text-[10px] text-slate-500" title={portfolioHint}>
+        <p className="text-[10px] text-slate-500" title={reportHint}>
           {source === "manual"
             ? "Manual entry"
             : asOfLabel
               ? `As of ${asOfLabel}`
-              : "From portfolio"}
+              : "From report"}
         </p>
       )}
       {!disabled && source === "none" && (
-        <p className="text-[10px] text-amber-700">Upload MyPortfolio or enter amount</p>
+        <p className="text-[10px] text-amber-700">Upload a Net Position Report or enter amount</p>
       )}
     </div>
   );

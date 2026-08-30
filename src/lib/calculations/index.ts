@@ -473,15 +473,15 @@ export function computeKpis(
 export function applyAliases(
   sources: FundingSource[],
   aliases: AppSettings["fundingSourceAliases"],
-  /** Optional map of payroll chartstring → MyPortfolio project nickname/title */
-  portfolioTitlesByChartstring?: Map<string, string>
+  /** Optional map of payroll chartstring → project title from the balance report */
+  accountTitlesByChartstring?: Map<string, string>
 ): FundingSource[] {
   return sources.map((s) => {
     const a = getAliasEntry(aliases, s);
-    const portfolioTitle = s.accountString
-      ? portfolioTitlesByChartstring?.get(s.accountString)
+    const accountTitle = s.accountString
+      ? accountTitlesByChartstring?.get(s.accountString)
       : undefined;
-    const alias = resolveDisplayAlias(s, a?.alias, portfolioTitle);
+    const alias = resolveDisplayAlias(s, a?.alias, accountTitle);
     return {
       ...s,
       alias,

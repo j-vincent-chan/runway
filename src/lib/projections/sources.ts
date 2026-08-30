@@ -70,11 +70,11 @@ export function makePlannedChartstringKey(id: string, accountString?: string): s
 export function projectionSourceLabel(
   fs: FundingSource,
   settings: AppSettings,
-  portfolioTitlesByChartstring?: Map<string, string>
+  accountTitlesByChartstring?: Map<string, string>
 ): string {
   const custom = getAliasEntry(settings.fundingSourceAliases, fs)?.alias;
-  const portfolioTitle = fs.accountString
-    ? portfolioTitlesByChartstring?.get(fs.accountString)
+  const accountTitle = fs.accountString
+    ? accountTitlesByChartstring?.get(fs.accountString)
     : undefined;
-  return resolveDisplayAlias(fs, custom, portfolioTitle);
+  return resolveDisplayAlias(fs, custom, accountTitle);
 }

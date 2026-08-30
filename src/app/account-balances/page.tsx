@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Plus, X } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { Line, LineChart, Tooltip, XAxis, YAxis } from "recharts";
 import { Header } from "@/components/layout/Header";
 import { EmptyState } from "@/components/EmptyState";
@@ -18,11 +18,10 @@ import {
   filterAccountBalanceItemsByGroup,
   fundingSourcesForAccountKey,
   getEmployeesOnAccountKey,
-  listPortfolioWatchCandidates,
+  normalizeAccountBalanceKey,
   resolveAccountBalanceAlias,
   sectionAccountBalanceItemsByGroup,
   syntheticFundingSourceForAccount,
-  toggleKeyInList,
   type AccountBalanceViewItem,
 } from "@/lib/net-position/accountBalancesView";
 import {
@@ -30,7 +29,7 @@ import {
   type NetPositionAccountSeries,
 } from "@/lib/net-position/buildAccountSeries";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
-import { formatCurrency, formatCurrencyBalance, formatIsoDateDisplay } from "@/lib/utils/parse";
+import { formatCurrency, formatCurrencyBalance } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import type { AccountBalanceSortKey } from "@/types";
 
@@ -62,16 +61,6 @@ function ChangeBadge({ value }: { value: number | null }) {
     >
       {positive ? "+" : ""}
       {formatCurrency(value)}
-    </span>
-  );
-}
-
-function SourceBadge({ source }: { source: AccountBalanceViewItem["source"] }) {
-  const label =
-    source === "both" ? "Net Position · MyPortfolio" : source === "netPosition" ? "Net Position" : "MyPortfolio";
-  return (
-    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
-      {label}
     </span>
   );
 }
@@ -141,42 +130,6 @@ function BalanceTooltip({
 function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
   const series = item.series;
 
-  if (!series) {
-    return (
-      <div className="space-y-3 border-t border-slate-100 px-5 py-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Meta label="Fund" value={item.fund || "—"} />
-          <Meta label="Dept" value={item.dept || "—"} />
-          <Meta label="Project" value={item.project || "—"} />
-          <Meta
-            label="Chartstring"
-            value={item.portfolioChartstring || item.displayKey || "—"}
-          />
-        </div>
-        {item.portfolioBalance !== undefined ? (
-          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            MyPortfolio net balance{" "}
-            <span className="font-semibold tabular-nums text-[#0c2340]">
-              {formatCurrencyBalance(item.portfolioBalance)}
-            </span>
-            {item.portfolioAsOf && formatIsoDateDisplay(item.portfolioAsOf) ? (
-              <span className="text-slate-500">
-                {" "}
-                as of {formatIsoDateDisplay(item.portfolioAsOf)}
-              </span>
-            ) : null}
-            . Upload a Net Position Report to see ending balance trends over time.
-          </p>
-        ) : (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            No balance yet for this account. Upload a Net Position Report or a MyPortfolio file that
-            includes it.
-          </p>
-        )}
-      </div>
-    );
-  }
-
   const chartData = series.points.map((p) => ({
     key: p.periodKey,
     label: formatPeriodAxis(p.periodKey),
@@ -208,20 +161,6 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
         />
         <Meta label="Bus unit" value={series.busUnit || "—"} />
       </div>
-
-      {item.portfolioBalance !== undefined && (
-        <p className="text-xs text-slate-500">
-          Listed balance uses MyPortfolio
-          {item.portfolioAsOf && formatIsoDateDisplay(item.portfolioAsOf)
-            ? ` (as of ${formatIsoDateDisplay(item.portfolioAsOf)})`
-            : ""}
-          . Trend chart and period history use Net Position ending balances
-          {series
-            ? ` (latest NP: ${formatCurrencyBalance(series.latest.endingBalance)})`
-            : ""}
-          .
-        </p>
-      )}
 
       {series.points.length >= 2 ? (
         <div>
@@ -307,139 +246,6 @@ function Meta({ label, value }: { label: string; value: string }) {
   );
 }
 
-function WatchPortfolioPanel({
-  open,
-  onClose,
-}: {
-  open: boolean;
-  onClose: () => void;
-}) {
-  const {
-    portfolioImports,
-    mergedPortfolioBalances,
-    netPositionImports,
-    settings,
-    updateSettings,
-  } = useApp();
-  const [query, setQuery] = useState("");
-
-  const candidates = useMemo(
-    () =>
-      listPortfolioWatchCandidates(
-        mergedPortfolioBalances,
-        netPositionImports,
-        settings.watchedPortfolioAccountKeys ?? []
-      ),
-    [mergedPortfolioBalances, netPositionImports, settings.watchedPortfolioAccountKeys]
-  );
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return candidates;
-    return candidates.filter((c) => {
-      const hay = [c.title, c.chartstring, c.accountKey, c.fund, c.dept, c.project]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [candidates, query]);
-
-  if (!open) return null;
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[#0c2340]">Add more accounts</h2>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Add accounts from MyPortfolio that are not already tracked via Net Position Reports.
-            Matching uses fund–dept–project (activity segment ignored).
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          aria-label="Close"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {portfolioImports.length === 0 ? (
-        <div className="px-4 py-8 text-center text-sm text-slate-600">
-          No MyPortfolio files yet.{" "}
-          <Link href="/upload" className="font-medium underline hover:text-slate-900">
-            Upload on Data Sources
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-3 p-4">
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter MyPortfolio accounts…"
-            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
-          />
-          {filtered.length === 0 ? (
-            <p className="py-6 text-center text-sm text-slate-500">No accounts match.</p>
-          ) : (
-            <ul className="max-h-80 space-y-1 overflow-y-auto">
-              {filtered.map((c) => {
-                const locked = c.hasNetPosition;
-                const checked = locked || c.isWatched;
-                return (
-                  <li key={c.accountKey}>
-                    <label
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-slate-50",
-                        locked && "cursor-default opacity-80"
-                      )}
-                    >
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={checked}
-                        disabled={locked}
-                        onChange={() => {
-                          if (locked) return;
-                          updateSettings({
-                            watchedPortfolioAccountKeys: toggleKeyInList(
-                              settings.watchedPortfolioAccountKeys,
-                              c.accountKey
-                            ),
-                          });
-                        }}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium text-[#0c2340]">
-                          {c.title}
-                        </span>
-                        <span className="mt-0.5 block truncate font-mono text-[11px] text-slate-500">
-                          {c.chartstring}
-                        </span>
-                        {locked ? (
-                          <span className="mt-1 inline-block text-[10px] font-medium text-teal-700">
-                            Already on list from Net Position
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="shrink-0 text-right text-sm tabular-nums text-slate-700">
-                        {formatCurrency(c.balance)}
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function AccountCard({
   item,
   open,
@@ -456,7 +262,7 @@ function AccountCard({
     allocations,
     fundingSources,
     settings,
-    portfolioTitlesByChartstring,
+    accountTitlesByChartstring,
     updateFundingSourceAlias,
   } = useApp();
 
@@ -475,14 +281,10 @@ function AccountCard({
     : undefined;
   const customAlias =
     aliasEntry?.alias ??
-    resolveAccountBalanceAlias(
-      settings.fundingSourceAliases,
-      item.accountKey,
-      item.portfolioChartstring
-    );
-  const portfolioTitle =
+    resolveAccountBalanceAlias(settings.fundingSourceAliases, item.accountKey);
+  const accountTitle =
     (primarySource.accountString
-      ? portfolioTitlesByChartstring.get(primarySource.accountString)
+      ? accountTitlesByChartstring.get(primarySource.accountString)
       : undefined) ?? item.projectDescription;
 
   return (
@@ -533,7 +335,7 @@ function AccountCard({
               <AliasEditor
                 source={primarySource}
                 customAlias={customAlias}
-                portfolioTitle={portfolioTitle}
+                accountTitle={accountTitle}
                 showProjectSuffix={false}
                 fullWidth
                 onSave={(base) => {
@@ -541,7 +343,6 @@ function AccountCard({
                 }}
               />
             </div>
-            <SourceBadge source={item.source} />
             <GroupBadge groupId={item.accountGroupId} />
             {item.isHidden ? (
               <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
@@ -602,15 +403,13 @@ function AccountCard({
 export default function AccountBalancesPage() {
   const {
     netPositionImports,
-    portfolioImports,
-    mergedPortfolioBalances,
     settings,
+    hiddenAccountKeys,
     updateSettings,
   } = useApp();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showHidden, setShowHidden] = useState(false);
-  const [watchPanelOpen, setWatchPanelOpen] = useState(false);
 
   const sortKey: AccountBalanceSortKey = settings.accountBalanceSort ?? "balanceDesc";
   const accountGroups = getAccountGroups(settings);
@@ -619,18 +418,14 @@ export default function AccountBalancesPage() {
     () =>
       buildAccountBalanceView({
         netPositionImports,
-        portfolioBalances: mergedPortfolioBalances,
-        hiddenKeys: settings.hiddenAccountBalanceKeys ?? [],
-        watchedPortfolioKeys: settings.watchedPortfolioAccountKeys ?? [],
+        hiddenKeys: hiddenAccountKeys,
         aliases: settings.fundingSourceAliases,
         accountGroupByBalanceKey: settings.accountGroupByBalanceKey,
         sort: sortKey,
       }),
     [
       netPositionImports,
-      mergedPortfolioBalances,
-      settings.hiddenAccountBalanceKeys,
-      settings.watchedPortfolioAccountKeys,
+      hiddenAccountKeys,
       settings.fundingSourceAliases,
       settings.accountGroupByBalanceKey,
       sortKey,
@@ -661,7 +456,6 @@ export default function AccountBalancesPage() {
         s.deptDescription,
         s.parentAwardId,
         s.parentAwardDescription,
-        s.portfolioChartstring,
       ]
         .filter(Boolean)
         .join(" ")
@@ -691,12 +485,36 @@ export default function AccountBalancesPage() {
     return null;
   }, [allItems]);
 
-  const hasAnySource = netPositionImports.length > 0 || portfolioImports.length > 0;
+  const hasAnySource = netPositionImports.length > 0;
   const hasVisibleContent = allItems.length > 0;
 
+  /**
+   * Writes both lists, because an account can be hidden without ever being in
+   * hiddenAccountBalanceKeys — hiding the fund for every person on Runway
+   * hides it too, and that is derived. Revealing therefore has to be recorded
+   * explicitly or the derived rule would immediately hide it again.
+   */
   const toggleHidden = (accountKey: string) => {
+    const norm = normalizeAccountBalanceKey(accountKey);
+    const isHidden = hiddenAccountKeys.some((k) => normalizeAccountBalanceKey(k) === norm);
+    const explicitHidden = new Set<string>(
+      (settings.hiddenAccountBalanceKeys ?? []).map(normalizeAccountBalanceKey)
+    );
+    const revealed = new Set<string>(
+      (settings.unhiddenAccountBalanceKeys ?? []).map(normalizeAccountBalanceKey)
+    );
+
+    if (isHidden) {
+      explicitHidden.delete(norm);
+      revealed.add(norm);
+    } else {
+      explicitHidden.add(norm);
+      revealed.delete(norm);
+    }
+
     updateSettings({
-      hiddenAccountBalanceKeys: toggleKeyInList(settings.hiddenAccountBalanceKeys, accountKey),
+      hiddenAccountBalanceKeys: [...explicitHidden],
+      unhiddenAccountBalanceKeys: [...revealed],
     });
   };
 
@@ -705,7 +523,7 @@ export default function AccountBalancesPage() {
       <Header
         ledgerTitle
         title="Account Balances"
-        subtitle="Ending balances for watched accounts · MyPortfolio balance wins when both sources overlap"
+        subtitle="Ending balances from your Net Position Reports"
         topAction={
           hasAnySource ? { label: "Upload another", href: "/upload" } : undefined
         }
@@ -715,31 +533,19 @@ export default function AccountBalancesPage() {
           {!hasAnySource ? (
             <EmptyState
               title="No account balance data yet"
-              message="Upload a Net Position Report and/or MyPortfolio file on the Upload page. Net Position accounts appear here automatically; pick MyPortfolio accounts to watch."
+              message="Upload a Net Position Report on the Upload page. Every account it covers appears here."
               actionLabel="Go to Upload"
               actionHref="/upload"
             />
-          ) : !hasVisibleContent && !watchPanelOpen ? (
+          ) : !hasVisibleContent ? (
             <div className="space-y-4">
               <EmptyState
                 title="No accounts on this list yet"
-                message={
-                  netPositionImports.length === 0
-                    ? "Upload a Net Position Report, or add more accounts below."
-                    : "All accounts are hidden, or there is nothing to show."
-                }
+                message="Every account is hidden, or the report covered none."
                 actionLabel="Go to Upload"
                 actionHref="/upload"
               />
               <div className="flex justify-center">
-                <button
-                  type="button"
-                  onClick={() => setWatchPanelOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add more accounts
-                </button>
               </div>
             </div>
           ) : (
@@ -788,19 +594,6 @@ export default function AccountBalancesPage() {
                       onChange={(ids) => updateSettings({ accountGroupFilter: ids })}
                     />
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setWatchPanelOpen((v) => !v)}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-                      watchPanelOpen
-                        ? "border-teal-600 bg-teal-50 text-teal-800"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    )}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                    Add more accounts
-                  </button>
                   {hiddenCount > 0 && (
                     <button
                       type="button"
@@ -832,26 +625,15 @@ export default function AccountBalancesPage() {
 
               <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
                 {netPositionImports.length} Net Position report
-                {netPositionImports.length === 1 ? "" : "s"}
-                {portfolioImports.length > 0
-                  ? ` · ${portfolioImports.length} MyPortfolio file${
-                      portfolioImports.length === 1 ? "" : "s"
-                    }`
-                  : ""}
-                .{" "}
+                {netPositionImports.length === 1 ? "" : "s"}.{" "}
                 <Link href="/upload" className="font-medium underline hover:text-slate-900">
                   Manage uploads
                 </Link>
               </p>
 
-              {watchPanelOpen ? (
-                <WatchPortfolioPanel open onClose={() => setWatchPanelOpen(false)} />
-              ) : null}
-
               {!hasVisibleContent ? (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-600">
-                  No accounts on the list yet. Add more accounts above, or upload a Net Position
-                  Report.
+                  No accounts on the list yet. Upload a Net Position Report.
                 </div>
               ) : filtered.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-600">

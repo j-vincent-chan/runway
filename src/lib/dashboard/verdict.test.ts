@@ -1,112 +1,247 @@
 import { describe, expect, it } from "vitest";
-import { buildVerdict, verdictText } from "@/lib/dashboard/verdict";
-import type { AccountAtRisk, PersonAtRisk } from "@/lib/dashboard/attention";
+import {
+  buildVerdict,
+  monthsPhrase,
+  tallyAttention,
+  verdictText,
+  type AttentionTally,
+} from "@/lib/dashboard/verdict";
+import { ALL_TEAMS_KEY, type TeamRunwayRow } from "@/lib/dashboard/teamRunway";
+import type { AttentionQueue, AttentionRow } from "@/lib/dashboard/attention";
 
-function person(name: string, months: number): PersonAtRisk {
-  return { employeeId: name, name, months };
+function team(label: string, months: number | null): TeamRunwayRow {
+  return {
+    key: label.toLowerCase().replace(/\s+/g, "-"),
+    label,
+    shortLabel: label,
+    memberCount: 3,
+    funds: 100_000,
+    monthlyBurn: months && months > 0 ? 100_000 / months : 10_000,
+    months,
+    targetMonth: null,
+    firstShort: null,
+    hasEstimatedFunds: false,
+  };
 }
 
-function account(name: string, months: number, balance: number): AccountAtRisk {
-  return { chartRoot: name, name, months, balance };
+function rollup(months: number | null): TeamRunwayRow {
+  return { ...team("All teams", months), key: ALL_TEAMS_KEY };
+}
+
+const quiet: AttentionTally = { severity: null, people: 0, accounts: 0, total: 0 };
+
+function tally(
+  severity: "critical" | "caution",
+  people: number,
+  accounts: number
+): AttentionTally {
+  return { severity, people, accounts, total: people + accounts };
 }
 
 const base = {
-  planningMonth: "2026-08",
-  horizonMonths: 12,
-  runwayMonths: 9.8,
+  overallRunwayMonths: 14.9,
+  worstItem: null,
+  tally: quiet,
   hasFunds: true,
   hasBurn: true,
-  peopleAtRisk: [] as PersonAtRisk[],
-  accountsAtRisk: [] as AccountAtRisk[],
-  overdrawnAccounts: [] as AccountAtRisk[],
 };
 
 describe("buildVerdict", () => {
-  it("states a funded-through date and names the risk when people fall short", () => {
+  it("counts what needs attention rather than naming one of several", () => {
     const verdict = buildVerdict({
       ...base,
-      peopleAtRisk: [person("M. Chen", 3), person("R. Okafor", 6)],
-      accountsAtRisk: [account("5R01-118440", 4, 8110)],
+      teamRows: [team("Community management", 1.5), team("Data management", 20.2), rollup(14.9)],
+      worstItem: { label: "Community Manager · 7032261", months: -0.5 },
+      tally: tally("critical", 2, 1),
     });
-    expect(verdict.kind).toBe("at_risk");
+    expect(verdict.status).toBe("critical");
     expect(verdictText(verdict)).toBe(
-      "Funded through May 2027 at your current rate. 2 people and 1 account fall short before then."
-    );
-    expect(verdict.runwayMonth).toBe("2027-05");
-  });
-
-  it("confirms the healthy state with a positive second clause", () => {
-    const verdict = buildVerdict(base);
-    expect(verdict.kind).toBe("healthy");
-    expect(verdictText(verdict)).toBe(
-      "Funded through May 2027 at your current rate. No one runs short in that window."
-    );
-    expect(verdict.clauses[1]?.tone).toBe("healthy");
-  });
-
-  it("never extrapolates a date beyond the horizon", () => {
-    const verdict = buildVerdict({ ...base, runwayMonths: 41 });
-    expect(verdict.kind).toBe("beyond_horizon");
-    expect(verdictText(verdict)).toContain("Funded past August 2027");
-    expect(verdict.runwayMonth).toBeNull();
-  });
-
-  it("leads with an overdrawn account", () => {
-    const verdict = buildVerdict({
-      ...base,
-      overdrawnAccounts: [account("5R01-118440", -1, -8110)],
-    });
-    expect(verdict.kind).toBe("overdrawn");
-    expect(verdictText(verdict)).toBe(
-      "5R01-118440 is overdrawn by $8,110. Funded through May 2027 at your current rate."
+      "Critical: Payroll is broadly healthy, funded about 14.9 months out, but 2 people and 1 account are critical. They need funding or a burn cut now."
     );
   });
 
-  it("summarizes multiple overdrawn accounts without inventing a list", () => {
+  it("describes the portfolio on its own terms, not the chip's", () => {
+    // The roll-up is healthy and three things are critical. Both are true, and
+    // the gap between them is the point of the sentence.
     const verdict = buildVerdict({
       ...base,
-      overdrawnAccounts: [account("A", -1, -900), account("B", -1, -200)],
+      teamRows: [rollup(14.9)],
+      worstItem: { label: "Fund 4000", months: 0.2 },
+      tally: tally("critical", 0, 3),
     });
-    expect(verdictText(verdict)).toContain("A and 1 other account are overdrawn.");
+    expect(verdict.status).toBe("critical");
+    expect(verdictText(verdict)).toContain("Payroll is broadly healthy");
+    expect(verdictText(verdict)).toContain("3 accounts are critical");
+    // The attention queue below names all three; the hero states the scale.
+    expect(verdictText(verdict)).not.toContain("Fund 4000");
   });
 
-  it("names what is missing instead of fabricating a date", () => {
-    const verdict = buildVerdict({ ...base, hasFunds: false, runwayMonths: null });
-    expect(verdict.kind).toBe("insufficient_data");
-    expect(verdictText(verdict)).toBe("Not enough data to project runway.");
+  it("says the portfolio is short when the roll-up itself is", () => {
+    const verdict = buildVerdict({
+      ...base,
+      overallRunwayMonths: 2.1,
+      teamRows: [rollup(2.1)],
+      tally: tally("critical", 1, 0),
+      worstItem: { label: "Alex Chen", months: 2.1 },
+    });
+    expect(verdictText(verdict)).toContain("Payroll is short, funded only about 2.1 months out");
+    expect(verdictText(verdict)).toContain("1 person is critical");
+  });
+
+  it("uses the caution wording when nothing is critical yet", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Marketing", 4.2), rollup(14.9)],
+      worstItem: { label: "Marketing lead", months: 4.2 },
+      tally: tally("caution", 1, 1),
+    });
+    expect(verdict.status).toBe("at_risk");
+    expect(verdictText(verdict)).toContain(
+      "1 person and 1 account need attention within 6 months"
+    );
+  });
+
+  it("states the position alone when nothing needs attention", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Data management", 20.2), rollup(14.9)],
+    });
+    expect(verdict.status).toBe("stable");
+    expect(verdictText(verdict)).toBe(
+      "Stable: Payroll is broadly healthy, funded about 14.9 months out. No team is below the 6-month line."
+    );
+  });
+
+  it("states an overdrawn portfolio rather than a negative duration", () => {
+    const verdict = buildVerdict({
+      ...base,
+      overallRunwayMonths: -3,
+      teamRows: [rollup(-3)],
+      worstItem: { label: "Fund 4000", months: -3 },
+      tally: tally("critical", 0, 1),
+    });
+    expect(verdictText(verdict)).toContain("Your payroll accounts are already overdrawn");
+    expect(verdictText(verdict)).not.toContain("-3");
+  });
+
+  it("never reads softer than the worst thing beneath it", () => {
+    // Roll-up and every team look fine; one account does not.
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Alpha", 20), team("Beta", 30), rollup(25)],
+      worstItem: { label: "Fund 4000", months: 0.2 },
+      tally: tally("critical", 0, 1),
+    });
+    expect(verdict.status).toBe("critical");
+  });
+
+  it("escalates on the weakest team even when no queue row is worse", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [team("Alpha", 2), team("Beta", 30), rollup(25)],
+    });
+    expect(verdict.status).toBe("critical");
+  });
+
+  it("never instructs the reader to move money", () => {
+    for (const t of [quiet, tally("critical", 2, 1), tally("caution", 1, 0)]) {
+      const text = verdictText(
+        buildVerdict({ ...base, teamRows: [team("Alpha", 4), rollup(9)], tally: t })
+      );
+      expect(text).not.toMatch(/\bMove money\b/);
+      expect(text).not.toMatch(/\bLine up\b/);
+      expect(text).not.toMatch(/\btrim burn\b/);
+    }
+  });
+
+  it("names what is missing instead of fabricating a status", () => {
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [],
+      hasFunds: false,
+      overallRunwayMonths: null,
+    });
+    expect(verdict.status).toBe("insufficient_data");
+    expect(verdict.action).toBeNull();
     expect(verdict.missing?.href).toBe("/upload");
-    expect(verdict.runwayMonth).toBeNull();
+    expect(verdict.missing?.message).toContain("No account balances");
   });
 
   it("falls back to insufficient data when there is no burn rate", () => {
-    const verdict = buildVerdict({ ...base, hasBurn: false, runwayMonths: null });
-    expect(verdict.kind).toBe("insufficient_data");
+    const verdict = buildVerdict({
+      ...base,
+      teamRows: [],
+      hasBurn: false,
+      overallRunwayMonths: null,
+    });
+    expect(verdict.status).toBe("insufficient_data");
     expect(verdict.missing?.message).toContain("no burn rate");
   });
+});
 
-  describe("pluralization", () => {
-    it("omits the zero side entirely", () => {
-      const people = buildVerdict({ ...base, peopleAtRisk: [person("A", 2), person("B", 3)] });
-      expect(verdictText(people)).toContain("2 people fall short before then.");
-      expect(verdictText(people)).not.toContain("account");
+describe("tallyAttention", () => {
+  function row(
+    id: string,
+    severity: AttentionRow["severity"],
+    kind: AttentionRow["kind"]
+  ): AttentionRow {
+    return {
+      id,
+      kind,
+      severity,
+      severityLabel: severity,
+      entity: id,
+      detail: "",
+      href: "/runway",
+      actionLabel: "View",
+      months: 1,
+    };
+  }
+  const queue = (rows: AttentionRow[]): AttentionQueue => ({
+    rows,
+    totalCount: rows.length,
+    peopleAtRisk: [],
+    accountsAtRisk: [],
+    overdrawnAccounts: [],
+  });
 
-      const accounts = buildVerdict({ ...base, accountsAtRisk: [account("A", 2, 10)] });
-      expect(verdictText(accounts)).toContain("1 account falls short before then.");
-      expect(verdictText(accounts)).not.toContain("people");
-    });
+  it("counts only the critical rows once anything is critical", () => {
+    const t = tallyAttention(
+      queue([
+        row("a", "critical", "person"),
+        row("b", "critical", "account"),
+        row("c", "caution", "person"),
+      ])
+    );
+    expect(t).toEqual({ severity: "critical", people: 1, accounts: 1, total: 2 });
+  });
 
-    it("uses singular verb agreement for a single entity", () => {
-      const one = buildVerdict({ ...base, peopleAtRisk: [person("A", 2)] });
-      expect(verdictText(one)).toContain("1 person falls short before then.");
-    });
+  it("falls back to caution rows when nothing is critical", () => {
+    const t = tallyAttention(queue([row("a", "caution", "person"), row("b", "caution", "person")]));
+    expect(t).toEqual({ severity: "caution", people: 2, accounts: 0, total: 2 });
+  });
 
-    it("treats one of each as plural", () => {
-      const mixed = buildVerdict({
-        ...base,
-        peopleAtRisk: [person("A", 2)],
-        accountsAtRisk: [account("B", 2, 10)],
-      });
-      expect(verdictText(mixed)).toContain("1 person and 1 account fall short before then.");
-    });
+  it("ignores data-quality rows, which are not funding problems", () => {
+    const t = tallyAttention(queue([row("a", "data", "data")]));
+    expect(t.severity).toBeNull();
+    expect(t.total).toBe(0);
+  });
+
+  it("is quiet on an empty queue", () => {
+    expect(tallyAttention(queue([])).severity).toBeNull();
+  });
+});
+
+describe("monthsPhrase", () => {
+  it("avoids a bare '1.0 months'", () => {
+    expect(monthsPhrase(1.02)).toBe("1 month");
+  });
+
+  it("does not render a fractional month as a decimal", () => {
+    expect(monthsPhrase(0.4)).toBe("less than a month");
+  });
+
+  it("keeps one decimal place otherwise", () => {
+    expect(monthsPhrase(3.24)).toBe("3.2 months");
   });
 });

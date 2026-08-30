@@ -60,7 +60,7 @@ describe("hasPercentEffort", () => {
 });
 
 describe("formatIsoDateDisplay", () => {
-  it("formats MyPortfolio report run dates", () => {
+  it("formats report run dates", () => {
     expect(formatIsoDateDisplay("2026-07-31")).toBe("Jul 31, 2026");
     expect(formatIsoDateDisplay("2026-01-02")).toBe("Jan 2, 2026");
   });

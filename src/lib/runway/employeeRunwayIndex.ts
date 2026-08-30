@@ -1,6 +1,6 @@
 import type { AppSettings, PayrollReportSnapshot, WorkingPlan } from "@/types";
 import type { FundingSource } from "@/types";
-import type { MergedPortfolioBalance } from "@/lib/portfolio/mergeBalances";
+import type { AccountBalance } from "@/lib/funding/accountBalances";
 import { buildSharedAccountBurnIndex, computeEmployeeRunway } from "@/lib/runway/calculate";
 
 export function buildEmployeeBlendedRunwayMap(
@@ -8,7 +8,7 @@ export function buildEmployeeBlendedRunwayMap(
   workingPlan: WorkingPlan | null,
   fundingSources: FundingSource[],
   settings: AppSettings,
-  mergedPortfolioBalances: Map<string, MergedPortfolioBalance>
+  accountBalances: Map<string, AccountBalance>
 ): Map<string, number | null> {
   const sharedBurnIndex = buildSharedAccountBurnIndex(
     snapshot,
@@ -24,7 +24,7 @@ export function buildEmployeeBlendedRunwayMap(
       workingPlan,
       fundingSources,
       settings,
-      mergedPortfolioBalances,
+      accountBalances,
       sharedBurnIndex,
       { revealHidden: false }
     );
