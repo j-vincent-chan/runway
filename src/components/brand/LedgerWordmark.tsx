@@ -1,4 +1,4 @@
-import { IMMUNOX_COLORS, PARENT_LABEL_ACADEMIC } from "@/lib/brand";
+import { PARENT_LABEL_ACADEMIC, RUNWAY_ACCENT } from "@/lib/brand";
 import { cn } from "@/lib/utils/cn";
 import { LedgerLogo } from "@/components/brand/LedgerLogo";
 import { LedgerName } from "@/components/brand/LedgerName";
@@ -20,7 +20,7 @@ export function LedgerWordmark({
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      <LedgerLogo size={resolvedLogoSize} />
+      <LedgerLogo size={resolvedLogoSize} onDark={light} />
       <div className="min-w-0">
         <LedgerName size={variant === "sidebar" ? "sidebar" : "md"} light={light} />
         <p
@@ -30,7 +30,7 @@ export function LedgerWordmark({
               ? "whitespace-nowrap text-[9px] uppercase tracking-tight"
               : "text-[10px] uppercase tracking-widest"
           )}
-          style={{ color: light ? IMMUNOX_COLORS.mint : IMMUNOX_COLORS.teal }}
+          style={{ color: light ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight }}
         >
           {parentLabel}
         </p>

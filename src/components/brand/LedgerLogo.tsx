@@ -1,48 +1,40 @@
-import { IMMUNOX_COLORS } from "@/lib/brand";
+import { RUNWAY_ACCENT } from "@/lib/brand";
 import { cn } from "@/lib/utils/cn";
 
-/** Three stacked isometric sheets — Bakar ImmunoX petal colors. */
+/**
+ * The Runway mark: a months-remaining meter — three bars at full, two-thirds,
+ * one-third, each on its own track. Monochrome teal per the design system
+ * (one accent; the old stacked-sheets mark spent the ImmunoX petal palette).
+ */
 export function LedgerLogo({
   className,
   size = 28,
+  onDark = false,
 }: {
   className?: string;
   size?: number;
+  /** Light-teal fills and translucent tracks for navy grounds (sidebar, login). */
+  onDark?: boolean;
 }) {
-  const height = Math.round(size * (44 / 40));
-  const { periwinkle, mint, gold } = IMMUNOX_COLORS;
+  const fill = onDark ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight;
+  const track = onDark ? "#FFFFFF" : "#DEEBEE";
+  const trackOpacity = onDark ? 0.16 : 1;
 
   return (
     <svg
       width={size}
-      height={height}
-      viewBox="0 0 40 44"
+      height={size}
+      viewBox="0 0 40 40"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={cn("shrink-0", className)}
       aria-hidden
     >
-      <path
-        d="M6 30.5 20 38.5 34 30.5 20 22.5 6 30.5Z"
-        fill={periwinkle}
-        stroke="#8fa8d4"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 22 20 30 34 22 20 14 6 22Z"
-        fill={mint}
-        stroke="#6bb896"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M6 13.5 20 21.5 34 13.5 20 5.5 6 13.5Z"
-        fill={gold}
-        stroke="#d4a833"
-        strokeWidth="1.25"
-        strokeLinejoin="round"
-      />
+      <rect x="5" y="7" width="30" height="6.5" rx="2" fill={fill} />
+      <rect x="5" y="16.75" width="30" height="6.5" rx="2" fill={track} fillOpacity={trackOpacity} />
+      <rect x="5" y="16.75" width="20" height="6.5" rx="2" fill={fill} />
+      <rect x="5" y="26.5" width="30" height="6.5" rx="2" fill={track} fillOpacity={trackOpacity} />
+      <rect x="5" y="26.5" width="10" height="6.5" rx="2" fill={fill} />
     </svg>
   );
 }

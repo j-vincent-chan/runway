@@ -1,5 +1,11 @@
 export const PRODUCT_NAME = "Runway";
 
+/** The brand teal — the design system's accent, per ground. */
+export const RUNWAY_ACCENT = {
+  onLight: "#12626E",
+  onDark: "#5FB8C2",
+} as const;
+
 /** Bakar ImmunoX logo palette (immunox.ucsf.edu). */
 export const IMMUNOX_COLORS = {
   navy: "#052049",
