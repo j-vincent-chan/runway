@@ -290,11 +290,14 @@ function AccountCard({
       : undefined) ?? item.projectDescription;
 
   return (
+    /* One row in the section's shared bordered block — an account is a row in
+       a ledger, not its own card. The expanded row tints instead of ringing so
+       it needs no rounded corners mid-block. */
     <li
       className={cn(
-        "overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-colors",
-        "hover:border-slate-300 hover:bg-slate-50/80",
-        open && "border-teal-200 ring-1 ring-teal-100",
+        "transition-colors",
+        "hover:bg-slate-50/80",
+        open && "bg-teal-50/40",
         item.isHidden && "opacity-70"
       )}
     >
@@ -696,7 +699,7 @@ export default function AccountBalancesPage() {
                           </span>
                         </h3>
                       ) : null}
-                      <ul className="space-y-3">
+                      <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                         {section.items.map((s) => (
                           <AccountCard
                             key={s.accountKey}
