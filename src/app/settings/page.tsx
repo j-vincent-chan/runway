@@ -60,9 +60,12 @@ export default function SettingsPage() {
         subtitle="Teams, funding source types, account groups, and cloud sync"
       />
       <main className="flex-1 overflow-auto p-6">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6 md:flex-row md:items-start">
+        <div className="mx-auto flex max-w-5xl flex-col gap-6">
+          {/* Horizontal segmented control (the Employees/Projections idiom)
+              instead of a second left rail inside a page that already has the
+              app sidebar. Hash deep links (/settings#accounts) are unchanged. */}
           <nav
-            className="flex shrink-0 gap-1 overflow-x-auto md:w-48 md:flex-col md:overflow-visible"
+            className="inline-flex max-w-full flex-wrap gap-0.5 self-start rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm"
             aria-label="Settings sections"
           >
             {TABS.map((t) => (
@@ -71,10 +74,10 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => selectTab(t.id)}
                 className={cn(
-                  "whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+                  "whitespace-nowrap rounded-md px-3 py-1.5 font-medium transition-colors",
                   tab === t.id
                     ? "bg-[#0c2340] text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                 )}
               >
                 {t.label}
