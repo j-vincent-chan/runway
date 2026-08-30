@@ -33,8 +33,11 @@ export function ActiveDatasetBanner({
               <div>
                 <dt className="sr-only">Employees</dt>
                 <dd>
+                  {/* "on the report" names the scope: planning pages count a
+                      smaller active roster (hidden and alumni removed), so the
+                      raw report total needs to say which set it is. */}
                   <span className="font-medium text-slate-800">{snapshot.employees.length}</span>{" "}
-                  employees
+                  employees on the report
                 </dd>
               </div>
               <div>

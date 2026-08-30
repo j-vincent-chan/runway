@@ -81,7 +81,10 @@ export function ImportHealthCard({
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">Last import</span>
+          {/* "any file" is load-bearing: the provenance line elsewhere dates
+              the payroll report specifically, so this newer timestamp (often a
+              Net Position upload) looked like a contradiction unlabelled. */}
+          <span className="text-slate-600">Last import (any file)</span>
           <span className="text-right text-xs font-medium text-slate-700">
             {lastImportAt ? new Date(lastImportAt).toLocaleString() : "—"}
           </span>

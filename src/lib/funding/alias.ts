@@ -1,11 +1,42 @@
 import type { FundingSource } from "@/types";
 import { chartstringToProjectId } from "@/lib/utils/parse";
+import { normalizeChartstring } from "@/lib/funding/chartstring";
 
 /** Project number segment from chartstring (e.g. 7030720 from 7000-129074-7030720-45) */
 export function getProjectNumber(fs: FundingSource): string | undefined {
   if (fs.projectId) return fs.projectId;
   if (fs.accountString) return chartstringToProjectId(fs.accountString) ?? undefined;
   return undefined;
+}
+
+/** Dept segment of a chartstring (129074 from 7000-129074-7030720-45). */
+function chartstringDept(chart: string): string | undefined {
+  const parts = normalizeChartstring(chart).split("-").filter(Boolean);
+  return parts.length >= 3 ? parts[1] : undefined;
+}
+
+/**
+ * The code suffix a row displays. Normally the project number alone — but a
+ * project number is not unique across depts, so when another source in the
+ * snapshot shares it under a different dept, the dept is appended. Two rows
+ * both reading "146328D" with the only disambiguator buried in a parenthetical
+ * is a defect: the code column exists to tell rows apart.
+ */
+export function projectDisplayCode(
+  fs: FundingSource,
+  allSources?: FundingSource[]
+): string | undefined {
+  const project = getProjectNumber(fs);
+  if (!project || !allSources) return project;
+  const dept = chartstringDept(fs.accountString ?? fs.rawName);
+  if (!dept) return project;
+  const ambiguous = allSources.some(
+    (other) =>
+      other.id !== fs.id &&
+      getProjectNumber(other) === project &&
+      chartstringDept(other.accountString ?? other.rawName) !== dept
+  );
+  return ambiguous ? `${project} · dept ${dept}` : project;
 }
 
 /** Default friendly label without project suffix */

@@ -17,15 +17,30 @@ import { cn } from "@/lib/utils/cn";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 import { useApp } from "@/context/AppContext";
 
-const mainNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/timeline", label: "Distributions", icon: CalendarRange },
-  { href: "/projections", label: "Projections", icon: LineChart },
-  { href: "/runway", label: "Runway", icon: TrendingDown },
-  { href: "/account-balances", label: "Account Balances", icon: Wallet },
-  { href: "/status", label: "Status", icon: ClipboardList },
-  { href: "/employees", label: "Employees", icon: Users },
-  { href: "/upload", label: "Upload", icon: Upload },
+/**
+ * Grouped by what a destination is for, separated by hairlines — the flat
+ * list mixed an overview, three planning surfaces, two reference tables, a
+ * workflow queue, and an admin task in no order, with Status sitting between
+ * two reference tables. Settings already sat apart at the bottom, so the
+ * pattern existed; this extends it. Group labels are deliberately unrendered:
+ * seven items in three clusters read faster than seven items under three
+ * captions.
+ */
+const NAV_GROUPS: { href: string; label: string; icon: typeof Settings }[][] = [
+  [{ href: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  [
+    { href: "/timeline", label: "Distributions", icon: CalendarRange },
+    { href: "/projections", label: "Projections", icon: LineChart },
+    { href: "/runway", label: "Runway", icon: TrendingDown },
+  ],
+  [
+    { href: "/account-balances", label: "Account Balances", icon: Wallet },
+    { href: "/employees", label: "Employees", icon: Users },
+  ],
+  [
+    { href: "/status", label: "Status", icon: ClipboardList },
+    { href: "/upload", label: "Upload", icon: Upload },
+  ],
 ];
 
 function NavLink({
@@ -63,9 +78,16 @@ export function Sidebar() {
       <div className="border-b border-white/10 px-3 py-4">
         <LedgerWordmark variant="sidebar" />
       </div>
-      <nav className="flex-1 space-y-0.5 p-3">
-        {mainNav.map((item) => (
-          <NavLink key={item.href} {...item} />
+      <nav className="flex-1 p-3">
+        {NAV_GROUPS.map((group, i) => (
+          <div
+            key={group[0]!.href}
+            className={cn("space-y-0.5", i > 0 && "mt-2 border-t border-white/10 pt-2")}
+          >
+            {group.map((item) => (
+              <NavLink key={item.href} {...item} />
+            ))}
+          </div>
         ))}
       </nav>
       <div className="mt-auto space-y-0 border-t border-white/10 p-3">

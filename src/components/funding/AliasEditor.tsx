@@ -1,9 +1,11 @@
 "use client";
 
 import type { FundingSource } from "@/types";
+import { useApp } from "@/context/AppContext";
 import {
   defaultAliasBase,
   getProjectNumber,
+  projectDisplayCode,
   resolveAliasBase,
   stripProjectFromAlias,
 } from "@/lib/funding/alias";
@@ -34,7 +36,10 @@ export function AliasEditor({
   fullWidth?: boolean;
   className?: string;
 }) {
+  const { fundingSources } = useApp();
   const project = getProjectNumber(source);
+  // Disambiguated with the dept when another account shares this project code.
+  const displayCode = projectDisplayCode(source, fundingSources);
   const base = resolveAliasBase(source, customAlias, accountTitle);
   const placeholder =
     accountTitle?.trim() || defaultAliasBase(source);
@@ -81,7 +86,7 @@ export function AliasEditor({
           )}
           title="Project number (always appended)"
         >
-          · {project}
+          · {displayCode}
         </span>
       )}
     </div>
@@ -99,12 +104,14 @@ export function AliasDisplay({
   accountTitle?: string;
   className?: string;
 }) {
+  const { fundingSources } = useApp();
   const project = getProjectNumber(source);
+  const displayCode = projectDisplayCode(source, fundingSources);
   const base = resolveAliasBase(source, customAlias, accountTitle);
   return (
     <span className={className} title={source.accountString ?? source.rawName}>
       {base}
-      {project && <span className="text-slate-500"> · {project}</span>}
+      {project && <span className="text-slate-500"> · {displayCode}</span>}
     </span>
   );
 }
