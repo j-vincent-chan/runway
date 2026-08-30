@@ -19,7 +19,7 @@ import { useApp } from "@/context/AppContext";
 
 const mainNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/timeline", label: "Timeline", icon: CalendarRange },
+  { href: "/timeline", label: "Distributions", icon: CalendarRange },
   { href: "/projections", label: "Projections", icon: LineChart },
   { href: "/runway", label: "Runway", icon: TrendingDown },
   { href: "/account-balances", label: "Account Balances", icon: Wallet },

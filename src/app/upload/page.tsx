@@ -48,7 +48,7 @@ export default function DataSourcesPage() {
         subtitle="Manage the reports that power Runway."
         showImportMeta={false}
         topAction={
-          hasPayroll ? { label: "View Timeline", href: "/timeline" } : undefined
+          hasPayroll ? { label: "View Distributions", href: "/timeline" } : undefined
         }
       />
       <main className="flex-1 overflow-auto bg-slate-50/60 p-6">

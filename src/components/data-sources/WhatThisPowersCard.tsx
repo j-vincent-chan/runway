@@ -8,7 +8,7 @@ const ITEMS: {
   requiresNetPosition?: boolean;
   requiresPositionSalary?: boolean;
 }[] = [
-  { label: "Timeline", requiresPayroll: true },
+  { label: "Distributions", requiresPayroll: true },
   { label: "Employees", requiresPayroll: true },
   { label: "Accounts", requiresPayroll: true },
   { label: "Gaps & Alerts", requiresPayroll: true },
