@@ -140,36 +140,34 @@ function EmployeesPageContent() {
           pageTab === "structure" && "bg-white"
         )}
       >
-        <div className="mb-4 inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
-          <button
-            type="button"
-            className={cn(
-              "rounded-md px-3 py-1.5 font-medium",
-              pageTab === "roster" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
-            )}
-            onClick={() => selectPageTab("roster")}
-          >
-            Roster
-          </button>
-          <button
-            type="button"
-            className={cn(
-              "rounded-md px-3 py-1.5 font-medium",
-              pageTab === "structure" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
-            )}
-            onClick={() => selectPageTab("structure")}
-          >
-            Structure
-          </button>
-        </div>
-
-        {pageTab === "structure" ? (
-          <EmployeesStructurePanel />
-        ) : !hasData || !snapshot ? (
-          <EmptyState />
-        ) : (
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+        {/* One toolbar row instead of two stacked toggle rows — the review's
+            "heavy header" note. Roster/Structure and the roster's own controls
+            share the line; the import button sits at the far end. */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-3 py-1.5 font-medium",
+                pageTab === "roster" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+              )}
+              onClick={() => selectPageTab("roster")}
+            >
+              Roster
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "rounded-md px-3 py-1.5 font-medium",
+                pageTab === "structure" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+              )}
+              onClick={() => selectPageTab("structure")}
+            >
+              Structure
+            </button>
+          </div>
+          {pageTab === "roster" && hasData && snapshot && (
+            <>
               <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
                 <button
                   type="button"
@@ -275,22 +273,31 @@ function EmployeesPageContent() {
               {ocrSyncMessage && (
                 <span className="text-xs text-slate-600">{ocrSyncMessage}</span>
               )}
-            </div>
+            </>
+          )}
+        </div>
 
-            <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+        {pageTab === "structure" ? (
+          <EmployeesStructurePanel />
+        ) : !hasData || !snapshot ? (
+          <EmptyState />
+        ) : (
+          <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#0c2340] text-xs text-white">
                   <tr>
-                    <th className="px-3 py-2">Employee</th>
-                    <th className="min-w-[10.5rem] px-3 py-2">Team</th>
-                    <th className="min-w-[9rem] px-3 py-2">Start date</th>
+                    {/* Pinned like Runway's months column: identity must stay
+                        on screen while the rest of the row scrolls at 1440. */}
+                    <th className="sticky left-0 z-10 bg-[#0c2340] px-3 py-2">Employee</th>
+                    <th className="min-w-[9.5rem] px-3 py-2">Team</th>
+                    <th className="min-w-[8rem] px-3 py-2">Start date</th>
                     {view === "alumni" && <th className="min-w-[7rem] px-3 py-2">End date</th>}
                     <th className="px-3 py-2">Your scope %</th>
                     <th className="px-3 py-2">Current coverage</th>
                     <th className="px-3 py-2">First gap</th>
                     <th className="px-3 py-2">Monthly payroll burn</th>
-                    <th className="min-w-[7.5rem] px-3 py-2">Yearly comp</th>
-                    <th className="min-w-[8.5rem] px-3 py-2">Comp over time</th>
+                    <th className="min-w-[7rem] px-3 py-2">Yearly comp</th>
+                    <th className="min-w-[8rem] px-3 py-2">Comp over time</th>
                     <th className="w-10 px-2 py-2" aria-label="Actions" />
                   </tr>
                 </thead>
@@ -351,7 +358,6 @@ function EmployeesPageContent() {
                 Planning estimates only. Confirm with your finance/post-award analyst. Hidden employees
                 are excluded from timeline and runway; alumni are kept for reference only.
               </p>
-            </div>
           </div>
         )}
       </main>
@@ -455,12 +461,19 @@ function EmployeeTableRow({
   return (
     <tr
       className={cn(
-        "border-t hover:bg-slate-50",
+        "group border-t hover:bg-slate-50",
         isHidden && "bg-slate-50/80 opacity-75",
         isAlumniView && "bg-slate-50/50"
       )}
     >
-      <td className="px-3 py-2">
+      {/* Sticky cells need their own opaque fill, mirroring the row states. */}
+      <td
+        className={cn(
+          "sticky left-0 z-[1] bg-white px-3 py-2 group-hover:bg-slate-50",
+          isHidden && "bg-slate-100",
+          isAlumniView && "bg-slate-50"
+        )}
+      >
         <div className="flex items-center gap-2.5">
           <EmployeeAvatar name={emp.name} photoUrl={photoUrl} />
           <div className="min-w-0">
