@@ -39,6 +39,8 @@ import {
 import { ProjectionGridHeader } from "@/components/projections/ProjectionGridHeader";
 import { FreezeableGrid } from "@/components/grid/FreezeableGrid";
 import { ProjectionAllocationBar } from "@/components/projections/ProjectionAllocationBar";
+import { deepLinkAnchorId } from "@/lib/navigation/deepLinks";
+import { DEEP_LINK_HIGHLIGHT } from "@/lib/navigation/useDeepLinkTarget";
 
 export function ByPersonView({
   employees,
@@ -57,6 +59,7 @@ export function ByPersonView({
   onLockIn,
   onUnlock,
   lockedPersonKeys,
+  highlightPersonKey,
   lockInReady,
 }: {
   employees: Employee[];
@@ -80,6 +83,8 @@ export function ByPersonView({
   onUnlock: (employee: Employee) => void;
   /** personKeys whose plan is locked — their rows render read-only. */
   lockedPersonKeys: Set<string>;
+  /** personKey the Dashboard sent the reader here to reassign. */
+  highlightPersonKey?: string | null;
   lockInReady: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -151,6 +156,7 @@ export function ByPersonView({
                 onLockIn={onLockIn}
                 onUnlock={onUnlock}
                 locked={lockedPersonKeys.has(personKey)}
+                deepLinked={personKey === highlightPersonKey}
                 lockInReady={lockInReady}
                 onToggle={() =>
                   setCollapsed((p) => {
@@ -189,6 +195,7 @@ function EmployeeBlock({
   onLockIn,
   onUnlock,
   locked,
+  deepLinked,
   lockInReady,
   onToggle,
   onEdit,
@@ -211,6 +218,7 @@ function EmployeeBlock({
   onLockIn: (employee: Employee) => void;
   onUnlock: (employee: Employee) => void;
   locked: boolean;
+  deepLinked: boolean;
   lockInReady: boolean;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
@@ -235,7 +243,10 @@ function EmployeeBlock({
 
   return (
     <>
-      <tr className="bg-[#0c2340] text-white">
+      <tr
+        id={deepLinkAnchorId("person", personKey)}
+        className={cn("bg-[#0c2340] text-white", deepLinked && DEEP_LINK_HIGHLIGHT)}
+      >
         <td
           className="sticky left-0 z-10 cursor-pointer bg-[#0c2340] px-2 py-1.5 font-semibold"
           style={{

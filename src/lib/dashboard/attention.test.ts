@@ -85,6 +85,10 @@ describe("buildAttentionQueue", () => {
     expect(queue.rows[1]?.detail).toBe("funded through October 2026 · R01 Chen");
     expect(queue.rows[1]?.context).toBe("Research development");
     expect(queue.rows[1]?.actionLabel).toBe("Reassign");
+    // The verb and the destination have to agree: reassignment is a
+    // Projections rule, and the row deep-links to the person.
+    expect(queue.rows[1]?.href).toMatch(/^\/projections\?person=/);
+    expect(queue.rows[0]?.href).toMatch(/^\/runway\?account=/);
     expect(queue.rows[2]?.detail).toBe("funded through January 2027");
   });
 
@@ -325,7 +329,7 @@ describe("buildAttentionQueue", () => {
     expect(dataRow?.entity).toBe("Research development");
     expect(dataRow?.detail).toBe("100% of charges have no funding type");
     expect(dataRow?.actionLabel).toBe("Categorize");
-    expect(dataRow?.href).toBe("/settings");
+    expect(dataRow?.href).toBe("/settings?panel=accounts&team=researchDevelopment");
   });
 
   it("stays quiet when every fund is categorized", () => {

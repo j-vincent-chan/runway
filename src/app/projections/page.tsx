@@ -40,6 +40,8 @@ import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { employeePersonKey } from "@/lib/employees/stableKey";
+import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
+import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
 import type {
   AppSettings,
   Employee,
@@ -72,6 +74,8 @@ export default function ProjectionsPage() {
   );
   const [lockingIn, setLockingIn] = useState<ChangeRequestDetails | null>(null);
   const lockedKeys = useMemo(() => lockedPersonKeys(settings), [settings]);
+  // The Dashboard's "Reassign" rows land here with the person preselected.
+  const deepLinkedPerson = useDeepLinkTarget("person", DEEP_LINK_PARAM.person);
   // A handoff needs both parties: the request row and email are cloud-side.
   const lockInReady = Boolean(configured && user && cloudSyncEnabled && activeOwner);
   /**
@@ -526,6 +530,7 @@ export default function ProjectionsPage() {
                 onLockIn={openLockIn}
                 onUnlock={unlockDistribution}
                 lockedPersonKeys={lockedKeys}
+                highlightPersonKey={deepLinkedPerson}
                 lockInReady={lockInReady}
               />
             ) : (

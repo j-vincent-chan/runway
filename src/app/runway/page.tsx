@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils/cn";
 import { formatIsoDateDisplay } from "@/lib/utils/parse";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
+import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
 
 export default function RunwayPage() {
   const {
@@ -40,6 +42,9 @@ export default function RunwayPage() {
     toggleNotMyAccount,
     setRunwayAssumedEndDate,
   } = useApp();
+
+  // The Dashboard's "Review" rows land here with an account preselected.
+  const deepLinkedAccount = useDeepLinkTarget("account", DEEP_LINK_PARAM.account);
 
   const [showHiddenFunds, setShowHiddenFunds] = useState(false);
   const [revealHiddenForEmployees, setRevealHiddenForEmployees] = useState<Set<string>>(
@@ -233,6 +238,7 @@ export default function RunwayPage() {
                     key={summary.employee.id}
                     summary={summary}
                     revealHidden={revealHidden}
+                    highlightAccount={deepLinkedAccount}
                     onRevealHidden={() =>
                       setRevealHiddenForEmployees((prev) => new Set(prev).add(summary.employee.id))
                     }

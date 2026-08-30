@@ -1,5 +1,6 @@
 "use client";
 
+import { useId, useState } from "react";
 import Link from "next/link";
 import { Area, AreaChart, Bar, BarChart, Cell, Line, ReferenceLine } from "recharts";
 import { ChartResponsive } from "@/components/charts/ChartResponsive";
@@ -122,11 +123,22 @@ function SparkPlaceholder() {
   );
 }
 
+/**
+ * One stat: label and figure are a single link to the source page, and the
+ * derivation reveals on that link's hover or focus.
+ *
+ * They used to be two targets two lines apart — the label a link, the figure a
+ * button opening the derivation — so which behaviour you got depended on where
+ * you happened to click, and clicking the big number never navigated. The
+ * comparison sub-line stays outside the link because it carries links of its
+ * own, which cannot nest.
+ */
 function Anchor({
   label,
   href,
   value,
   valueNode,
+  explanation,
   comparison,
   comparisonTone = "neutral",
   spark,
@@ -135,23 +147,47 @@ function Anchor({
   href: string;
   value?: string;
   valueNode?: React.ReactNode;
+  /** Revealed on hover/focus of the whole block. */
+  explanation?: string;
   comparison: React.ReactNode;
   comparisonTone?: "neutral" | "caution" | "critical" | "healthy";
   spark?: React.ReactNode;
 }) {
+  const tooltipId = useId();
+  const [open, setOpen] = useState(false);
+
   return (
     <div className="min-w-0 flex-1 px-0 sm:px-5 sm:first:pl-0 sm:last:pr-0">
-      <Link
-        href={href}
-        className="type-caption flex min-h-11 items-center text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      >
-        {label}
-      </Link>
-      {/* Shared context line, one mono row tall. Empty for the two stats that
-          scope themselves, filled by the runway carousel with the team it is
-          showing — reserved in all three so the figures sit on one baseline. */}
-      <p className="type-mono min-h-[1.125rem] text-ink-2" aria-hidden />
-      <p className="type-stat mt-0.5 text-ink">{valueNode ?? value}</p>
+      <span className="relative block">
+        <Link
+          href={href}
+          aria-describedby={open && explanation ? tooltipId : undefined}
+          className="block rounded-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          onMouseEnter={() => setOpen(true)}
+          onMouseLeave={() => setOpen(false)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setOpen(false);
+          }}
+        >
+          <span className="type-caption flex min-h-11 items-center text-muted">{label}</span>
+          {/* Shared context line, one mono row tall. Empty for the two stats that
+              scope themselves, filled by the runway carousel with the team it is
+              showing — reserved in all three so the figures sit on one baseline. */}
+          <span className="type-mono block min-h-[1.125rem] text-ink-2" aria-hidden />
+          <span className="type-stat mt-0.5 block text-ink">{valueNode ?? value}</span>
+        </Link>
+        {open && explanation && (
+          <span
+            role="tooltip"
+            id={tooltipId}
+            className="type-row absolute left-0 top-full z-20 mt-1.5 w-64 rounded-md border border-rule bg-surface px-3 py-2 font-normal normal-case tracking-normal text-ink-2 shadow-sm"
+          >
+            {explanation}
+          </span>
+        )}
+      </span>
       <p
         className={cn(
           "mt-1 flex items-center gap-1.5 type-row",
@@ -231,6 +267,8 @@ export function AnchorStats({
     .filter(Boolean)
     .join(" ");
 
+  const burnExplanation = `Total personnel cost — salary and benefits — for ${monthLabelLong(planningMonth)}, the same current-month figure Avg payroll runway divides Available payroll by.`;
+
   const runwayExplanation = [
     "Available payroll divided by the combined monthly burn on those same accounts — an average across them, not a promise about any one person.",
     beyondHorizon
@@ -248,8 +286,10 @@ export function AnchorStats({
       <Anchor
         label="Available Payroll"
         href="/account-balances"
+        explanation={fundsExplanation}
         valueNode={
           <DerivedFigure
+            interactive={false}
             value={formatCurrency(availableFunds)}
             explanation={fundsExplanation}
             className="type-stat text-ink"
@@ -287,10 +327,12 @@ export function AnchorStats({
       <Anchor
         label="Monthly Payroll Burn"
         href="/timeline"
+        explanation={burnExplanation}
         valueNode={
           <DerivedFigure
+            interactive={false}
             value={formatCurrency(monthlyBurn)}
-            explanation={`Total personnel cost — salary and benefits — for ${monthLabelLong(planningMonth)}, the same current-month figure Avg payroll runway divides Available payroll by.`}
+            explanation={burnExplanation}
             className="type-stat text-ink"
           />
         }
@@ -311,11 +353,17 @@ export function AnchorStats({
       <Anchor
         label="Avg Payroll Runway"
         href="/runway"
+        explanation={
+          runwayMonths !== null && runwayMonths < 0
+            ? "Combined burn on your payroll accounts already exceeds what is left in them."
+            : runwayExplanation
+        }
         valueNode={
           runwayMonths === null ? (
             <span className="text-muted">—</span>
           ) : runwayMonths < 0 ? (
             <DerivedFigure
+              interactive={false}
               projected
               value="Already short"
               explanation="Combined burn on your payroll accounts already exceeds what is left in them."
@@ -323,6 +371,7 @@ export function AnchorStats({
             />
           ) : (
             <DerivedFigure
+              interactive={false}
               projected
               value={runwayMonthsLabel(runwayMonths)}
               explanation={runwayExplanation}

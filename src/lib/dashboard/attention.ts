@@ -12,7 +12,12 @@ import {
   type RunwayBalanceSource,
 } from "@/lib/runway/calculate";
 import { buildFundingMixForEmployees } from "@/lib/dashboard/metrics";
-import { resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import {
+  projectionsPersonHref,
+  runwayAccountHref,
+  settingsAccountsHref,
+} from "@/lib/navigation/deepLinks";
 import { monthLabelLong, shiftMonth } from "@/lib/dashboard/month";
 import { formatCurrency } from "@/lib/utils/parse";
 import type { AccountBalance } from "@/lib/funding/accountBalances";
@@ -350,7 +355,7 @@ function uncategorizedRows(
       severityLabel: severityLabel("data"),
       entity: meta.shortLabel ?? meta.label,
       detail: `${Math.round(share * 100)}% of charges have no funding type`,
-      href: "/settings",
+      href: settingsAccountsHref(group.id),
       actionLabel: "Categorize",
       // Data issues sort after dated risks but stay in the same queue.
       months: CAUTION_MONTHS,
@@ -436,7 +441,9 @@ export function buildAttentionQueue({
         limiting?.name,
         limiting ? accountsByRoot.get(limiting.chartRoot)?.balance : undefined
       ),
-      href: "/runway",
+      // Reassigning effort is a Projections rule — Runway has no such control,
+      // so pointing there named an action the destination didn't offer.
+      href: projectionsPersonHref(employeePersonKey(employee)),
       actionLabel: "Reassign",
       months,
       personName: employee.name,
@@ -476,7 +483,7 @@ export function buildAttentionQueue({
             soleContributorName ? ` · ${soleContributorName}` : ""
           }`
         : fundedThroughLabel(planningMonth, account.months),
-      href: "/runway",
+      href: runwayAccountHref(account.chartRoot),
       actionLabel: "Review",
       months: overdrawn ? -1 : account.months,
       personName: soleContributorName,

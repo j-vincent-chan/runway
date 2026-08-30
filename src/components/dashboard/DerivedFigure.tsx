@@ -13,14 +13,30 @@ export function DerivedFigure({
   explanation,
   projected = false,
   className,
+  interactive = true,
 }: {
   value: string;
   explanation: string;
   projected?: boolean;
   className?: string;
+  /**
+   * False inside a stat block, where the surrounding link owns both the
+   * navigation and the derivation reveal. A button here would put a second
+   * target inside that link — the ambiguity this prop exists to remove.
+   */
+  interactive?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+
+  if (!interactive) {
+    return (
+      <span className={cn("figure-derived", className)}>
+        {projected ? "~" : ""}
+        {value}
+      </span>
+    );
+  }
 
   return (
     <span className="relative inline-block">

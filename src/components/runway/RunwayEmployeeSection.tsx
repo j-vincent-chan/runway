@@ -15,11 +15,15 @@ import { cn } from "@/lib/utils/cn";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
 import { AssumedOkFundingCell } from "@/components/runway/AssumedOkFundingCell";
 import { RunwayIndicatorBadge } from "@/components/runway/RunwayIndicatorBadge";
+import { chartstringFundDeptProject } from "@/lib/funding/chartstring";
+import { deepLinkAnchorId } from "@/lib/navigation/deepLinks";
+import { DEEP_LINK_HIGHLIGHT } from "@/lib/navigation/useDeepLinkTarget";
 import type { RunwayAccountLine } from "@/lib/runway/calculate";
 
 export function RunwayEmployeeSection({
   summary,
   revealHidden,
+  highlightAccount,
   onRevealHidden,
   onToggleHidden,
   onToggleAssumedOk,
@@ -30,6 +34,8 @@ export function RunwayEmployeeSection({
 }: {
   summary: EmployeeRunwaySummary;
   revealHidden: boolean;
+  /** Account chart root the Dashboard sent the reader here to review. */
+  highlightAccount?: string | null;
   onRevealHidden: () => void;
   onToggleHidden: (fundingSourceId: string) => void;
   onToggleAssumedOk: (chartstring: string) => void;
@@ -186,12 +192,16 @@ export function RunwayEmployeeSection({
                 const isManualBurn = acct.burnIsOverride;
                 const isDeficit =
                   !acct.isHidden && !acct.isAssumedOk && isRunwayDeficit(acct.monthsRunway);
+                const root = chartstringFundDeptProject(acct.chartstring) ?? acct.chartstring;
+                const isDeepLinked = Boolean(highlightAccount && root === highlightAccount);
 
                 return (
                 <tr
                   key={acct.fundingSourceId}
+                  id={deepLinkAnchorId("account", root)}
                   className={cn(
                     "border-t align-middle",
+                    isDeepLinked && DEEP_LINK_HIGHLIGHT,
                     hasDeficit ? "border-red-100" : "border-slate-100",
                     acct.isHidden && "bg-slate-50/80",
                     acct.isAssumedOk &&
