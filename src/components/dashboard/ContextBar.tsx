@@ -51,8 +51,10 @@ export function ContextBar({
           {context.sourceFileName}
         </Link>
       </p>
+      {/* "Horizon" is the one name for the forward window — the same word
+          Projections uses for the same question. */}
       <label className="flex items-center gap-1.5">
-        <span className="sr-only">Scope this page to</span>
+        <span className="sr-only">Horizon — scope this page to</span>
         <select
           value={horizonMonths}
           onChange={(e) => onHorizonChange(Number(e.target.value))}

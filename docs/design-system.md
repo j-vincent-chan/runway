@@ -149,3 +149,4 @@ The settled names:
 - **Available payroll** — the balance on accounts that currently have payroll charged to them, never the sum of every account on file.
 - **Monthly payroll burn** — trailing-average salary and benefits.
 - **Avg payroll runway** — payroll funds over payroll burn, in months, averaged across those accounts. "Avg" is load-bearing: it warns that individuals run dry sooner. The soonest single person or account to run dry is never called runway; it is an attention item, named with its person and date.
+- **Horizon** — the forward window a page projects or scopes to, measured from now (Dashboard) or the origin month (Projections). One word on both surfaces, and the Dashboard's option set stays a subset of Projections' presets so the two controls can never disagree about what windows exist. **Month range** (Distributions) is a different concept — the displayed span of months including actuals — and keeps its own name.
