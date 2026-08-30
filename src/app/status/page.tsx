@@ -90,12 +90,18 @@ export default function StatusPage() {
 
   /**
    * The ten-second read: not how many are open, but which one has been
-   * waiting longest — a person and a date someone can act on.
+   * waiting longest — a person and a date someone can act on. "Longest" is a
+   * superlative, so it only holds when there's a spread: with every open
+   * request submitted the same day, the sentence falls back to counting the
+   * batch rather than crowning an arbitrary row.
    */
-  const oldestOpen = useMemo(() => {
+  const openSummary = useMemo(() => {
     const open = requests.filter((r) => r.status !== "completed");
     if (open.length === 0) return null;
-    return open.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b));
+    const oldest = open.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b));
+    const day = (iso: string) => iso.slice(0, 10);
+    const sameDay = open.every((r) => day(r.createdAt) === day(oldest.createdAt));
+    return { open, oldest, hasSpread: open.length > 1 && !sameDay };
   }, [requests]);
 
   async function setStatus(id: string, status: ChangeRequestStatus) {
@@ -123,7 +129,6 @@ export default function StatusPage() {
         ledgerTitle
         title="Status"
         subtitle="Every locked-in distribution change, from handoff to done"
-        showImportMeta={false}
       />
       <main className="flex-1 overflow-auto bg-paper p-6">
         <div className="mx-auto max-w-7xl">
@@ -161,15 +166,33 @@ export default function StatusPage() {
           ) : (
             <>
               <p className="type-row text-ink-2">
-                {oldestOpen ? (
+                {!openSummary ? (
+                  <>Every request here has been completed.</>
+                ) : openSummary.hasSpread ? (
                   <>
                     Waiting longest:{" "}
-                    <span className="font-medium text-ink">{oldestOpen.personName}</span>, submitted{" "}
-                    {formatIsoDateDisplay(oldestOpen.createdAt) ?? oldestOpen.createdAt} and still{" "}
-                    {STATUS_LABEL[oldestOpen.status].toLowerCase()}.
+                    <span className="font-medium text-ink">{openSummary.oldest.personName}</span>
+                    , submitted{" "}
+                    {formatIsoDateDisplay(openSummary.oldest.createdAt) ??
+                      openSummary.oldest.createdAt}{" "}
+                    and still {STATUS_LABEL[openSummary.oldest.status].toLowerCase()}.
+                  </>
+                ) : openSummary.open.length === 1 ? (
+                  <>
+                    One open request:{" "}
+                    <span className="font-medium text-ink">{openSummary.oldest.personName}</span>
+                    , submitted{" "}
+                    {formatIsoDateDisplay(openSummary.oldest.createdAt) ??
+                      openSummary.oldest.createdAt}{" "}
+                    and still {STATUS_LABEL[openSummary.oldest.status].toLowerCase()}.
                   </>
                 ) : (
-                  <>Every request here has been completed.</>
+                  <>
+                    {openSummary.open.length} open requests, all submitted{" "}
+                    {formatIsoDateDisplay(openSummary.oldest.createdAt) ??
+                      openSummary.oldest.createdAt}
+                    .
+                  </>
                 )}
               </p>
 

@@ -6,6 +6,9 @@ import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { AlertsBell } from "@/components/alerts/AlertsBell";
+import { getCurrentMonth } from "@/lib/calculations";
+import { resolvePeriodStatus } from "@/lib/dashboard/overview";
+import { monthLabelLong } from "@/lib/dashboard/month";
 import { IMMUNOX_COLORS, PARENT_LABEL_ACADEMIC } from "@/lib/brand";
 import { LedgerLogo } from "@/components/brand/LedgerLogo";
 import { cn } from "@/lib/utils/cn";
@@ -18,6 +21,7 @@ export function Header({
   showImportMeta = true,
   topAction,
   dashboardContextBar,
+  provenance,
 }: {
   title: string;
   subtitle?: string;
@@ -30,10 +34,30 @@ export function Header({
   topAction?: { label: string; href: string };
   /** Replaces the plain filename/timestamp/sync line with a richer, page-owned strip. */
   dashboardContextBar?: React.ReactNode;
+  /**
+   * Names a source other than the payroll snapshot. Account Balances is built
+   * from Net Position Reports, but its provenance line cited the Payroll
+   * Funding Report — a page telling the reader its numbers came from a file
+   * they did not come from.
+   */
+  provenance?: { sourceFileName: string; importedAt?: string };
 }) {
   const { snapshot, settings, updateSettings } = useApp();
   const { configured, user, cloudSyncEnabled, signOut } = useAuth();
   const { activeOwner, delegationsToMe, switchWorkspace } = useWorkspace();
+
+  /**
+   * Period and closure state lead the provenance line, matching the
+   * Dashboard's context bar. An in-progress month must be labelled as such
+   * everywhere the data is shown — it was the one provenance element the
+   * Dashboard had that no other page carried, and Distributions ("actual
+   * payroll through this month") needed it most. Skipped when a page names
+   * its own source instead, since closure describes the payroll period.
+   */
+  const periodStatus =
+    snapshot && !provenance
+      ? resolvePeriodStatus(snapshot, getCurrentMonth(snapshot))
+      : null;
 
   return (
     <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
@@ -84,12 +108,34 @@ export function Header({
             {dashboardContextBar ? (
               dashboardContextBar
             ) : (
-              showImportMeta && snapshot && (
+              showImportMeta && (provenance || snapshot) && (
                 <p className="mt-2 text-xs text-slate-500">
+                  {periodStatus && (
+                    <>
+                      {monthLabelLong(periodStatus.month)} payroll{" · "}
+                      <span
+                        className={
+                          periodStatus.closed ? undefined : "font-medium text-amber-700"
+                        }
+                      >
+                        {periodStatus.closed ? "closed" : "in progress"}
+                      </span>
+                      {" · "}
+                    </>
+                  )}
                   Source:{" "}
-                  <span className="font-medium text-teal-800">{snapshot.sourceFileName}</span>
-                  {" · "}
-                  Imported {new Date(snapshot.uploadedAt).toLocaleString()}
+                  <span className="font-medium text-teal-800">
+                    {provenance ? provenance.sourceFileName : snapshot!.sourceFileName}
+                  </span>
+                  {(provenance?.importedAt ?? snapshot?.uploadedAt) && (
+                    <>
+                      {" · "}
+                      Imported{" "}
+                      {new Date(
+                        provenance?.importedAt ?? snapshot!.uploadedAt
+                      ).toLocaleString()}
+                    </>
+                  )}
                   {configured && (
                     <>
                       {" · "}

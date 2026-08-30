@@ -47,6 +47,7 @@ export default function RunwayPage() {
   const deepLinkedAccount = useDeepLinkTarget("account", DEEP_LINK_PARAM.account);
 
   const [showHiddenFunds, setShowHiddenFunds] = useState(false);
+  const [query, setQuery] = useState("");
   const [revealHiddenForEmployees, setRevealHiddenForEmployees] = useState<Set<string>>(
     () => new Set()
   );
@@ -141,6 +142,23 @@ export default function RunwayPage() {
     );
   }, [naturalOrder, frozenOrder]);
 
+  /**
+   * The same free-text filter Account Balances has — the fastest control in
+   * the app, matching people and the accounts under them.
+   */
+  const visibleSummaries = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return summaries;
+    return summaries.filter((s) => {
+      if (s.employee.name.toLowerCase().includes(q)) return true;
+      return s.accounts.some(
+        (a) =>
+          a.displayName.toLowerCase().includes(q) ||
+          a.chartstring.toLowerCase().includes(q)
+      );
+    });
+  }, [summaries, query]);
+
   /** True once the held order no longer matches what the sort would produce. */
   const orderIsHeld = useMemo(
     () =>
@@ -148,6 +166,24 @@ export default function RunwayPage() {
       summaries.some((s, i) => s.employee.id !== naturalOrder[i]?.employee.id),
     [summaries, naturalOrder]
   );
+
+  /**
+   * The verdict pattern the Dashboard and Status already use: a conclusion
+   * before its evidence. The soonest person to run dry is deliberately not
+   * called "runway" — per the vocabulary, that word is reserved for the
+   * average, and the single worst case is an attention item with a name.
+   */
+  const soonestDry = useMemo(() => {
+    let worst: { name: string; months: number } | null = null;
+    for (const s of naturalOrder) {
+      const m = s.blendedMonthsRunway;
+      if (m === null) continue;
+      if (worst === null || m < worst.months) {
+        worst = { name: s.employee.name, months: m };
+      }
+    }
+    return worst;
+  }, [naturalOrder]);
 
   return (
     <>
@@ -167,6 +203,24 @@ export default function RunwayPage() {
             />
           ) : (
             <div className="space-y-4">
+              {soonestDry && (
+                <p className="text-sm text-slate-700">
+                  {soonestDry.months < 0 ? (
+                    <>
+                      <span className="font-semibold text-red-800">{soonestDry.name}</span>
+                      &apos;s payroll accounts are already short — their burn exceeds what is
+                      left on them.
+                    </>
+                  ) : (
+                    <>
+                      Soonest to run dry:{" "}
+                      <span className="font-semibold text-[#0c2340]">{soonestDry.name}</span>,
+                      ~{soonestDry.months.toFixed(1)} months at current burn.
+                      {naturalOrder.length > 1 && <> Everyone else lasts longer.</>}
+                    </>
+                  )}
+                </p>
+              )}
               {netPositionImports.length === 0 ? (
                 <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
                   No Net Position Reports uploaded yet.{" "}
@@ -200,6 +254,13 @@ export default function RunwayPage() {
                     onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
                   />
                   <RunwayEmployeeSort value={employeeSort} onChange={handleEmployeeSortChange} />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter by person or account…"
+                    className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                  />
                   {orderIsHeld && (
                     <button
                       type="button"
@@ -232,7 +293,12 @@ export default function RunwayPage() {
                   </button>
                 )}
               </div>
-              {summaries.map((summary) => {
+              {visibleSummaries.length === 0 && query.trim() !== "" && (
+                <p className="py-6 text-center text-sm text-slate-500">
+                  No person or account matches “{query.trim()}”.
+                </p>
+              )}
+              {visibleSummaries.map((summary) => {
                 const revealHidden =
                   showHiddenFunds || revealHiddenForEmployees.has(summary.employee.id);
                 return (

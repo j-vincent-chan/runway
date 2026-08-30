@@ -54,7 +54,11 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Header ledgerTitle title="Settings" />
+      <Header
+        ledgerTitle
+        title="Settings"
+        subtitle="Teams, funding source types, account groups, and cloud sync"
+      />
       <main className="flex-1 overflow-auto p-6">
         <div className="mx-auto flex max-w-5xl flex-col gap-6 md:flex-row md:items-start">
           <nav
@@ -135,7 +139,7 @@ export default function SettingsPage() {
                 <h3 className="font-semibold text-[#0c2340]">Data &amp; about</h3>
                 <p className="mt-3">Parser version: {PARSER_VERSION}</p>
                 <p className="mt-1">
-                  Planning data is stored in this browser. Private Supabase sync runs only when you
+                  Planning data is stored in this browser. Private cloud sync runs only when you
                   are signed in and local-only mode is off.
                 </p>
                 {snapshot && (

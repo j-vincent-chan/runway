@@ -182,7 +182,12 @@ export function RunwayEmployeeSection({
                 <th className="min-w-[14rem] px-3 py-2.5 text-left font-medium">Account</th>
                 <th className="min-w-[10.5rem] px-3 py-2.5 text-right font-medium">Net balance</th>
                 <th className="min-w-[9.5rem] px-3 py-2.5 text-right font-medium">% · Mo. burn</th>
-                <th className="min-w-[15.5rem] px-4 py-2.5 text-right font-medium">Runway</th>
+                {/* The page exists for this column, and at 1440×900 it was the
+                    part that scrolled out of view. Pinned right so months
+                    remaining stay visible whatever the other columns need. */}
+                <th className="sticky right-0 min-w-[15.5rem] border-l border-slate-200 bg-slate-50 px-4 py-2.5 text-right font-medium">
+                  Runway
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -339,7 +344,15 @@ export function RunwayEmployeeSection({
                       onReset={() => onBurnReset(acct.fundingSourceId)}
                     />
                   </td>
-                  <td className={cn("px-4 py-2.5", acct.isHidden && "opacity-60")}>
+                  <td
+                    className={cn(
+                      "sticky right-0 border-l border-slate-100 px-4 py-2.5",
+                      // Sticky needs an opaque ground; translucent row tints
+                      // would let scrolled columns bleed through the bars.
+                      isDeficit ? "bg-red-50" : acct.isHidden ? "bg-slate-50" : "bg-white",
+                      acct.isHidden && "opacity-60"
+                    )}
+                  >
                     <div className="flex justify-end">
                       {acct.isAssumedOk && !acct.isHidden ? (
                         acct.balanceSource === "estimated" && acct.monthsRunway !== null ? (

@@ -89,6 +89,7 @@ function EmployeesPageContent() {
   } = useApp();
 
   const [view, setView] = useState<EmployeesPageView>("active");
+  const [query, setQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
   const [ocrSyncBusy, setOcrSyncBusy] = useState(false);
@@ -103,8 +104,17 @@ function EmployeesPageContent() {
 
   const visibleEmployees = useMemo(() => {
     if (!snapshot) return [];
-    return filterEmployeesForEmployeesPage(snapshot.employees, settings, view, showHidden);
-  }, [snapshot, settings, view, showHidden]);
+    const list = filterEmployeesForEmployeesPage(snapshot.employees, settings, view, showHidden);
+    // The same free-text filter Account Balances has.
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (e) =>
+        e.name.toLowerCase().includes(q) ||
+        (e.role ?? "").toLowerCase().includes(q) ||
+        (e.employeeId ?? "").toLowerCase().includes(q)
+    );
+  }, [snapshot, settings, view, showHidden, query]);
 
   const hiddenCount = countHiddenEmployees(settings);
   const alumniCount = countAlumniEmployees(settings);
@@ -190,9 +200,16 @@ function EmployeesPageContent() {
                     onChange={(e) => setShowHidden(e.target.checked)}
                     className="rounded border-slate-300"
                   />
-                  Show hidden ({hiddenCount})
+                  Show {hiddenCount} hidden employee{hiddenCount === 1 ? "" : "s"}
                 </label>
               )}
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter by name, role, or ID…"
+                className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+              />
               <button
                 type="button"
                 disabled={ocrSyncBusy}
@@ -411,8 +428,13 @@ function EmployeeTableRow({
   const scope = settings.employeePlanningScope?.[emp.id];
   const cost = calculateMonthlyCost(emp.id, current, snapshot.monthlyCosts);
   const months = getAllMonths(snapshot);
+  // Forward-looking only: this column answers "when does coverage next fall
+  // short", so a gap two years in the past — history, not a risk — must not
+  // sit here in caution amber. yyyy-MM compares lexicographically.
   const gaps = months.find(
-    (m) => calculateEmployeeCoverage(emp, m, allocations, opts).status === "underallocated"
+    (m) =>
+      m >= current &&
+      calculateEmployeeCoverage(emp, m, allocations, opts).status === "underallocated"
   );
 
   const actions = isAlumniView
@@ -500,7 +522,10 @@ function EmployeeTableRow({
         {cov.allocatedPercent.toFixed(0)}%
         <span className="text-slate-400"> / {getEffectiveExpectedPercent(emp, settings)}%</span>
       </td>
-      <td className="px-3 py-2 text-amber-700">{gaps ? formatMonthDisplay(gaps) : "—"}</td>
+      {/* Amber only when there is a gap — an em-dash is not a caution state. */}
+      <td className={cn("px-3 py-2", gaps ? "text-amber-700" : "text-slate-400")}>
+        {gaps ? formatMonthDisplay(gaps) : "—"}
+      </td>
       <td className="px-3 py-2">{formatCurrency(cost.total)}</td>
       <td className="px-3 py-2">
         <EmployeeYearlyCompCell employee={emp} snapshot={snapshot} />

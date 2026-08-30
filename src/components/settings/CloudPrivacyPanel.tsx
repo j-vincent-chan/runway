@@ -18,13 +18,13 @@ export function CloudPrivacyPanel() {
       <h3 className="font-semibold text-[#0c2340]">Privacy &amp; cloud sync</h3>
       <p className="text-sm text-slate-600">
         Payroll data stays in this browser by default. Cloud sync (when enabled) stores
-        parsed planning data in a <strong>private, per-user</strong> Supabase workspace —
+        parsed planning data in a <strong>private, per-user</strong> cloud workspace —
         other accounts cannot see or overwrite your datasets.
       </p>
 
       {!configured && (
         <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-          Supabase is not configured. Runway works fully in local-only mode.
+          Cloud sync is not configured. Runway works fully in local-only mode.
         </p>
       )}
 
@@ -58,7 +58,7 @@ export function CloudPrivacyPanel() {
               onChange={(e) => setLocalOnly(e.target.checked)}
             />
             <span>
-              Local-only mode — never upload payroll, roster, or workspace data to Supabase
+              Local-only mode — never upload payroll, roster, or workspace data to the cloud
               (even when signed in).
             </span>
           </label>
@@ -75,12 +75,6 @@ export function CloudPrivacyPanel() {
         </>
       )}
 
-      <p className="text-xs text-slate-500">
-        After deploying schema changes, re-run{" "}
-        <code className="rounded bg-slate-100 px-1">supabase/schema.sql</code> in the
-        SQL editor so each account gets its own private dataset. See{" "}
-        <code className="rounded bg-slate-100 px-1">PRIVACY.md</code>.
-      </p>
     </section>
   );
 }

@@ -248,11 +248,14 @@ function Meta({ label, value }: { label: string; value: string }) {
 function AccountCard({
   item,
   open,
+  showPriorColumn,
   onToggleExpand,
   onToggleHidden,
 }: {
   item: AccountBalanceViewItem;
   open: boolean;
+  /** False when no visible account has two periods — the column would be all em-dashes. */
+  showPriorColumn: boolean;
   onToggleExpand: () => void;
   onToggleHidden: () => void;
 }) {
@@ -372,12 +375,14 @@ function AccountCard({
             Snapshot only
           </div>
         )}
-        <div className="hidden w-28 shrink-0 text-right sm:block">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-            vs prior
-          </p>
-          <ChangeBadge value={item.changeFromPrior} />
-        </div>
+        {showPriorColumn && (
+          <div className="hidden w-28 shrink-0 text-right sm:block">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              vs prior
+            </p>
+            <ChangeBadge value={item.changeFromPrior} />
+          </div>
+        )}
         <div className="w-28 shrink-0 text-right sm:w-32">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             Ending
@@ -437,6 +442,16 @@ export default function AccountBalancesPage() {
     if (showHidden) return allItems;
     return allItems.filter((i) => !i.isHidden);
   }, [allItems, showHidden]);
+
+  /**
+   * With a single Net Position period, every "vs prior" is an em-dash — a
+   * whole column saying the same nothing on every row. One sentence above the
+   * list says it instead, and the column returns when a second period exists.
+   */
+  const anyPriorData = useMemo(
+    () => visibleItems.some((i) => i.changeFromPrior !== null),
+    [visibleItems]
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -517,12 +532,32 @@ export default function AccountBalancesPage() {
     });
   };
 
+  /**
+   * This page reads Net Position Reports, so its provenance line must name
+   * one — it cited the Payroll Funding Report, which is not where any figure
+   * here comes from. Newest report wins, matching the balances shown.
+   */
+  const netPositionProvenance = useMemo(() => {
+    const latest = [...netPositionImports].sort((a, b) =>
+      (a.reportRunDate ?? a.uploadedAt).localeCompare(b.reportRunDate ?? b.uploadedAt)
+    ).at(-1);
+    if (!latest) return undefined;
+    return {
+      sourceFileName:
+        netPositionImports.length > 1
+          ? `${latest.sourceFileName} + ${netPositionImports.length - 1} more`
+          : latest.sourceFileName,
+      importedAt: latest.uploadedAt,
+    };
+  }, [netPositionImports]);
+
   return (
     <>
       <Header
         ledgerTitle
         title="Account Balances"
         subtitle="Ending balances from your Net Position Reports"
+        provenance={netPositionProvenance}
         topAction={
           hasAnySource ? { label: "Upload another", href: "/upload" } : undefined
         }
@@ -609,7 +644,9 @@ export default function AccountBalancesPage() {
                       ) : (
                         <Eye className="h-3.5 w-3.5" />
                       )}
-                      {showHidden ? "Collapse hidden" : `Show hidden (${hiddenCount})`}
+                      {showHidden
+                        ? "Collapse hidden accounts"
+                        : `Show ${hiddenCount} hidden account${hiddenCount === 1 ? "" : "s"}`}
                     </button>
                   )}
                   <input
@@ -624,7 +661,10 @@ export default function AccountBalancesPage() {
 
               <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
                 {netPositionImports.length} Net Position report
-                {netPositionImports.length === 1 ? "" : "s"}.{" "}
+                {netPositionImports.length === 1 ? "" : "s"}.
+                {!anyPriorData && (
+                  <> Change vs prior needs two report periods — upload another to see movement.</>
+                )}{" "}
                 <Link href="/upload" className="font-medium underline hover:text-slate-900">
                   Manage uploads
                 </Link>
@@ -650,17 +690,6 @@ export default function AccountBalancesPage() {
                     <div key={section.key} className="space-y-3">
                       {accountGroups.length > 0 && section.key !== "all" ? (
                         <h3 className="flex items-center gap-2 text-sm font-semibold text-[#0c2340]">
-                          {section.key !== "unassigned" ? (
-                            <span
-                              className={cn(
-                                "h-2.5 w-2.5 rounded-full",
-                                getAccountGroupMeta(section.key, settings).dotClass
-                              )}
-                              aria-hidden
-                            />
-                          ) : (
-                            <span className="h-2.5 w-2.5 rounded-full bg-slate-400" aria-hidden />
-                          )}
                           {section.label}
                           <span className="font-normal text-slate-500">
                             ({section.items.length})
@@ -672,6 +701,7 @@ export default function AccountBalancesPage() {
                           <AccountCard
                             key={s.accountKey}
                             item={s}
+                            showPriorColumn={anyPriorData}
                             open={expandedId === s.accountKey}
                             onToggleExpand={() =>
                               setExpandedId((id) =>
