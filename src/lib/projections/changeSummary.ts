@@ -187,3 +187,59 @@ export function changeSummarySentences(details: ChangeRequestDetails): string[] 
     return `${line.accountLabel}: ${parts.join(", ")}`;
   });
 }
+
+/**
+ * One row per account for a scannable table cell: the account named, its
+ * endpoints, and whether it gets there in steps (the intermediate values live
+ * in changeSummarySentences, shown when the row is expanded).
+ */
+export type ChangeSummaryCompactLine = {
+  chartstringKey: string;
+  accountLabel: string;
+  fromPercent: number;
+  toPercent: number;
+  fromLabel: string;
+  toLabel: string;
+  /** More than one distinct before→after run across the horizon. */
+  stepped: boolean;
+};
+
+export function changeSummaryCompactLines(
+  details: ChangeRequestDetails
+): ChangeSummaryCompactLine[] {
+  return details.lines.map((line) => {
+    const segments = segmentsForLine(line);
+    const first = segments[0];
+    const last = segments[segments.length - 1];
+    const fromPercent = first?.beforePercent ?? 0;
+    const toPercent = last?.afterPercent ?? 0;
+    return {
+      chartstringKey: line.chartstringKey,
+      accountLabel: line.accountLabel,
+      fromPercent,
+      toPercent,
+      fromLabel: formatPct(fromPercent),
+      toLabel: formatPct(toPercent),
+      stepped: segments.length > 1,
+    };
+  });
+}
+
+/** First and last month the request touches — when it takes effect, and through when. */
+export function changeEffectiveRange(
+  details: ChangeRequestDetails
+): { from: string; to: string } | null {
+  const months = details.lines.flatMap((line) => line.months.map((m) => m.month)).sort();
+  const from = months[0];
+  const to = months[months.length - 1];
+  if (!from || !to) return null;
+  return { from, to };
+}
+
+/** "Oct 2026 – Jul 2028", or the single month when a change lasts one month. */
+export function formatEffectiveRange(range: { from: string; to: string } | null): string {
+  if (!range) return "—";
+  const from = formatMonthLabel(range.from);
+  if (range.from === range.to) return from;
+  return `${from} – ${formatMonthLabel(range.to)}`;
+}

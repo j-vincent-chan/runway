@@ -11,7 +11,10 @@ import type {
 import { DEFAULT_SETTINGS } from "@/types";
 import {
   buildChangeSummary,
+  changeEffectiveRange,
+  changeSummaryCompactLines,
   changeSummarySentences,
+  formatEffectiveRange,
   type ChangeRequestDetails,
 } from "@/lib/projections/changeSummary";
 
@@ -204,5 +207,109 @@ describe("buildChangeSummary", () => {
     expect(changeSummarySentences(details)).toEqual([
       "Grant A: 100% → 50% from Oct 2026 through Nov 2026, then 100% → 0% in Dec 2026",
     ]);
+  });
+});
+
+/** Table-cell helpers: one row per account, plus the range the request covers. */
+describe("changeSummaryCompactLines", () => {
+  it("reports a single run as plain endpoints", () => {
+    const details = build([
+      {
+        id: "r1",
+        personKey: "hr:1001",
+        chartstringKey: KEY_A,
+        trigger: { type: "onDate", month: "2026-09" },
+        remainder: { kind: "uncovered" },
+      },
+    ]);
+    const [line] = changeSummaryCompactLines(details);
+    expect(line).toMatchObject({
+      accountLabel: "Grant A",
+      fromPercent: 100,
+      toPercent: 0,
+      fromLabel: "100%",
+      toLabel: "0%",
+      stepped: false,
+    });
+  });
+
+  it("keeps the outer endpoints and flags a stepped change", () => {
+    const details: ChangeRequestDetails = {
+      version: 1,
+      personKey: "hr:1001",
+      personName: "Ada Lovelace",
+      capturedAt: "2026-08-15T00:00:00.000Z",
+      rules: [],
+      lines: [
+        {
+          chartstringKey: KEY_A,
+          accountLabel: "Grant A",
+          months: [
+            { month: "2026-10", beforePercent: 100, afterPercent: 50, beforeMonthlyBurn: 0, afterMonthlyBurn: 0 },
+            { month: "2026-11", beforePercent: 100, afterPercent: 0, beforeMonthlyBurn: 0, afterMonthlyBurn: 0 },
+          ],
+        },
+      ],
+    };
+    const [line] = changeSummaryCompactLines(details);
+    expect(line).toMatchObject({ fromLabel: "100%", toLabel: "0%", stepped: true });
+  });
+
+  it("renders fractional effort without trailing zeros", () => {
+    const details: ChangeRequestDetails = {
+      version: 1,
+      personKey: "hr:1001",
+      personName: "Ada Lovelace",
+      capturedAt: "2026-08-15T00:00:00.000Z",
+      rules: [],
+      lines: [
+        {
+          chartstringKey: KEY_A,
+          accountLabel: "Grant A",
+          months: [
+            { month: "2026-10", beforePercent: 37.5, afterPercent: 50, beforeMonthlyBurn: 0, afterMonthlyBurn: 0 },
+          ],
+        },
+      ],
+    };
+    const [line] = changeSummaryCompactLines(details);
+    expect(line?.fromLabel).toBe("37.5%");
+    expect(line?.toLabel).toBe("50%");
+  });
+});
+
+describe("changeEffectiveRange", () => {
+  it("spans the earliest and latest changed month across every account", () => {
+    const details: ChangeRequestDetails = {
+      version: 1,
+      personKey: "hr:1001",
+      personName: "Ada Lovelace",
+      capturedAt: "2026-08-15T00:00:00.000Z",
+      rules: [],
+      lines: [
+        {
+          chartstringKey: "b",
+          accountLabel: "B",
+          months: [
+            { month: "2027-01", beforePercent: 0, afterPercent: 10, beforeMonthlyBurn: 0, afterMonthlyBurn: 0 },
+          ],
+        },
+        {
+          chartstringKey: "a",
+          accountLabel: "A",
+          months: [
+            { month: "2026-10", beforePercent: 10, afterPercent: 0, beforeMonthlyBurn: 0, afterMonthlyBurn: 0 },
+          ],
+        },
+      ],
+    };
+    expect(changeEffectiveRange(details)).toEqual({ from: "2026-10", to: "2027-01" });
+    expect(formatEffectiveRange(changeEffectiveRange(details))).toBe("Oct 2026 – Jan 2027");
+  });
+
+  it("collapses a one-month change to a single label, and has no range with no lines", () => {
+    expect(formatEffectiveRange({ from: "2026-10", to: "2026-10" })).toBe("Oct 2026");
+    expect(changeEffectiveRange(build([]))).toBeNull();
+    expect(formatEffectiveRange(null)).toBe("—");
   });
 });
