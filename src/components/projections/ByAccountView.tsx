@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark, Lock } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
+import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
@@ -46,6 +47,7 @@ export function ByAccountView({
   onToggleHiddenFund,
   onToggleNotMyAccount,
   onSaveAlias,
+  lockedPersonKeys,
 }: {
   employees: Employee[];
   settings: AppSettings;
@@ -61,6 +63,8 @@ export function ByAccountView({
   onToggleHiddenFund: (employeeId: string, fundingSourceId: string) => void;
   onToggleNotMyAccount: (chartstring: string) => void;
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
+  /** personKeys whose plan is locked in — their rows here edit nothing either. */
+  lockedPersonKeys: Set<string>;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const months = result.months;
@@ -143,6 +147,7 @@ export function ByAccountView({
                   })
                 }
                 onEdit={onEdit}
+                lockedPersonKeys={lockedPersonKeys}
               />
             );
           })}
@@ -172,6 +177,7 @@ function AccountBlock({
   onSaveAlias,
   onToggle,
   onEdit,
+  lockedPersonKeys,
 }: {
   fs: FundingSource;
   alias: string;
@@ -192,6 +198,7 @@ function AccountBlock({
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
+  lockedPersonKeys: Set<string>;
 }) {
   const key = chartstringKeyForFundingSource(fs);
   /**
@@ -329,6 +336,7 @@ function AccountBlock({
       {!isCollapsed &&
         visibleContributors.map((emp) => {
           const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const locked = lockedPersonKeys.has(employeePersonKey(emp));
           /**
            * Grouped by projected-ness and by whether the account still has
            * money, so a merged run never straddles the zero crossing.
@@ -389,8 +397,17 @@ function AccountBlock({
                   </button>
                   <button
                     type="button"
+                    disabled={locked}
+                    title={
+                      locked
+                        ? `${emp.name}'s distribution is locked in — unlock it on the By person tab to edit`
+                        : `Edit ${emp.name}'s distribution rule on this account`
+                    }
                     className={cn(
-                      "flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-slate-700 hover:text-teal-800 hover:underline",
+                      "flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-slate-700",
+                      locked
+                        ? "cursor-default"
+                        : "hover:text-teal-800 hover:underline",
                       hidden && "opacity-50"
                     )}
                     onClick={() => onEdit(emp, fs)}
@@ -401,6 +418,7 @@ function AccountBlock({
                       size="xs"
                     />
                     <span className="truncate">{emp.name}</span>
+                    {locked && <Lock className="h-3 w-3 shrink-0 text-amber-600" aria-hidden />}
                   </button>
                 </div>
               </td>
@@ -439,6 +457,7 @@ function AccountBlock({
                       }
                       dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
                       dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
+                      readOnly={locked}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

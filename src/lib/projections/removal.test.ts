@@ -88,6 +88,7 @@ function base(overrides: Partial<Parameters<typeof checkChartstringRemoval>[0]> 
     employeeId: "e1",
     personKey: "hr:1001",
     chartstringKey: KEY_A,
+    originMonth: "2026-01",
     ...overrides,
   };
 }
@@ -115,6 +116,59 @@ describe("checkChartstringRemoval", () => {
       base({ snapshot: snapshot([]), workingPlan: plan })
     );
     expect(check.removable).toBe(false);
+  });
+
+  it("allows removal when the payroll pairing is entirely in the past", () => {
+    // Charged a year ago, off the account since: Projections is about what
+    // happens next, so the row comes off the list.
+    const check = checkChartstringRemoval(
+      base({
+        snapshot: snapshot([alloc("2025-03", 50), alloc("2025-04", 50)]),
+        originMonth: "2026-01",
+      })
+    );
+    expect(check).toMatchObject({
+      removable: true,
+      historicalMonths: ["2025-03", "2025-04"],
+    });
+  });
+
+  it("blocks on the origin month itself — that is the current distribution", () => {
+    const check = checkChartstringRemoval(
+      base({ snapshot: snapshot([alloc("2026-01", 50)]), originMonth: "2026-01" })
+    );
+    expect(check).toMatchObject({ removable: false, months: ["2026-01"] });
+  });
+
+  it("reports only current months when the pairing spans the origin boundary", () => {
+    const check = checkChartstringRemoval(
+      base({
+        snapshot: snapshot([
+          alloc("2025-11", 50),
+          alloc("2026-02", 50),
+          alloc("2026-03", 50),
+        ]),
+        originMonth: "2026-01",
+      })
+    );
+    expect(check).toEqual({
+      removable: false,
+      reason: "importedAllocations",
+      allocationCount: 2,
+      months: ["2026-02", "2026-03"],
+    });
+  });
+
+  it("removing a historical pairing never touches the allocations themselves", () => {
+    const s = settings({ projectionRules: [rule()] });
+    const check = checkChartstringRemoval(
+      base({ snapshot: snapshot([alloc("2025-03", 50)]), settings: s, originMonth: "2026-01" })
+    );
+    if (!check.removable) throw new Error("expected removable");
+    const next = applyChartstringRemoval(s, check);
+    // Removal is a settings edit only — Distribution History reads allocations.
+    expect(Object.keys(next).filter((k) => next[k as keyof AppSettings] !== s[k as keyof AppSettings]))
+      .toEqual(["projectionRules"]);
   });
 
   it("does not block on another person's imported allocations", () => {

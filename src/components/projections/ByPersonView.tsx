@@ -10,6 +10,7 @@ import {
   Landmark,
   Trash2,
   SendHorizontal,
+  Lock,
 } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
@@ -54,6 +55,8 @@ export function ByPersonView({
   onSaveAlias,
   onRemoveChartstring,
   onLockIn,
+  onUnlock,
+  lockedPersonKeys,
   lockInReady,
 }: {
   employees: Employee[];
@@ -73,6 +76,10 @@ export function ByPersonView({
   onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
   /** Formal handoff to the analyst; false disables with an explanation. */
   onLockIn: (employee: Employee) => void;
+  /** Releases the lock so the plan can be edited again. */
+  onUnlock: (employee: Employee) => void;
+  /** personKeys whose plan is locked — their rows render read-only. */
+  lockedPersonKeys: Set<string>;
   lockInReady: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -142,6 +149,8 @@ export function ByPersonView({
                 onSaveAlias={onSaveAlias}
                 onRemoveChartstring={onRemoveChartstring}
                 onLockIn={onLockIn}
+                onUnlock={onUnlock}
+                locked={lockedPersonKeys.has(personKey)}
                 lockInReady={lockInReady}
                 onToggle={() =>
                   setCollapsed((p) => {
@@ -178,6 +187,8 @@ function EmployeeBlock({
   onSaveAlias,
   onRemoveChartstring,
   onLockIn,
+  onUnlock,
+  locked,
   lockInReady,
   onToggle,
   onEdit,
@@ -198,6 +209,8 @@ function EmployeeBlock({
   onSaveAlias: (fundingSourceId: string, aliasBase: string) => void;
   onRemoveChartstring: (employee: Employee, source: FundingSource) => void;
   onLockIn: (employee: Employee) => void;
+  onUnlock: (employee: Employee) => void;
+  locked: boolean;
   lockInReady: boolean;
   onToggle: () => void;
   onEdit: (employee: Employee, source: FundingSource) => void;
@@ -253,24 +266,41 @@ function EmployeeBlock({
               </span>
             )}
             {/* Only a person whose plan differs from today's distribution has
-                anything to hand off, so the button follows the rules. */}
-            {(settings.projectionRules ?? []).some((r) => r.personKey === personKey) && (
+                anything to hand off, so the button follows the rules — except
+                once locked, when it must stay reachable to unlock. */}
+            {(locked ||
+              (settings.projectionRules ?? []).some((r) => r.personKey === personKey)) && (
               <button
                 type="button"
-                disabled={!lockInReady}
-                className="ml-auto inline-flex shrink-0 items-center gap-1 rounded bg-white/15 px-1.5 py-0.5 text-[10px] font-medium hover:bg-white/25 disabled:opacity-50"
+                // Unlocking is never gated: a locked person must always be
+                // recoverable, even signed out of cloud sync.
+                disabled={!locked && !lockInReady}
+                aria-pressed={locked}
+                className={cn(
+                  "ml-auto inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50",
+                  locked
+                    ? "bg-amber-300/90 text-[#0c2340] hover:bg-amber-200"
+                    : "bg-white/15 hover:bg-white/25"
+                )}
                 title={
-                  lockInReady
-                    ? `Hand ${emp.name}'s distribution change to your analyst`
-                    : "Sign in with cloud sync to hand off changes to your analyst"
+                  locked
+                    ? `${emp.name}'s distribution is locked in — click to unlock and edit it again`
+                    : lockInReady
+                      ? `Hand ${emp.name}'s distribution change to your analyst and lock it`
+                      : "Sign in with cloud sync to hand off changes to your analyst"
                 }
                 onClick={(e) => {
                   e.stopPropagation();
-                  onLockIn(emp);
+                  if (locked) onUnlock(emp);
+                  else onLockIn(emp);
                 }}
               >
-                <SendHorizontal className="h-3 w-3" aria-hidden />
-                Lock In
+                {locked ? (
+                  <Lock className="h-3 w-3" aria-hidden />
+                ) : (
+                  <SendHorizontal className="h-3 w-3" aria-hidden />
+                )}
+                {locked ? "Locked In" : "Lock In"}
               </button>
             )}
             {hiddenCount > 0 && !revealHidden && (
@@ -447,16 +477,26 @@ function EmployeeBlock({
                   */}
                   <button
                     type="button"
-                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                    title={`Edit distribution rule — ${[aliasFor(key), ...chips].join(" · ")}`}
+                    disabled={locked}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    title={
+                      locked
+                        ? `Locked in — unlock ${emp.name}'s distribution to edit this rule`
+                        : `Edit distribution rule — ${[aliasFor(key), ...chips].join(" · ")}`
+                    }
                     onClick={() => onEdit(emp, fs)}
                   >
                     <Settings2 className="h-3.5 w-3.5" />
                   </button>
                   <button
                     type="button"
-                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700"
-                    title={`Remove ${aliasFor(key)} from ${emp.name}'s list`}
+                    disabled={locked}
+                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    title={
+                      locked
+                        ? `Locked in — unlock ${emp.name}'s distribution to remove accounts`
+                        : `Remove ${aliasFor(key)} from ${emp.name}'s list`
+                    }
                     onClick={() => onRemoveChartstring(emp, fs)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -513,6 +553,7 @@ function EmployeeBlock({
                       }
                       dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
                       dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
+                      readOnly={locked}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

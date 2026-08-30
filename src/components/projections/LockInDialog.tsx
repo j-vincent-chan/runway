@@ -21,12 +21,15 @@ export function LockInDialog({
   piUserId,
   createdByEmail,
   isSelfWorkspace,
+  onLocked,
   onClose,
 }: {
   details: ChangeRequestDetails;
   piUserId: string;
   createdByEmail: string;
   isSelfWorkspace: boolean;
+  /** Fired once the request is recorded — the moment the plan becomes final. */
+  onLocked: () => void;
   onClose: () => void;
 }) {
   // No SSR-mount guard needed: the dialog only ever mounts from a click,
@@ -70,6 +73,9 @@ export function LockInDialog({
     const r = await submitLockIn({ details, piUserId, createdByEmail });
     setBusy(false);
     setResult(r);
+    // Keyed on the request being saved, not on the email: a failed email is
+    // retryable from Status, but the plan has still been handed off.
+    if (r.ok) onLocked();
   }
 
   return createPortal(
@@ -103,7 +109,9 @@ export function LockInDialog({
         {result?.ok ? (
           <div className="mt-4 space-y-3">
             <p className="text-sm text-slate-700">
-              The request is recorded and now tracks on the Status page.
+              The request is recorded and now tracks on the Status page.{" "}
+              {details.personName}&apos;s distribution is locked so it can&apos;t be changed by
+              accident — use <strong>Locked In</strong> on their row to unlock it.
             </p>
             {result.emailOk ? (
               <p className="text-sm text-slate-700">
@@ -139,7 +147,8 @@ export function LockInDialog({
             <p className="mt-2 text-sm text-slate-600">
               Locking in records this request on the Status page and emails your analyst the
               summary below with the distribution image — everything needed to make the change
-              in the payroll system.
+              in the payroll system. It also locks {details.personName}&apos;s distribution
+              against further edits until you unlock it.
             </p>
 
             {hasChanges ? (

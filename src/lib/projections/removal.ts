@@ -9,9 +9,15 @@ import { fundingSourceKey } from "@/lib/funding/sourceKey";
 /**
  * Removing a chartstring from a person's Projections list is a per-person
  * detach, never a global delete. The person→chartstring pairing is derived
- * (allocations ∪ rules), so removal means deleting the rules that create it —
- * and is impossible when imported payroll is why the row exists, because a
- * report row is a fact, not a plan.
+ * (allocations ∪ rules), so removal means deleting the rules that create it.
+ *
+ * It is refused only while the account is part of the person's *current*
+ * distribution — payroll charging them from the origin month forward. An
+ * account they came off a year ago is history, not a plan: Projections is
+ * about what happens next, so the row comes off the list there while every
+ * past month stays exactly as imported. Removal only ever edits
+ * `projectionRules` and `plannedFundingSources`; allocations are never
+ * touched, so Distribution History is unaffected either way.
  */
 export type ChartstringRemovalCheck =
   | {
@@ -21,12 +27,14 @@ export type ChartstringRemovalCheck =
       remainderRuleIdsToRepair: string[];
       /** Planned source to drop, only when nothing else references it. */
       removePlannedSourceId: string | null;
+      /** Past months the pairing covers — kept intact, worth saying so. */
+      historicalMonths: string[];
     }
   | {
       removable: false;
       reason: "importedAllocations";
       allocationCount: number;
-      /** Sorted unique yyyy-MM months the imported pairing covers. */
+      /** Sorted unique yyyy-MM months from the origin month forward. */
       months: string[];
     };
 
@@ -37,11 +45,19 @@ export function checkChartstringRemoval(input: {
   employeeId: string;
   personKey: string;
   chartstringKey: string;
+  /**
+   * The projection's origin month (yyyy-MM) — the boundary between history and
+   * the current distribution. Comes from `simulateProjections`, never
+   * recomputed here.
+   */
+  originMonth: string;
 }): ChartstringRemovalCheck {
-  const { snapshot, workingPlan, settings, employeeId, personKey, chartstringKey } = input;
+  const { snapshot, workingPlan, settings, employeeId, personKey, chartstringKey, originMonth } =
+    input;
 
   // Allocations reference per-import funding source ids; the removal key is
   // the stable chartstring key. Bridge via the snapshot's source list.
+  const historicalMonths: string[] = [];
   if (snapshot) {
     const matchingIds = new Set(
       snapshot.fundingSources
@@ -52,14 +68,18 @@ export function checkChartstringRemoval(input: {
       const rows = getAllocations(snapshot, workingPlan).filter(
         (a) => a.employeeId === employeeId && matchingIds.has(a.fundingSourceId)
       );
-      if (rows.length > 0) {
+      // yyyy-MM sorts lexicographically, so a string compare is the month compare.
+      const current = rows.filter((a) => a.month >= originMonth);
+      if (current.length > 0) {
         return {
           removable: false,
           reason: "importedAllocations",
-          allocationCount: rows.length,
-          months: [...new Set(rows.map((a) => a.month))].sort(),
+          allocationCount: current.length,
+          months: [...new Set(current.map((a) => a.month))].sort(),
         };
       }
+      historicalMonths.push(...new Set(rows.map((a) => a.month)));
+      historicalMonths.sort();
     }
   }
 
@@ -82,6 +102,7 @@ export function checkChartstringRemoval(input: {
     ruleIdsToDelete,
     remainderRuleIdsToRepair,
     removePlannedSourceId: orphanedPlannedSourceId(input, ruleIdsToDelete, remainderRuleIdsToRepair),
+    historicalMonths,
   };
 }
 

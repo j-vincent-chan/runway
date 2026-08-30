@@ -19,6 +19,12 @@ import {
 import { upsertRule } from "@/lib/projections/rules";
 import { applyChartstringRemoval, checkChartstringRemoval } from "@/lib/projections/removal";
 import {
+  isDistributionLocked,
+  lockedEditMessage,
+  lockedPersonKeys,
+  setDistributionLock,
+} from "@/lib/projections/lock";
+import {
   buildChangeSummary,
   type ChangeRequestDetails,
 } from "@/lib/projections/changeSummary";
@@ -65,6 +71,7 @@ export default function ProjectionsPage() {
     null
   );
   const [lockingIn, setLockingIn] = useState<ChangeRequestDetails | null>(null);
+  const lockedKeys = useMemo(() => lockedPersonKeys(settings), [settings]);
   // A handoff needs both parties: the request row and email are cloud-side.
   const lockInReady = Boolean(configured && user && cloudSyncEnabled && activeOwner);
   /**
@@ -121,15 +128,52 @@ export default function ProjectionsPage() {
     updateSettings({ projectionHorizon: { preset, customEndMonth } });
   }
 
+  /**
+   * Every write to a person's plan funnels through these two, so the lock is
+   * checked here rather than only on the controls that call them — a disabled
+   * button is the affordance, this is the guarantee.
+   */
   function saveRule(rule: ProjectionRule) {
+    if (isDistributionLocked(settings, rule.personKey)) {
+      window.alert(lockedEditMessage(nameForPersonKey(rule.personKey)));
+      return;
+    }
     updateSettings({
       projectionRules: upsertRule(settings.projectionRules ?? [], rule),
     });
   }
 
   function removeRule(id: string) {
+    const rule = (settings.projectionRules ?? []).find((r) => r.id === id);
+    if (rule && isDistributionLocked(settings, rule.personKey)) {
+      window.alert(lockedEditMessage(nameForPersonKey(rule.personKey)));
+      return;
+    }
     updateSettings({
       projectionRules: (settings.projectionRules ?? []).filter((r) => r.id !== id),
+    });
+  }
+
+  /** The lock stores personKeys; refusals still have to name a person. */
+  function nameForPersonKey(personKey: string): string {
+    return employees.find((e) => employeePersonKey(e) === personKey)?.name ?? "This person";
+  }
+
+  /**
+   * Locking is the second half of a successful handoff; unlocking is always
+   * available so a locked person can never be stranded. Unlocking does not
+   * retract the request already with the analyst — locking in again sends an
+   * updated one, which is what the confirm says.
+   */
+  function unlockDistribution(employee: Employee) {
+    const ok = window.confirm(
+      `Unlock ${employee.name}'s distribution?\n\n` +
+        `You'll be able to edit their plan again. The request already with your analyst stands — ` +
+        `lock in again when you're done to send them the updated plan.`
+    );
+    if (!ok) return;
+    updateSettings({
+      lockedDistributions: setDistributionLock(settings, employeePersonKey(employee), false),
     });
   }
 
@@ -170,7 +214,11 @@ export default function ProjectionsPage() {
    * refused with the reason rather than hidden.
    */
   function removeChartstring(employee: Employee, source: FundingSource) {
-    if (!snapshot) return;
+    if (!snapshot || !result) return;
+    if (isDistributionLocked(settings, employeePersonKey(employee))) {
+      window.alert(lockedEditMessage(employee.name));
+      return;
+    }
     const chartstringKey = chartstringKeyForFundingSource(source);
     const label = projectionSourceLabel(source, settings, accountTitlesByChartstring);
     const check = checkChartstringRemoval({
@@ -180,6 +228,7 @@ export default function ProjectionsPage() {
       employeeId: employee.id,
       personKey: employeePersonKey(employee),
       chartstringKey,
+      originMonth: result.originMonth,
     });
     if (!check.removable) {
       const first = check.months[0]!;
@@ -190,16 +239,26 @@ export default function ProjectionsPage() {
           : `from ${formatMonthLabel(first)} through ${formatMonthLabel(last)}`;
       window.alert(
         `${label} can't be removed from ${employee.name}'s list.\n\n` +
-          `Your imported payroll report charges ${employee.name} to this account ${span}. ` +
-          `Rows that come from a report reflect what actually happened, so Runway keeps them.\n\n` +
+          `Your imported payroll report still charges ${employee.name} to this account ${span} — ` +
+          `it is part of their current distribution, not history.\n\n` +
           `To stop projecting effort on this account, open its distribution rule and move the effort elsewhere.`
       );
       return;
     }
     const ruleCount = check.ruleIdsToDelete.length + check.remainderRuleIdsToRepair.length;
+    const history = check.historicalMonths;
     const parts = [
       ruleCount > 0
         ? `This deletes or rewinds ${ruleCount} distribution rule${ruleCount === 1 ? "" : "s"} you set.`
+        : null,
+      history.length > 0
+        ? `${employee.name} was charged here ${
+            history.length === 1
+              ? `in ${formatMonthLabel(history[0]!)}`
+              : `from ${formatMonthLabel(history[0]!)} through ${formatMonthLabel(
+                  history[history.length - 1]!
+                )}`
+          }. That history stays exactly as imported — this only takes the account off their Projections list.`
         : null,
       check.removePlannedSourceId
         ? "The planned chartstring is removed too — nothing else references it."
@@ -465,6 +524,8 @@ export default function ProjectionsPage() {
                 onSaveAlias={updateFundingSourceAlias}
                 onRemoveChartstring={removeChartstring}
                 onLockIn={openLockIn}
+                onUnlock={unlockDistribution}
+                lockedPersonKeys={lockedKeys}
                 lockInReady={lockInReady}
               />
             ) : (
@@ -482,6 +543,7 @@ export default function ProjectionsPage() {
                 onToggleHiddenFund={toggleHiddenEmployeeFund}
                 onToggleNotMyAccount={toggleNotMyAccount}
                 onSaveAlias={updateFundingSourceAlias}
+                lockedPersonKeys={lockedKeys}
               />
             )}
           </div>
@@ -507,6 +569,13 @@ export default function ProjectionsPage() {
           piUserId={activeOwner.userId}
           createdByEmail={user?.email ?? ""}
           isSelfWorkspace={activeOwner.isSelf}
+          // The handoff succeeded, so the plan behind it is now final until
+          // the PI deliberately unlocks it.
+          onLocked={() =>
+            updateSettings({
+              lockedDistributions: setDistributionLock(settings, lockingIn.personKey, true),
+            })
+          }
           onClose={() => setLockingIn(null)}
         />
       )}

@@ -431,6 +431,12 @@ export interface AppSettings {
   projectionRules?: ProjectionRule[];
   /** personKeys whose roster endDate should not zero projections */
   projectionIgnoreRosterEndDates?: string[];
+  /**
+   * personKeys whose projected distribution the PI has locked in. A locked
+   * person's rules cannot be added, edited, or removed until it is unlocked —
+   * the guard against changing a plan already handed to the analyst.
+   */
+  lockedDistributions?: string[];
   /** Hide the left navigation to give tables more width */
   sidebarHidden?: boolean;
   /** Hide the timeline insights column (gaps, coverage, cliffs) */
@@ -499,6 +505,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   plannedFundingSources: [],
   projectionRules: [],
   projectionIgnoreRosterEndDates: [],
+  lockedDistributions: [],
   sidebarHidden: false,
   analyticsPanelHidden: false,
   freezeGridHeader: true,
