@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import {
@@ -33,6 +34,7 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const configured = isSupabaseConfigured();
   const [ready, setReady] = useState(!configured);
   const [session, setSession] = useState<Session | null>(null);
@@ -96,12 +98,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
+  /**
+   * Supabase clears the local session (and revokes it server-side) before
+   * this resolves, whether or not the network revoke call itself succeeds —
+   * so the redirect always runs, and a signed-out user is never left on a
+   * page that assumed they were signed in (Dashboard, for one, quietly
+   * renders its empty-state once the cloud data drops out from under it,
+   * which reads as broken rather than signed out). router.replace, not
+   * push: the page they signed out from is swapped for /login in history
+   * rather than kept one back-tap away.
+   */
   const signOut = useCallback(async () => {
     const supabase = getSupabase();
-    if (!supabase) return;
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  }, []);
+    if (supabase) {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.warn("[auth] sign-out network call failed; local session is still cleared:", error.message);
+      }
+    }
+    router.replace("/login");
+  }, [router]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
