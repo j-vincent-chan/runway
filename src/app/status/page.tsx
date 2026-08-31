@@ -73,6 +73,7 @@ export default function StatusPage() {
       pending: 0,
       in_progress: 0,
       completed: 0,
+      withdrawn: 0,
     };
     for (const r of requests) byStatus[r.status] += 1;
     return byStatus;
@@ -96,7 +97,7 @@ export default function StatusPage() {
    * batch rather than crowning an arbitrary row.
    */
   const openSummary = useMemo(() => {
-    const open = requests.filter((r) => r.status !== "completed");
+    const open = requests.filter((r) => r.status === "pending" || r.status === "in_progress");
     if (open.length === 0) return null;
     const oldest = open.reduce((a, b) => (a.createdAt <= b.createdAt ? a : b));
     const day = (iso: string) => iso.slice(0, 10);
@@ -167,7 +168,7 @@ export default function StatusPage() {
             <>
               <p className="type-row text-ink-2">
                 {!openSummary ? (
-                  <>Every request here has been completed.</>
+                  <>Every request here has been completed or withdrawn.</>
                 ) : openSummary.hasSpread ? (
                   <>
                     Waiting longest:{" "}

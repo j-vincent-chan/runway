@@ -539,18 +539,45 @@ create table if not exists public.change_requests (
   person_key text not null,
   person_name text not null,
   -- ChangeRequestDetails (versioned JSON): the person's projection rules at
-  -- capture time plus the per-account, per-month before/after diff.
+  -- capture time plus the per-account, per-month before/after diff. Always
+  -- the CURRENT version; prior versions live in change_request_revisions.
   details jsonb not null,
   -- PNG renders in the app-workspace bucket under {pi_user_id}/change-requests/.
   image_paths text[] not null default '{}',
   status text not null default 'pending'
-    check (status in ('pending', 'in_progress', 'completed')),
+    check (status in ('pending', 'in_progress', 'completed', 'withdrawn')),
   created_at timestamptz not null default now(),
   created_by_email text not null,
   status_changed_at timestamptz not null default now(),
   status_changed_by_email text not null,
-  email_sent_at timestamptz
+  email_sent_at timestamptz,
+  -- Batched notification state. Set on create/revise/withdraw-after-send;
+  -- the hourly digest run sends everything queued before the morning cutoff
+  -- and clears it. Null means nothing is waiting to be emailed.
+  digest_queued_at timestamptz,
+  -- The PI unlocked to revise: excluded from the digest until re-locked, so
+  -- a version the PI has expressed doubt about never ships overnight.
+  on_hold boolean not null default false,
+  revised_at timestamptz,
+  revision_count integer not null default 1
 );
+
+-- Migration for databases created before the batched digest: the alters are
+-- no-ops on a fresh install and bring an existing table up to the shape above.
+alter table public.change_requests add column if not exists digest_queued_at timestamptz;
+alter table public.change_requests add column if not exists on_hold boolean not null default false;
+alter table public.change_requests add column if not exists revised_at timestamptz;
+alter table public.change_requests add column if not exists revision_count integer not null default 1;
+alter table public.change_requests drop constraint if exists change_requests_status_check;
+alter table public.change_requests add constraint change_requests_status_check
+  check (status in ('pending', 'in_progress', 'completed', 'withdrawn'));
+
+-- One open cycle per person: a re-lock revises the open request rather than
+-- creating a sibling, so the analyst always sees exactly one current ask.
+-- Completed and withdrawn requests fall outside the index — history stays.
+create unique index if not exists change_requests_one_open_per_person
+  on public.change_requests (pi_user_id, person_key)
+  where status in ('pending', 'in_progress');
 
 alter table public.change_requests enable row level security;
 
@@ -567,4 +594,36 @@ create policy "change_requests_insert"
 create policy "change_requests_update"
   on public.change_requests for update to authenticated
   using (public.can_access_workspace(pi_user_id))
+  with check (public.can_access_workspace(pi_user_id));
+
+-- ---------------------------------------------------------------------------
+-- Change request revisions: the audit trail behind each request
+-- Every Lock In (the first included) appends one row; the parent row's
+-- details are always the newest revision. Append-only by policy — no update
+-- or delete, so history cannot be rewritten.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.change_request_revisions (
+  id uuid primary key default gen_random_uuid(),
+  request_id uuid not null references public.change_requests (id) on delete cascade,
+  pi_user_id uuid not null references auth.users (id) on delete cascade,
+  details jsonb not null,
+  image_paths text[] not null default '{}',
+  created_at timestamptz not null default now(),
+  created_by_email text not null
+);
+
+create index if not exists change_request_revisions_request_idx
+  on public.change_request_revisions (request_id, created_at);
+
+alter table public.change_request_revisions enable row level security;
+
+drop policy if exists "change_request_revisions_select" on public.change_request_revisions;
+drop policy if exists "change_request_revisions_insert" on public.change_request_revisions;
+
+create policy "change_request_revisions_select"
+  on public.change_request_revisions for select to authenticated
+  using (public.can_access_workspace(pi_user_id));
+create policy "change_request_revisions_insert"
+  on public.change_request_revisions for insert to authenticated
   with check (public.can_access_workspace(pi_user_id));

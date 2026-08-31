@@ -1,7 +1,7 @@
-import { CheckCircle2, ChevronDown, CircleDashed, Loader } from "lucide-react";
+import { Ban, CheckCircle2, ChevronDown, CircleDashed, Loader } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import {
-  CHANGE_REQUEST_STATUSES,
+  ANALYST_SETTABLE_STATUSES,
   type ChangeRequestStatus,
 } from "@/lib/supabase/changeRequests";
 
@@ -14,18 +14,22 @@ export const STATUS_LABEL: Record<ChangeRequestStatus, string> = {
   pending: "Pending",
   in_progress: "In progress",
   completed: "Completed",
+  withdrawn: "Withdrawn",
 };
 
 const STATUS_ICON = {
   pending: CircleDashed,
   in_progress: Loader,
   completed: CheckCircle2,
+  withdrawn: Ban,
 } as const;
 
 const STATUS_CHIP_CLASS: Record<ChangeRequestStatus, string> = {
   pending: "bg-inset text-ink-2",
   in_progress: "bg-accent-soft text-accent",
   completed: "bg-healthy-soft text-healthy",
+  // Closed without action — muted, no state color: it is history, not risk.
+  withdrawn: "bg-inset text-muted",
 };
 
 export function StatusChip({
@@ -76,7 +80,7 @@ export function StatusSelect({
         value={status}
         onChange={(e) => onChange(e.target.value as ChangeRequestStatus)}
       >
-        {CHANGE_REQUEST_STATUSES.map((s) => (
+        {ANALYST_SETTABLE_STATUSES.map((s) => (
           <option key={s} value={s}>
             {STATUS_LABEL[s]}
           </option>

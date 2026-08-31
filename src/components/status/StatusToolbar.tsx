@@ -32,7 +32,7 @@ export function StatusToolbar({
 }) {
   const tabs: { id: StatusFilterId; label: string; count: number }[] = [
     { id: "all", label: "All", count: total },
-    ...CHANGE_REQUEST_STATUSES.map((s) => ({
+    ...CHANGE_REQUEST_STATUSES.filter((s) => s !== "withdrawn" || counts[s] > 0).map((s) => ({
       id: s as StatusFilterId,
       label: STATUS_LABEL[s],
       count: counts[s],

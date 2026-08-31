@@ -34,6 +34,7 @@ const STATUS_ORDER: Record<ChangeRequestStatus, number> = {
   in_progress: 0,
   pending: 1,
   completed: 2,
+  withdrawn: 3,
 };
 
 /**
@@ -225,7 +226,7 @@ function RequestRow({
       </td>
       <td className="py-3 pr-3">
         <span className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-          {canUpdateStatus ? (
+          {canUpdateStatus && request.status !== "withdrawn" ? (
             <StatusSelect
               status={request.status}
               personName={request.personName}
