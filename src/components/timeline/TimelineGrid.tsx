@@ -440,14 +440,16 @@ function EmployeeRows({
                 size="xs"
                 className="ring-slate-300"
               />
-              <span className="truncate" title={emp.name}>
+              {/* The ID used to sit in its own shrink-0 span, permanently
+                  spending fixed width and pushing the truncation point on
+                  the name earlier. It now rides in the name's tooltip,
+                  matching Projections' by-person row. */}
+              <span
+                className="truncate"
+                title={emp.employeeId ? `${emp.name} · ${emp.employeeId}` : emp.name}
+              >
                 {emp.name.toUpperCase()}
               </span>
-              {emp.employeeId && (
-                <span className="shrink-0 text-[9px] font-normal text-muted" title="HR employee ID">
-                  · {emp.employeeId}
-                </span>
-              )}
             </div>
             {hiddenCount > 0 && !revealHidden && (
               <button
