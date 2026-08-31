@@ -17,7 +17,10 @@ export const IMMUNOX_COLORS = {
   teal: "#028488",
 } as const;
 
-export const PARENT_LABEL_ACADEMIC = "Personnel Funding Planner";
+/* "Payroll" is the app's settled word — available payroll, monthly payroll
+   burn, avg payroll runway, Payroll Funding Report. The subtitle now uses
+   it too rather than introducing "personnel funding" as a second name. */
+export const PARENT_LABEL_ACADEMIC = "Payroll Planner";
 
 export const LEDGER_EMPTY_MESSAGE =
   "Upload a Payroll Funding Report to start building your Runway.";
