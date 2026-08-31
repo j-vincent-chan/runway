@@ -271,17 +271,24 @@ function EmployeeBlock({
               size="xs"
               className="ring-slate-300"
             />
-            <span className="truncate" title={emp.name}>
+            {/* The ID used to sit in its own shrink-0 span, permanently
+                spending ~55px of the fixed-width label column and pushing
+                the truncation point on the name earlier — on most rows the
+                name is what needs the room, the ID is reference material.
+                It now rides in the same tooltip as the name. */}
+            <span
+              className="truncate"
+              title={emp.employeeId ? `${emp.name} · ${emp.employeeId}` : emp.name}
+            >
               {emp.name.toUpperCase()}
             </span>
-            {emp.employeeId && (
-              <span className="shrink-0 text-[9px] font-normal text-muted" title="HR employee ID">
-                · {emp.employeeId}
-              </span>
-            )}
             {/* Only a person whose plan differs from today's distribution has
                 anything to hand off, so the button follows the rules — except
-                once locked, when it must stay reachable to unlock. */}
+                once locked, when it must stay reachable to unlock. Icon-only:
+                the "Lock In" / "Locked In" label was the single biggest fixed
+                cost in the row, wider than the ID span it sat next to. The
+                icon plus color already carries the two states; the full
+                sentence survives as the tooltip and the aria-label. */}
             {(locked ||
               (settings.projectionRules ?? []).some((r) => r.personKey === personKey)) && (
               <button
@@ -290,8 +297,13 @@ function EmployeeBlock({
                 // recoverable, even signed out of cloud sync.
                 disabled={!locked && !lockInReady}
                 aria-pressed={locked}
+                aria-label={
+                  locked
+                    ? `${emp.name}'s distribution is locked in — unlock to edit it again`
+                    : `Hand ${emp.name}'s distribution change to your analyst and lock it`
+                }
                 className={cn(
-                  "ml-auto inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium disabled:opacity-50",
+                  "ml-auto inline-flex shrink-0 items-center rounded p-1 disabled:opacity-50",
                   locked
                     ? "bg-amber-300/90 text-[#0c2340] hover:bg-amber-200"
                     : "bg-slate-200/80 hover:bg-slate-300/80"
@@ -314,7 +326,6 @@ function EmployeeBlock({
                 ) : (
                   <SendHorizontal className="h-3 w-3" aria-hidden />
                 )}
-                {locked ? "Locked In" : "Lock In"}
               </button>
             )}
             {hiddenCount > 0 && !revealHidden && (
