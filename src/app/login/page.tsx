@@ -11,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { configured, ready, user, signInWithPassword, signUpWithPassword } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!ready || !configured || !user) return;
-    router.replace("/dashboard");
+    // Welcome decides: a first sign-in gets the role step, everyone else is
+    // bounced straight on to the Dashboard.
+    router.replace("/welcome");
   }, [ready, configured, user, router]);
 
   if (!configured) {
@@ -59,9 +62,9 @@ export default function LoginPage() {
     try {
       if (mode === "signin") {
         await signInWithPassword(email, password);
-        router.replace("/dashboard");
+        router.replace("/welcome");
       } else {
-        await signUpWithPassword(email, password);
+        await signUpWithPassword(email, password, fullName);
         setSignupNote(
           "Account created. If email confirmation is enabled in Supabase, check your inbox before signing in."
         );
@@ -88,6 +91,20 @@ export default function LoginPage() {
             {mode === "signin" ? "Sign in" : "Create account"}
           </h1>
         </div>
+        {mode === "signup" && (
+          <label className="block text-sm">
+            Full name
+            <input
+              type="text"
+              required
+              autoComplete="name"
+              placeholder="e.g. Vincent Chan"
+              className="mt-1 w-full rounded border px-3 py-2"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </label>
+        )}
         <label className="block text-sm">
           Email
           <input

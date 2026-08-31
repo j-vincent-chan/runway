@@ -27,7 +27,7 @@ type AuthContextValue = {
   cloudSyncEnabled: boolean;
   setLocalOnly: (value: boolean) => void;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  signUpWithPassword: (email: string, password: string) => Promise<void>;
+  signUpWithPassword: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -88,15 +88,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   }, []);
 
-  const signUpWithPassword = useCallback(async (email: string, password: string) => {
-    const supabase = getSupabase();
-    if (!supabase) throw new Error("Supabase is not configured.");
-    const { error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-    if (error) throw error;
-  }, []);
+  const signUpWithPassword = useCallback(
+    async (email: string, password: string, fullName: string) => {
+      const supabase = getSupabase();
+      if (!supabase) throw new Error("Supabase is not configured.");
+      // The name rides in auth metadata so it survives the email-confirmation
+      // gap (no session yet, so no profiles row can be written); the Welcome
+      // step copies it into profiles on first sign-in.
+      const { error } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { full_name: fullName.trim() } },
+      });
+      if (error) throw error;
+    },
+    []
+  );
 
   /**
    * Supabase clears the local session (and revokes it server-side) before

@@ -126,7 +126,11 @@ export function Sidebar() {
             <button
               type="button"
               onClick={() => void signOut()}
-              title={user.email ?? "Sign out"}
+              title={
+                ((user.user_metadata?.full_name as string | undefined)?.trim()
+                  ? `${(user.user_metadata?.full_name as string).trim()} · ${user.email ?? ""}`
+                  : user.email) ?? "Sign out"
+              }
               className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm text-slate-400 hover:bg-white/[0.06] hover:text-white"
             >
               <LogOut className="h-4 w-4 shrink-0" />
