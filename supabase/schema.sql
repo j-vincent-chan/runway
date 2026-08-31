@@ -577,6 +577,25 @@ alter table public.change_requests drop constraint if exists change_requests_sta
 alter table public.change_requests add constraint change_requests_status_check
   check (status in ('pending', 'in_progress', 'completed', 'withdrawn'));
 
+-- Old-flow data can hold several open requests for one person (each Lock In
+-- inserted a fresh row). Before enforcing one-open-per-person, close every
+-- open duplicate except the newest as withdrawn — the newest row is the PI's
+-- latest ask; the older ones stay visible as history. Idempotent: once no
+-- duplicates remain this matches zero rows.
+update public.change_requests cr
+set status = 'withdrawn',
+    status_changed_at = now(),
+    status_changed_by_email = 'Runway migration (superseded by a newer request)'
+where cr.status in ('pending', 'in_progress')
+  and exists (
+    select 1 from public.change_requests newer
+    where newer.pi_user_id = cr.pi_user_id
+      and newer.person_key = cr.person_key
+      and newer.status in ('pending', 'in_progress')
+      and (newer.created_at > cr.created_at
+           or (newer.created_at = cr.created_at and newer.id > cr.id))
+  );
+
 -- One open cycle per person: a re-lock revises the open request rather than
 -- creating a sibling, so the analyst always sees exactly one current ask.
 -- Completed and withdrawn requests fall outside the index — history stays.
