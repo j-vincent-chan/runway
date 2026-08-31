@@ -559,7 +559,8 @@ create table if not exists public.change_requests (
   -- a version the PI has expressed doubt about never ships overnight.
   on_hold boolean not null default false,
   revised_at timestamptz,
-  revision_count integer not null default 1
+  revision_count integer not null default 1,
+  revised_while_in_progress boolean not null default false
 );
 
 -- Migration for databases created before the batched digest: the alters are
@@ -568,6 +569,10 @@ alter table public.change_requests add column if not exists digest_queued_at tim
 alter table public.change_requests add column if not exists on_hold boolean not null default false;
 alter table public.change_requests add column if not exists revised_at timestamptz;
 alter table public.change_requests add column if not exists revision_count integer not null default 1;
+-- Set when a revision lands on a request the analyst had in progress (the
+-- revision resets status to pending, so the fact would otherwise be lost);
+-- the digest calls it out, then the send clears it.
+alter table public.change_requests add column if not exists revised_while_in_progress boolean not null default false;
 alter table public.change_requests drop constraint if exists change_requests_status_check;
 alter table public.change_requests add constraint change_requests_status_check
   check (status in ('pending', 'in_progress', 'completed', 'withdrawn'));

@@ -220,6 +220,7 @@ export async function reviseChangeRequest(input: {
       on_hold: false,
       revised_at: now,
       revision_count: input.request.revisionCount + 1,
+      revised_while_in_progress: input.request.status === "in_progress",
     })
     .eq("id", input.request.id);
   if (error) {
