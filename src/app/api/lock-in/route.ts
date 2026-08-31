@@ -134,9 +134,11 @@ export async function POST(request: Request) {
   }
 
   const emailSentAt = new Date().toISOString();
+  // Clearing digest_queued_at is what keeps the morning digest from
+  // repeating a request that was just sent directly.
   const { error: markError } = await supabase
     .from("change_requests")
-    .update({ email_sent_at: emailSentAt })
+    .update({ email_sent_at: emailSentAt, digest_queued_at: null })
     .eq("id", row.id);
   if (markError) {
     console.warn("[lock-in] email sent but email_sent_at not recorded:", markError.message);

@@ -29,6 +29,13 @@ import {
   type ChangeRequestDetails,
 } from "@/lib/projections/changeSummary";
 import { LockInDialog } from "@/components/projections/LockInDialog";
+import { UnlockDialog } from "@/components/projections/UnlockDialog";
+import {
+  fetchOpenRequestForPerson,
+  setChangeRequestHold,
+  withdrawChangeRequest,
+  type ChangeRequestRecord,
+} from "@/lib/supabase/changeRequests";
 import { useAuth } from "@/context/AuthContext";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { AddToPersonBar } from "@/components/projections/AddToPersonBar";
@@ -72,6 +79,10 @@ export default function ProjectionsPage() {
     null
   );
   const [lockingIn, setLockingIn] = useState<ChangeRequestDetails | null>(null);
+  const [unlocking, setUnlocking] = useState<{
+    employee: Employee;
+    request: ChangeRequestRecord;
+  } | null>(null);
   const lockedKeys = useMemo(() => lockedPersonKeys(settings), [settings]);
   // The Dashboard's "Reassign" rows land here with the person preselected.
   const deepLinkedPerson = useDeepLinkTarget("person", DEEP_LINK_PARAM.person);
@@ -155,21 +166,43 @@ export default function ProjectionsPage() {
   }
 
   /**
-   * Locking is the second half of a successful handoff; unlocking is always
-   * available so a locked person can never be stranded. Unlocking does not
-   * retract the request already with the analyst — locking in again sends an
-   * updated one, which is what the confirm says.
+   * Unlocking is always available so a locked person can never be stranded,
+   * but what it means depends on where their request is:
+   * - never emailed → the queued request is put on hold with the unlock, so
+   *   nothing the PI has expressed doubt about ships in the morning digest;
+   * - already emailed → the PI chooses (UnlockDialog): revising keeps the
+   *   request open on hold, withdrawing closes it and the next digest tells
+   *   the analyst no action is needed;
+   * - no open request → a plain unlock.
    */
-  function unlockDistribution(employee: Employee) {
-    const ok = window.confirm(
-      `Unlock ${employee.name}'s distribution?\n\n` +
-        `You'll be able to edit their plan again. The request already with your analyst stands — ` +
-        `lock in again when you're done to send them the updated plan.`
-    );
-    if (!ok) return;
+  function applyUnlock(personKey: string) {
     updateSettings({
-      lockedDistributions: setDistributionLock(settings, employeePersonKey(employee), false),
+      lockedDistributions: setDistributionLock(settings, personKey, false),
     });
+  }
+
+  function unlockDistribution(employee: Employee) {
+    const personKey = employeePersonKey(employee);
+    void (async () => {
+      const request = await fetchOpenRequestForPerson(personKey);
+      if (!request) {
+        if (window.confirm(`Unlock ${employee.name}'s distribution to edit their plan again?`)) {
+          applyUnlock(personKey);
+        }
+        return;
+      }
+      if (!request.emailSentAt) {
+        const ok = window.confirm(
+          `Unlock ${employee.name}'s distribution?\n\n` +
+            `Their queued request will be held and won't be emailed until you lock in again.`
+        );
+        if (!ok) return;
+        await setChangeRequestHold(request.id, true);
+        applyUnlock(personKey);
+        return;
+      }
+      setUnlocking({ employee, request });
+    })();
   }
 
   function addPlanned(planned: PlannedFundingSource) {
@@ -538,6 +571,31 @@ export default function ProjectionsPage() {
           onRemove={removeRule}
           onAddPlanned={addPlanned}
           onClose={() => setEditing(null)}
+        />
+      )}
+      {unlocking && (
+        <UnlockDialog
+          request={unlocking.request}
+          personName={unlocking.employee.name}
+          onRevise={() => {
+            const personKey = employeePersonKey(unlocking.employee);
+            void setChangeRequestHold(unlocking.request.id, true).then(() => {
+              applyUnlock(personKey);
+              setUnlocking(null);
+            });
+          }}
+          onWithdraw={() => {
+            const personKey = employeePersonKey(unlocking.employee);
+            void withdrawChangeRequest(unlocking.request, user?.email ?? "").then((r) => {
+              if (!r.ok) {
+                window.alert(r.error ?? "The request could not be withdrawn. Try again.");
+                return;
+              }
+              applyUnlock(personKey);
+              setUnlocking(null);
+            });
+          }}
+          onClose={() => setUnlocking(null)}
         />
       )}
       {lockingIn && lockInReady && activeOwner && (
