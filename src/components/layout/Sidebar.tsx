@@ -12,11 +12,14 @@ import {
   LineChart,
   Wallet,
   ClipboardList,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { RUNWAY_ACCENT } from "@/lib/brand";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/context/AuthContext";
 
 /**
  * Grouped by what a destination is for, separated by hairlines — the flat
@@ -92,6 +95,7 @@ function NavLink({
 
 export function Sidebar() {
   const { settings } = useApp();
+  const { configured, user, signOut } = useAuth();
 
   if (settings.sidebarHidden) return null;
 
@@ -114,6 +118,23 @@ export function Sidebar() {
       </nav>
       <div className="mt-auto space-y-0 border-t border-white/10 p-3">
         <NavLink href="/settings" label="Settings" icon={Settings} />
+        {/* The session control lives with the other account-level rows, not
+            in every page header. Styled as a nav row, but it acts — so it
+            stays a button, not a Link. */}
+        {configured &&
+          (user ? (
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              title={user.email ?? "Sign out"}
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm text-slate-400 hover:bg-white/[0.06] hover:text-white"
+            >
+              <LogOut className="h-4 w-4 shrink-0" />
+              Sign out
+            </button>
+          ) : (
+            <NavLink href="/login" label="Sign in" icon={LogIn} />
+          ))}
         {/* Underlined on hover only: a permanently underlined line at the
             foot of a nav reads as a destination you are meant to act on. */}
         <p className="type-mono mt-2 leading-snug">

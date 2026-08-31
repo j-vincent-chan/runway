@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { Info, PanelLeft, PanelLeftOpen, LogIn, LogOut, Users } from "lucide-react";
+import { Info, PanelLeft, PanelLeftOpen, Users } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWorkspace } from "@/context/WorkspaceContext";
-import { AlertsBell } from "@/components/alerts/AlertsBell";
 import { getCurrentMonth } from "@/lib/calculations";
 import { resolvePeriodStatus } from "@/lib/dashboard/overview";
 import { monthLabelLong } from "@/lib/dashboard/month";
@@ -43,7 +42,7 @@ export function Header({
   provenance?: { sourceFileName: string; importedAt?: string };
 }) {
   const { snapshot, settings, updateSettings } = useApp();
-  const { configured, user, cloudSyncEnabled, signOut } = useAuth();
+  const { configured, cloudSyncEnabled } = useAuth();
   const { activeOwner, delegationsToMe, switchWorkspace } = useWorkspace();
 
   /**
@@ -184,27 +183,6 @@ export function Header({
               </select>
             </label>
           )}
-          <AlertsBell />
-          {configured &&
-            (user ? (
-              <button
-                type="button"
-                onClick={() => void signOut()}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                title={user.email ?? "Sign out"}
-              >
-                <LogOut className="h-4 w-4" />
-                Sign out
-              </button>
-            ) : (
-              <Link
-                href="/login"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-              >
-                <LogIn className="h-4 w-4" />
-                Sign in
-              </Link>
-            ))}
           {topAction && (
             <Link
               href={topAction.href}
