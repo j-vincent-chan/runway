@@ -114,16 +114,8 @@ export function Sidebar() {
       </nav>
       <div className="mt-auto space-y-0 border-t border-white/10 p-3">
         <NavLink href="/settings" label="Settings" icon={Settings} />
-        {/* The post-award caveat is the one piece of compliance copy in the
-            app, and it sat at 10px — under the 14px body minimum, and under
-            the rule that nothing meaningful lives at 11px. It sits at
-            slate-400 (6.2:1 on the navy) so it reads as the standing caveat
-            it is instead of competing with the nav above it. */}
-        <p className="type-row mt-3 text-slate-400">
-          Planning estimates only. Confirm with your finance/post-award analyst.
-        </p>
-        {/* Underlined on hover only: two permanently underlined lines at the
-            foot of a nav read as destinations you are meant to act on. */}
+        {/* Underlined on hover only: a permanently underlined line at the
+            foot of a nav reads as a destination you are meant to act on. */}
         <p className="type-mono mt-2 leading-snug">
           <a
             href="https://ocr.ucsf.edu/"

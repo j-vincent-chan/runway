@@ -102,7 +102,7 @@ Projections drive hiring decisions. The seams must show.
 - Never compare periods of unequal length as if they were peers.
 - **A figure that caps a projected date at a display horizon must never sit next to an uncapped figure for the same underlying measure without the two agreeing.** If one view of a number is horizon-limited and another isn't, they will eventually show different dates for "when it runs out" and read as a contradiction, not two honest views. Either cap both, or replace the capped one with a named concrete fact (see Copy) so there's nothing for the reader to reconcile.
 - Preserve the provenance line: filename, exact import timestamp, sync state.
-- Preserve the post-award disclaimer. Show it once, unobstructed. No floating element may overlap it.
+- The post-award caveat travels with what leaves the app — every handoff email states that figures are planning estimates, not system-of-record data — and with the surfaces that make projections (page subtitles). It is not standing sidebar chrome.
 - Financial calculations are never reimplemented or guessed. Reuse the canonical selector. If one does not exist, stop and ask.
 
 ## Copy
