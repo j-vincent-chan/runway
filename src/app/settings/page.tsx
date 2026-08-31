@@ -12,6 +12,8 @@ import {
 } from "@/components/settings/CatalogSettings";
 import { CloudPrivacyPanel } from "@/components/settings/CloudPrivacyPanel";
 import { DelegateAccessCard } from "@/components/settings/DelegateAccessCard";
+import { PendingRequestsCard } from "@/components/settings/PendingRequestsCard";
+import { MyPisCard } from "@/components/settings/MyPisCard";
 import { cn } from "@/lib/utils/cn";
 
 const TABS = [
@@ -88,8 +90,12 @@ export default function SettingsPage() {
           <div className="min-w-0 flex-1 space-y-6">
             {tab === "privacy" && (
               <>
+                {/* Requests before the standing panels: an unanswered ask is
+                    the one item here that's waiting on the PI. */}
+                <PendingRequestsCard />
                 <CloudPrivacyPanel />
                 <DelegateAccessCard />
+                <MyPisCard />
               </>
             )}
 
