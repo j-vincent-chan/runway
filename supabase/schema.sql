@@ -240,6 +240,12 @@ create policy "workspace_delegates_pi_all"
 create policy "workspace_delegates_analyst_select"
   on public.workspace_delegates for select to authenticated
   using (lower(analyst_email) = lower(coalesce(auth.jwt() ->> 'email', '')));
+-- An analyst may remove the grant naming them ("leave the workspace") —
+-- someone changing jobs shouldn't need their old PI to clean up.
+drop policy if exists "workspace_delegates_analyst_delete" on public.workspace_delegates;
+create policy "workspace_delegates_analyst_delete"
+  on public.workspace_delegates for delete to authenticated
+  using (lower(analyst_email) = lower(coalesce(auth.jwt() ->> 'email', '')));
 
 -- security definer so data-table and storage policies can consult the grants
 -- without recursing into workspace_delegates' own RLS.
@@ -651,3 +657,109 @@ create policy "change_request_revisions_select"
 create policy "change_request_revisions_insert"
   on public.change_request_revisions for insert to authenticated
   with check (public.can_access_workspace(pi_user_id));
+
+-- ---------------------------------------------------------------------------
+-- Profiles: display name + onboarding role preference
+-- One row per user, owned by that user. role_preference routes onboarding
+-- and personalizes copy; it is never a permission — access always comes from
+-- workspace_delegates rows.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.profiles (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  full_name text not null default '',
+  role_preference text check (role_preference in ('pi', 'analyst')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles_own_all" on public.profiles;
+create policy "profiles_own_all"
+  on public.profiles for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ---------------------------------------------------------------------------
+-- Delegation requests: an analyst asks, the PI approves
+-- Deliberately NOT a status column on workspace_delegates: that table is the
+-- access predicate (can_access_workspace), and pending states don't belong
+-- inside the thing that IS access. Requests are inert rows; approving one
+-- creates the grant through the existing machinery.
+-- ---------------------------------------------------------------------------
+
+create table if not exists public.delegation_requests (
+  id uuid primary key default gen_random_uuid(),
+  analyst_user_id uuid not null references auth.users (id) on delete cascade,
+  -- Denormalized so the PI's approval panel and email can show a person,
+  -- not just a uuid (auth.users is not client-queryable).
+  analyst_email text not null,
+  analyst_name text not null default '',
+  -- Typed by the analyst, stored normalized (lowercased). No PI directory
+  -- exists on purpose: typing the address avoids letting any new account
+  -- enumerate which faculty use Runway.
+  pi_email text not null,
+  -- Resolved on the PI's next sign-in when the account exists; null until
+  -- then (the request doubles as an invitation).
+  pi_user_id uuid references auth.users (id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'declined')),
+  note text not null default '',
+  created_at timestamptz not null default now(),
+  responded_at timestamptz
+);
+
+-- A duplicate ask re-surfaces the existing pending request instead of
+-- stacking a second one; re-requesting after a decline stays allowed.
+create unique index if not exists delegation_requests_one_pending
+  on public.delegation_requests (analyst_user_id, pi_email)
+  where status = 'pending';
+
+alter table public.delegation_requests enable row level security;
+
+drop policy if exists "delegation_requests_analyst_select" on public.delegation_requests;
+drop policy if exists "delegation_requests_analyst_insert" on public.delegation_requests;
+drop policy if exists "delegation_requests_analyst_delete" on public.delegation_requests;
+drop policy if exists "delegation_requests_pi_select" on public.delegation_requests;
+drop policy if exists "delegation_requests_pi_update" on public.delegation_requests;
+
+create policy "delegation_requests_analyst_select"
+  on public.delegation_requests for select to authenticated
+  using (analyst_user_id = auth.uid());
+create policy "delegation_requests_analyst_insert"
+  on public.delegation_requests for insert to authenticated
+  with check (analyst_user_id = auth.uid() and status = 'pending');
+-- Cancelling a pending ask is the analyst's own affair.
+create policy "delegation_requests_analyst_delete"
+  on public.delegation_requests for delete to authenticated
+  using (analyst_user_id = auth.uid() and status = 'pending');
+-- The PI sees requests naming them — by resolved id, or by email while the
+-- request is still unresolved.
+create policy "delegation_requests_pi_select"
+  on public.delegation_requests for select to authenticated
+  using (
+    pi_user_id = auth.uid()
+    or (pi_user_id is null and lower(pi_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
+  );
+-- Only the resolved PI can respond, and only with a response.
+create policy "delegation_requests_pi_update"
+  on public.delegation_requests for update to authenticated
+  using (pi_user_id = auth.uid())
+  with check (pi_user_id = auth.uid() and status in ('approved', 'declined'));
+
+-- Binds unresolved requests naming the caller's email to their account.
+-- security definer because the update crosses the analyst-owned rows the
+-- caller couldn't otherwise write; scoped strictly to the caller's own email.
+create or replace function public.resolve_delegation_requests()
+returns integer
+language sql security definer set search_path = public as $$
+  with updated as (
+    update public.delegation_requests
+    set pi_user_id = auth.uid()
+    where pi_user_id is null
+      and lower(pi_email) = lower(coalesce(auth.jwt() ->> 'email', ''))
+    returning 1
+  )
+  select count(*)::integer from updated;
+$$;
+grant execute on function public.resolve_delegation_requests() to authenticated;
