@@ -5,8 +5,10 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Clock,
   ImageIcon,
   MailWarning,
+  PauseCircle,
   Send,
 } from "lucide-react";
 import {
@@ -119,7 +121,9 @@ function DetailPanel({
             {imageBusy ? "Opening…" : "View distribution image"}
           </button>
         )}
-        {request.emailSentAt === null ? (
+        {/* Queued is the normal state now — Send now is the escape hatch
+            for a request the analyst needs today, not a repair. */}
+        {request.digestQueuedAt && !request.onHold ? (
           <button
             type="button"
             disabled={emailBusy}
@@ -128,13 +132,22 @@ function DetailPanel({
               void onResendEmail(request.id).finally(() => setEmailBusy(false));
             }}
             className="type-row inline-flex min-h-11 items-center gap-1.5 font-medium text-accent hover:underline disabled:opacity-50"
+            title="Skip the morning summary and email your analyst this request immediately"
           >
             <Send className="h-3.5 w-3.5" aria-hidden />
-            {emailBusy ? "Sending…" : "Send the analyst email now"}
+            {emailBusy ? "Sending…" : "Send now — skip the morning summary"}
           </button>
-        ) : (
+        ) : request.emailSentAt ? (
           <span className="type-mono inline-flex min-h-11 items-center text-muted">
             Analyst emailed {formatIsoDateDisplay(request.emailSentAt) ?? request.emailSentAt}
+          </span>
+        ) : null}
+        {request.revisionCount > 1 && (
+          <span className="type-mono inline-flex min-h-11 items-center text-muted">
+            Revision {request.revisionCount}
+            {request.revisedAt
+              ? ` · revised ${formatIsoDateDisplay(request.revisedAt) ?? request.revisedAt}`
+              : ""}
           </span>
         )}
       </div>
@@ -235,15 +248,41 @@ function RequestRow({
           ) : (
             <StatusChip status={request.status} />
           )}
-          {request.emailSentAt === null && (
+          {request.onHold &&
+            (request.status === "pending" || request.status === "in_progress") && (
+              <span
+                className="type-caption inline-flex items-center gap-1 rounded-sm bg-caution-soft px-1.5 py-0.5 text-caution"
+                title="The PI unlocked this to revise it — don't act on the current version"
+              >
+                <PauseCircle className="h-3 w-3" aria-hidden />
+                On hold
+              </span>
+            )}
+          {!request.onHold && request.digestQueuedAt && (
             <span
-              className="type-caption inline-flex items-center gap-1 rounded-sm bg-caution-soft px-1.5 py-0.5 text-caution"
-              title="The handoff email has not gone out — open the row to send it"
+              className="type-caption inline-flex items-center gap-1 rounded-sm bg-inset px-1.5 py-0.5 text-muted"
+              title={
+                request.emailSentAt
+                  ? "The updated version goes out in the next morning summary"
+                  : "Goes out in the next morning summary — open the row to send it now"
+              }
             >
-              <MailWarning className="h-3 w-3" aria-hidden />
-              No email
+              <Clock className="h-3 w-3" aria-hidden />
+              {request.emailSentAt ? "Update queued" : "Queued"}
             </span>
           )}
+          {request.emailSentAt === null &&
+            !request.digestQueuedAt &&
+            !request.onHold &&
+            request.status !== "withdrawn" && (
+              <span
+                className="type-caption inline-flex items-center gap-1 rounded-sm bg-caution-soft px-1.5 py-0.5 text-caution"
+                title="This request was never emailed and is not queued"
+              >
+                <MailWarning className="h-3 w-3" aria-hidden />
+                Not sent
+              </span>
+            )}
         </span>
       </td>
       <td className="type-mono whitespace-nowrap py-3 pr-3 text-ink-2">{effective}</td>
