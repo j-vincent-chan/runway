@@ -27,8 +27,11 @@ export function LedgerWordmark({
             under the 11px floor. Allowed to wrap if a longer label ever
             returns — a readable second line beats an unreadable first one. */}
         <p
-          className="type-caption mt-1 font-medium"
-          style={{ color: light ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight }}
+          className="type-caption font-medium"
+          style={{
+            marginTop: "1px",
+            color: light ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight,
+          }}
         >
           {parentLabel}
         </p>
