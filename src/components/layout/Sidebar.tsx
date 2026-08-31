@@ -14,6 +14,7 @@ import {
   ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { RUNWAY_ACCENT } from "@/lib/brand";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 import { useApp } from "@/context/AppContext";
 
@@ -43,6 +44,14 @@ const NAV_GROUPS: { href: string; label: string; icon: typeof Settings }[][] = [
   ],
 ];
 
+/**
+ * The selected row is marked by a rule at its edge over a faint tint, never
+ * filled with accent. Teal means measured data on every other surface, so a
+ * block of it here both dilutes that meaning and competes with the grid for
+ * attention — and white on the old teal-600 fill sat near 3.7:1, under the
+ * 4.5:1 floor. Idle rows step back so the selection has something to be
+ * brighter than; the row clears the 44px target height.
+ */
 function NavLink({
   href,
   label,
@@ -57,12 +66,25 @@ function NavLink({
   return (
     <Link
       href={href}
+      aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm",
-        active ? "bg-teal-600 text-white" : "text-slate-300 hover:bg-white/10"
+        "relative flex min-h-11 items-center gap-2.5 rounded-md px-3 text-sm",
+        active
+          ? "bg-white/[0.07] font-medium text-white"
+          : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
       )}
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      {active && (
+        <span
+          aria-hidden
+          className="absolute inset-y-1.5 left-0 w-[3px] rounded-full"
+          style={{ background: RUNWAY_ACCENT.onDark }}
+        />
+      )}
+      <Icon
+        className="h-4 w-4 shrink-0"
+        style={active ? { color: RUNWAY_ACCENT.onDark } : undefined}
+      />
       {label}
     </Link>
   );
@@ -82,7 +104,7 @@ export function Sidebar() {
         {NAV_GROUPS.map((group, i) => (
           <div
             key={group[0]!.href}
-            className={cn("space-y-0.5", i > 0 && "mt-2 border-t border-white/10 pt-2")}
+            className={cn("space-y-0.5", i > 0 && "mt-3 border-t border-white/10 pt-3")}
           >
             {group.map((item) => (
               <NavLink key={item.href} {...item} />
@@ -94,16 +116,20 @@ export function Sidebar() {
         <NavLink href="/settings" label="Settings" icon={Settings} />
         {/* The post-award caveat is the one piece of compliance copy in the
             app, and it sat at 10px — under the 14px body minimum, and under
-            the rule that nothing meaningful lives at 11px. */}
-        <p className="type-row mt-3 text-slate-300">
+            the rule that nothing meaningful lives at 11px. It sits at
+            slate-400 (6.2:1 on the navy) so it reads as the standing caveat
+            it is instead of competing with the nav above it. */}
+        <p className="type-row mt-3 text-slate-400">
           Planning estimates only. Confirm with your finance/post-award analyst.
         </p>
-        <p className="type-mono mt-2 leading-snug text-slate-400">
+        {/* Underlined on hover only: two permanently underlined lines at the
+            foot of a nav read as destinations you are meant to act on. */}
+        <p className="type-mono mt-2 leading-snug">
           <a
             href="https://ocr.ucsf.edu/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-300 underline decoration-slate-500/80 underline-offset-2 hover:text-white"
+            className="text-slate-400 underline-offset-2 hover:text-white hover:underline"
           >
             Powered by the UCSF Office of Collaboration
           </a>

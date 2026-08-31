@@ -33,10 +33,13 @@ export function LedgerName({
       </span>
       {showAlpha && (
         <sup
+          /* Mono and muted: ALPHA is metadata. The rose was an orphan of the
+             ImmunoX petal palette the mark no longer uses, and red is the
+             reserved critical semantic. */
           className={cn(
-            "ml-0.5 font-medium leading-none",
+            "ml-1 font-mono font-medium leading-none",
             styles.alpha,
-            light ? "text-[#E9A6C0]" : "text-red-600"
+            light ? "text-slate-400" : "text-muted"
           )}
         >
           ALPHA

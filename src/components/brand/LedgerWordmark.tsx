@@ -23,13 +23,11 @@ export function LedgerWordmark({
       <LedgerLogo size={resolvedLogoSize} onDark={light} />
       <div className="min-w-0">
         <LedgerName size={variant === "sidebar" ? "sidebar" : "md"} light={light} />
+        {/* The app's caption step, not a bespoke 9/10px: both old sizes sat
+            under the 11px floor. Allowed to wrap — two lines of the shared
+            caption beat one line nobody can read. */}
         <p
-          className={cn(
-            "mt-0.5 font-bold leading-tight",
-            variant === "sidebar"
-              ? "whitespace-nowrap text-[9px] uppercase tracking-tight"
-              : "text-[10px] uppercase tracking-widest"
-          )}
+          className="type-caption mt-1 font-medium"
           style={{ color: light ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight }}
         >
           {parentLabel}
