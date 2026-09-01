@@ -33,6 +33,8 @@
 !fixtures/**/*.xls
 # Generated chartstring helper export (may contain real account strings)
 /exports/*.xlsx
+# Generated email previews (scripts/email-preview.ts)
+/exports/email-previews/
 
 # debug
 npm-debug.log*
