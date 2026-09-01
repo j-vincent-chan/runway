@@ -3,6 +3,9 @@
  * a section per PI, items grouped New / Updated / Withdrawn. Pure text in,
  * text out, so the whole email is testable without Supabase or Resend.
  */
+import { escapeHtml } from "@/lib/email/html";
+import { emailDataList, emailParagraph, renderEmail } from "@/lib/email/layout";
+import { INK, INK_2, MUTED, SANS } from "@/lib/email/tokens";
 
 export type DigestItemKind = "new" | "updated" | "withdrawn";
 
@@ -50,49 +53,49 @@ export function digestSubjectSummary(sections: DigestPiSection[]): string {
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]!}`;
 }
 
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 export function composeDigestEmail(
   sections: DigestPiSection[],
-  dateLabel: string
+  dateLabel: string,
+  appUrl: string
 ): { subject: string; text: string; html: string } {
   const subject = `Runway distribution changes — ${digestSubjectSummary(sections)} (${dateLabel})`;
+  const statusUrl = `${appUrl}/status`;
 
   const textLines: string[] = [
     `Your Runway morning summary for ${dateLabel}.`,
     "",
   ];
   const htmlParts: string[] = [
-    `<p>Your Runway morning summary for <strong>${escapeHtml(dateLabel)}</strong>.</p>`,
+    emailParagraph(
+      `Your Runway morning summary for <strong>${escapeHtml(dateLabel)}</strong>.`
+    ),
   ];
 
   for (const section of sections) {
     textLines.push(`Requests from ${section.piEmail}:`);
-    htmlParts.push(`<h3 style="margin:16px 0 4px">Requests from ${escapeHtml(section.piEmail)}</h3>`);
+    htmlParts.push(
+      `<h3 style="margin:20px 0 4px;font-family:${SANS};font-size:16px;line-height:22px;font-weight:600;color:${INK}">Requests from ${escapeHtml(section.piEmail)}</h3>`
+    );
 
     for (const kind of KIND_ORDER) {
       const items = section.items.filter((i) => i.kind === kind);
       if (items.length === 0) continue;
       textLines.push(`  ${KIND_LABEL[kind]}:`);
-      htmlParts.push(`<p style="margin:8px 0 2px"><strong>${KIND_LABEL[kind]}</strong></p><ul>`);
+      htmlParts.push(
+        `<p style="margin:8px 0 2px;font-family:${SANS};font-size:14px;line-height:20px;font-weight:600;color:${INK_2}">${KIND_LABEL[kind]}</p><ul style="margin:0 0 8px;padding-left:20px">`
+      );
       for (const item of items) {
         const flag = item.revisedWhileInProgress
           ? " — revised while you had it in progress; the version below replaces what you were working from"
           : "";
         textLines.push(`    • ${item.personName}${flag}`);
-        htmlParts.push(`<li><strong>${escapeHtml(item.personName)}</strong>${escapeHtml(flag)}`);
+        htmlParts.push(
+          `<li style="margin:0 0 4px;font-family:${SANS};font-size:14px;line-height:20px;color:${INK}"><strong>${escapeHtml(item.personName)}</strong>${escapeHtml(flag)}`
+        );
         if (item.kind !== "withdrawn") {
           for (const s of item.sentences) textLines.push(`        ${s}`);
           if (item.sentences.length > 0)
-            htmlParts.push(
-              `<ul>${item.sentences.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`
-            );
+            htmlParts.push(emailDataList(item.sentences.map((s) => escapeHtml(s))));
         }
         htmlParts.push(`</li>`);
       }
@@ -105,19 +108,33 @@ export function composeDigestEmail(
         n === 1 ? "is" : "are"
       } still open, oldest submitted ${section.backlog.oldestSubmitted}.`;
       textLines.push(`  ${line}`);
-      htmlParts.push(`<p style="color:#6B7690;font-size:13px">${escapeHtml(line)}</p>`);
+      htmlParts.push(
+        `<p style="margin:0 0 8px;font-family:${SANS};font-size:13px;line-height:19px;color:${MUTED}">${escapeHtml(line)}</p>`
+      );
     }
     textLines.push("");
   }
 
   textLines.push(
     "Attached images show each change by month. Track and update request status on Runway's Status page.",
+    `Track it here: ${statusUrl}`,
     "These are planned figures from Runway, not payroll system of record data — confirm before entry."
   );
   htmlParts.push(
-    `<p>Attached images show each change by month. Track and update request status on Runway's Status page.</p>`,
-    `<p style="color:#6B7690;font-size:12px">These are planned figures from Runway, not payroll system of record data — confirm before entry.</p>`
+    emailParagraph(
+      "Attached images show each change by month. Track and update request status on Runway's Status page."
+    )
   );
 
-  return { subject, text: textLines.join("\n"), html: htmlParts.join("") };
+  const { html } = renderEmail({
+    preheader: `${digestSubjectSummary(sections)} across your PI workspaces.`,
+    bodyHtml: htmlParts.join(""),
+    cta: { label: "Open the Status page", url: statusUrl },
+    footnoteHtml:
+      "These are planned figures from Runway, not payroll system of record data — confirm before entry.",
+    receivingReason:
+      "You're receiving this because you're a delegated analyst on a Runway workspace. This summary is sent each morning there are queued changes; a PI removing your access ends it.",
+  });
+
+  return { subject, text: textLines.join("\n"), html };
 }

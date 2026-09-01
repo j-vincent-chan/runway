@@ -15,6 +15,8 @@ import {
   type DigestItem,
   type DigestPiSection,
 } from "@/lib/digest/compose";
+import { emailFrom } from "@/lib/email/layout";
+import { appUrlFromEnv } from "@/lib/email/url";
 
 export const runtime = "nodejs";
 
@@ -177,7 +179,7 @@ export async function GET(request: Request) {
     const sections = analystPiIds
       .map((id) => sectionByPi.get(id))
       .filter((s): s is DigestPiSection => Boolean(s));
-    const { subject, text, html } = composeDigestEmail(sections, dateLabel);
+    const { subject, text, html } = composeDigestEmail(sections, dateLabel, appUrlFromEnv());
 
     // Latest image per actionable item; withdrawn requests need none.
     const attachments: { filename: string; content: string }[] = [];
@@ -195,7 +197,7 @@ export async function GET(request: Request) {
     }
 
     const { error: sendError } = await resend.emails.send({
-      from: fromEmail,
+      from: emailFrom(fromEmail),
       to: analyst,
       subject,
       text,

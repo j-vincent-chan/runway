@@ -43,8 +43,10 @@ describe("digestSubjectSummary", () => {
   });
 });
 
+const APP = "https://runway.example.org";
+
 describe("composeDigestEmail", () => {
-  const { subject, text, html } = composeDigestEmail([base], "Aug 31, 2026");
+  const { subject, text, html } = composeDigestEmail([base], "Aug 31, 2026", APP);
 
   it("names the counts and date in the subject", () => {
     expect(subject).toBe(
@@ -78,7 +80,7 @@ describe("composeDigestEmail", () => {
       ...base,
       items: [{ ...base.items[1]!, revisedWhileInProgress: true }],
     };
-    const out = composeDigestEmail([revised], "Aug 31, 2026");
+    const out = composeDigestEmail([revised], "Aug 31, 2026", APP);
     expect(out.text).toContain("revised while you had it in progress");
   });
 
@@ -92,6 +94,15 @@ describe("composeDigestEmail", () => {
       ...base,
       items: [{ personName: "<b>X</b>", kind: "new", sentences: [] }],
     };
-    expect(composeDigestEmail([sneaky], "Aug 31, 2026").html).not.toContain("<b>X</b>");
+    expect(composeDigestEmail([sneaky], "Aug 31, 2026", APP).html).not.toContain("<b>X</b>");
+  });
+
+  it("links to the Status page in both parts", () => {
+    expect(html).toContain(`href="${APP}/status"`);
+    expect(text).toContain(`${APP}/status`);
+  });
+
+  it("ships none of the deprecated muted color", () => {
+    expect(html.toLowerCase()).not.toContain("6b7690");
   });
 });
