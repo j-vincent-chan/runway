@@ -1,0 +1,76 @@
+<!-- Supabase "Confirm signup" template. Subject: Confirm your email to start using Runway -->
+<!-- Hand-inlined mirror of src/lib/email/layout.ts — a change there should be reflected here. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Runway</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f6f9">
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all">One click confirms your address and opens Runway.&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#f5f6f9">
+    <tr>
+      <td align="center" style="padding:24px 12px">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:100%;max-width:600px">
+          <tr>
+            <td style="padding:0 32px 16px">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%">
+                <tr>
+                  <td width="34" style="width:34px;vertical-align:middle" aria-hidden="true">
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:separate;border-spacing:0 3px">
+                      <tr><td width="26" style="width:26px;height:5px;background-color:#12626e;border-radius:2px;font-size:0;line-height:0">&nbsp;</td></tr>
+                      <tr><td width="17" style="width:17px;height:5px;background-color:#12626e;border-radius:2px;font-size:0;line-height:0">&nbsp;</td><td width="2" style="width:2px;font-size:0;line-height:0">&nbsp;</td><td width="7" style="width:7px;height:5px;background-color:#deebee;border-radius:2px;font-size:0;line-height:0">&nbsp;</td></tr>
+                      <tr><td width="9" style="width:9px;height:5px;background-color:#12626e;border-radius:2px;font-size:0;line-height:0">&nbsp;</td><td width="2" style="width:2px;font-size:0;line-height:0">&nbsp;</td><td width="15" style="width:15px;height:5px;background-color:#deebee;border-radius:2px;font-size:0;line-height:0">&nbsp;</td></tr>
+                    </table>
+                  </td>
+                  <td style="vertical-align:middle">
+                    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:18px;line-height:22px;font-weight:600;color:#0c2340">Runway</div>
+                    <div style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px;line-height:14px;letter-spacing:.11em;color:#636d85">PAYROLL&nbsp;PLANNER</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#ffffff;border:1px solid #dce0e9;border-radius:8px">
+                <tr>
+                  <td style="padding:28px 32px 8px">
+                    {{ if .Data.full_name }}<p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f1a2b">Hi {{ .Data.full_name }},</p>{{ end }}
+                    <p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:24px;color:#0f1a2b">You created a Runway account with this address. Confirm your email to finish signing up — you&rsquo;ll land back in Runway right where you left off.</p>
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:8px 0 16px">
+                      <tr>
+                        <td style="border-radius:6px;background-color:#12626e">
+                          <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:12px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:20px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:6px">Confirm email &amp; continue to Runway</a>
+                        </td>
+                      </tr>
+                    </table>
+                    <p style="margin:0 0 16px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:19px;color:#636d85">Button not working? Paste this link into your browser:<br><a href="{{ .ConfirmationURL }}" style="color:#12626e;word-break:break-all">{{ .ConfirmationURL }}</a></p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 32px 0;border-top:1px solid #dce0e9">
+                    <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:19px;color:#636d85">Didn&rsquo;t create an account? You can ignore this email — nothing happens without confirmation.</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 20px"></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 0">
+              <p style="margin:0 0 6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#636d85">Runway — payroll planning for UCSF research programs. A planning layer, not the payroll system of record.</p>
+              <p style="margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:18px;color:#636d85">You're receiving this because this address was used to create a Runway account.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
