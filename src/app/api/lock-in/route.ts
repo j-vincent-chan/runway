@@ -5,6 +5,9 @@ import {
   changeSummarySentences,
   type ChangeRequestDetails,
 } from "@/lib/projections/changeSummary";
+import { composeLockInEmail } from "@/lib/email/composeLockIn";
+import { emailFrom } from "@/lib/email/layout";
+import { appUrlFromEnv } from "@/lib/email/url";
 
 export const runtime = "nodejs";
 
@@ -95,38 +98,22 @@ export async function POST(request: Request) {
   }
 
   const details = row.details as ChangeRequestDetails;
-  const sentences = changeSummarySentences(details);
   const requestedBy = row.created_by_email as string;
-  const lines =
-    sentences.length > 0
-      ? sentences
-      : ["The captured plan matched the current distribution when it was submitted."];
-
-  const text = [
-    `${requestedBy} locked in a distribution change for ${row.person_name} in Runway.`,
-    "",
-    "Requested change (current → requested percent effort):",
-    ...lines.map((s) => `  • ${s}`),
-    "",
-    "The attached image shows the same change by month. Track and update this request's status on Runway's Status page.",
-    "These are planned figures from Runway, not payroll system of record data — confirm before entry.",
-  ].join("\n");
-
-  const html = [
-    `<p><strong>${escapeHtml(requestedBy)}</strong> locked in a distribution change for <strong>${escapeHtml(row.person_name)}</strong> in Runway.</p>`,
-    `<p>Requested change (current → requested percent effort):</p>`,
-    `<ul>${lines.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}</ul>`,
-    `<p>The attached image shows the same change by month. Track and update this request's status on Runway's Status page.</p>`,
-    `<p style="color:#6B7690;font-size:12px">These are planned figures from Runway, not payroll system of record data — confirm before entry.</p>`,
-  ].join("");
+  const email = composeLockInEmail({
+    requestedBy,
+    personName: row.person_name,
+    sentences: changeSummarySentences(details),
+    appUrl: appUrlFromEnv(),
+  });
 
   const resend = new Resend(resendKey);
   const { error: sendError } = await resend.emails.send({
-    from: fromEmail,
+    from: emailFrom(fromEmail),
     to: recipients,
-    subject: `Distribution change for ${row.person_name}`,
-    text,
-    html,
+    replyTo: requestedBy,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
     attachments,
   });
   if (sendError) {
@@ -145,12 +132,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true, recipients, emailSentAt });
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
