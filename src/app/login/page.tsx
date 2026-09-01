@@ -9,14 +9,16 @@ import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { configured, ready, user, signInWithPassword, signUpWithPassword } = useAuth();
+  const { configured, ready, user, signInWithPassword, signUpWithPassword, resendSignUpEmail } =
+    useAuth();
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [signupNote, setSignupNote] = useState<string | null>(null);
+  const [sentToEmail, setSentToEmail] = useState<string | null>(null);
+  const [resendNote, setResendNote] = useState<string | null>(null);
   const [localModeInfoOpen, setLocalModeInfoOpen] = useState(false);
   const localModeInfoId = useId();
 
@@ -57,7 +59,6 @@ export default function LoginPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    setSignupNote(null);
     setBusy(true);
     try {
       if (mode === "signin") {
@@ -65,16 +66,68 @@ export default function LoginPage() {
         router.replace("/welcome");
       } else {
         await signUpWithPassword(email, password, fullName);
-        setSignupNote(
-          "Account created. If email confirmation is enabled in Supabase, check your inbox before signing in."
-        );
-        setMode("signin");
+        setSentToEmail(email.trim());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed.");
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resend() {
+    if (!sentToEmail || busy) return;
+    setError(null);
+    setResendNote(null);
+    setBusy(true);
+    try {
+      await resendSignUpEmail(sentToEmail);
+      setResendNote(`Confirmation email re-sent to ${sentToEmail}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not resend the email.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sentToEmail) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
+        <div className="mb-8 origin-center scale-[1.2] text-white">
+          <LedgerWordmark variant="sidebar" />
+        </div>
+        <div className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-white p-6 shadow-lg">
+          <h1 className="text-xl font-semibold text-[#0c2340]">Check your inbox</h1>
+          <p className="text-sm text-slate-600">
+            We sent a confirmation link to{" "}
+            <span className="font-medium text-[#0c2340]">{sentToEmail}</span>. Click it to
+            finish setting up your account — it opens right where you left off.
+          </p>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {resendNote && <p className="text-sm text-teal-800">{resendNote}</p>}
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void resend()}
+            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-[#0c2340] hover:border-teal-700 hover:bg-teal-50/40 disabled:opacity-60"
+          >
+            {busy ? "Please wait…" : "Resend email"}
+          </button>
+          <button
+            type="button"
+            className="w-full text-sm text-slate-600 hover:underline"
+            onClick={() => {
+              setSentToEmail(null);
+              setResendNote(null);
+              setError(null);
+              setMode("signin");
+            }}
+          >
+            Back to sign in
+          </button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -129,7 +182,6 @@ export default function LoginPage() {
           />
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {signupNote && <p className="text-sm text-teal-800">{signupNote}</p>}
         <button
           type="submit"
           disabled={busy}
@@ -143,7 +195,6 @@ export default function LoginPage() {
           onClick={() => {
             setMode(mode === "signin" ? "signup" : "signin");
             setError(null);
-            setSignupNote(null);
           }}
         >
           {mode === "signin" ? "Need an account? Sign up" : "Already have an account? Sign in"}

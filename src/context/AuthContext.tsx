@@ -28,6 +28,7 @@ type AuthContextValue = {
   setLocalOnly: (value: boolean) => void;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   signUpWithPassword: (email: string, password: string, fullName: string) => Promise<void>;
+  resendSignUpEmail: (email: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -110,6 +111,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const resendSignUpEmail = useCallback(async (email: string) => {
+    const supabase = getSupabase();
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email: email.trim(),
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+    });
+    if (error) throw error;
+  }, []);
+
   /**
    * Supabase clears the local session (and revokes it server-side) before
    * this resolves, whether or not the network revoke call itself succeeds —
@@ -146,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLocalOnly,
       signInWithPassword,
       signUpWithPassword,
+      resendSignUpEmail,
       signOut,
     }),
     [
@@ -156,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLocalOnly,
       signInWithPassword,
       signUpWithPassword,
+      resendSignUpEmail,
       signOut,
     ]
   );
