@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Info, PanelLeft, PanelLeftOpen, Users } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
@@ -43,7 +44,8 @@ export function Header({
 }) {
   const { snapshot, settings, updateSettings } = useApp();
   const { configured, cloudSyncEnabled } = useAuth();
-  const { activeOwner, delegationsToMe, switchWorkspace } = useWorkspace();
+  const router = useRouter();
+  const { activeOwner, delegationsToMe, switchWorkspace, rolePreference } = useWorkspace();
 
   /**
    * Period and closure state lead the provenance line, matching the
@@ -172,9 +174,18 @@ export function Header({
               <select
                 className="max-w-[14rem] bg-transparent text-sm font-medium focus:outline-none"
                 value={activeOwner.isSelf ? "" : activeOwner.userId}
-                onChange={(e) => switchWorkspace(e.target.value || null)}
+                onChange={(e) => {
+                  if (e.target.value === "__manage__") router.push("/workspaces");
+                  else switchWorkspace(e.target.value || null);
+                }}
               >
-                <option value="">My workspace</option>
+                {/* Analysts have no standalone workspace — their "home" is the
+                    workspace-selection page, not a self workspace. */}
+                {rolePreference === "analyst" ? (
+                  <option value="__manage__">Add or manage PIs…</option>
+                ) : (
+                  <option value="">My workspace</option>
+                )}
                 {delegationsToMe.map((g) => (
                   <option key={g.piUserId} value={g.piUserId}>
                     {g.piEmail}

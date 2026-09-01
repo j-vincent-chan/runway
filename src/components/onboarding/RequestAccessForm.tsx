@@ -19,7 +19,17 @@ import { formatIsoDateDisplay } from "@/lib/utils/parse";
  * leaks who has signed up — and access only ever appears when the PI
  * approves.
  */
-export function RequestAccessForm({ onDone }: { onDone?: () => void }) {
+export function RequestAccessForm({
+  onDone,
+  onSubmitted,
+  hideRequestList = false,
+}: {
+  onDone?: () => void;
+  /** Fires after a request is created — hosts that render their own request list refresh on it. */
+  onSubmitted?: () => void;
+  /** Hosts that render requests themselves (Workspaces page) suppress the built-in lists. */
+  hideRequestList?: boolean;
+}) {
   const { user } = useAuth();
   const [piEmail, setPiEmail] = useState("");
   const [note, setNote] = useState("");
@@ -70,6 +80,7 @@ export function RequestAccessForm({ onDone }: { onDone?: () => void }) {
     setNote("");
     setSentTo(target);
     await refresh();
+    onSubmitted?.();
   }
 
   const pending = requests.filter((r) => r.status === "pending");
@@ -117,7 +128,7 @@ export function RequestAccessForm({ onDone }: { onDone?: () => void }) {
         </p>
       )}
 
-      {pending.length > 0 && (
+      {!hideRequestList && pending.length > 0 && (
         <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
           {pending.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
@@ -141,7 +152,7 @@ export function RequestAccessForm({ onDone }: { onDone?: () => void }) {
           ))}
         </ul>
       )}
-      {responded.length > 0 && (
+      {!hideRequestList && responded.length > 0 && (
         <ul className="space-y-1">
           {responded.slice(0, 5).map((r) => (
             <li key={r.id} className="text-xs text-slate-500">

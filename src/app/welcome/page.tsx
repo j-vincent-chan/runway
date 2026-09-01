@@ -132,7 +132,7 @@ export default function WelcomePage() {
               later from Settings.
             </p>
             <div className="mt-4">
-              <RequestAccessForm onDone={() => router.replace("/dashboard")} />
+              <RequestAccessForm onDone={() => router.replace("/workspaces")} />
             </div>
           </>
         )}

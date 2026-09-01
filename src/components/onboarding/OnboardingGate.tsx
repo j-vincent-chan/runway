@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
+import { useWorkspace } from "@/context/WorkspaceContext";
 import { lookupMyProfile } from "@/lib/supabase/profiles";
 
 /**
@@ -12,11 +13,19 @@ import { lookupMyProfile } from "@/lib/supabase/profiles";
  * Everyone else passes through untouched: signed-out and local-only users,
  * accounts that predate onboarding (no full_name metadata), and — because a
  * failed lookup proves nothing — anyone whose profile fetch errors.
+ *
+ * It also keeps analysts out of a standalone workspace: an analyst with no
+ * PI workspace open belongs on /workspaces, not in the main app.
  */
 export function OnboardingGate() {
   const router = useRouter();
   const { configured, ready, user } = useAuth();
+  const { needsWorkspacePick } = useWorkspace();
   const onboardedUserIds = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (needsWorkspacePick) router.replace("/workspaces");
+  }, [needsWorkspacePick, router]);
 
   const userId = user?.id ?? null;
   const metadataName = ((user?.user_metadata?.full_name as string | undefined) ?? "").trim();

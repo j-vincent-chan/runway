@@ -13,6 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const bare =
     pathname === "/login" ||
     pathname === "/welcome" ||
+    pathname === "/workspaces" ||
     pathname === "/" ||
     pathname.startsWith("/auth/");
 

@@ -268,7 +268,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
-  const { activeOwner } = useWorkspace();
+  const { activeOwner, needsWorkspacePick } = useWorkspace();
   /**
    * True while an analyst is inside a delegated PI workspace. Delegate mode
    * is cloud-only: no local IndexedDB read/write, so the PI's payroll data
@@ -481,6 +481,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
+    // An analyst with no PI workspace open has no workspace of their own to
+    // persist — writing would mint empty local and cloud artifacts under
+    // their account, which the analyst model says must not exist.
+    if (needsWorkspacePick) return;
     const savedAt = new Date().toISOString();
     const state = {
       snapshot,
@@ -521,6 +525,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     cloudSyncEnabled,
     userId,
     actingAsDelegate,
+    needsWorkspacePick,
   ]);
 
   // Runway resolves every balance through this map, so anything missing here
