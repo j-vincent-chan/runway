@@ -69,7 +69,13 @@ export default function LoginPage() {
         setSentToEmail(email.trim());
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Authentication failed.");
+      const message = err instanceof Error ? err.message : "Authentication failed.";
+      // Surface duplicate-email errors more clearly
+      if (message.toLowerCase().includes("already registered") || message.toLowerCase().includes("user already exists")) {
+        setError(`An account with ${email.trim()} already exists. Sign in instead, or delete the account first if you're testing.`);
+      } else {
+        setError(message);
+      }
     } finally {
       setBusy(false);
     }
