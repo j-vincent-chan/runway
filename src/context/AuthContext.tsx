@@ -94,11 +94,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!supabase) throw new Error("Supabase is not configured.");
       // The name rides in auth metadata so it survives the email-confirmation
       // gap (no session yet, so no profiles row can be written); the Welcome
-      // step copies it into profiles on first sign-in.
+      // step copies it into profiles on first sign-in. The confirmation link
+      // lands on /auth/confirm, which waits for the session and hands off to
+      // Welcome — the origin must be in Supabase's redirect-URL allowlist.
       const { error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
-        options: { data: { full_name: fullName.trim() } },
+        options: {
+          data: { full_name: fullName.trim() },
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        },
       });
       if (error) throw error;
     },
