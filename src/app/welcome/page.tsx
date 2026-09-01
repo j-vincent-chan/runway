@@ -7,8 +7,8 @@ import { useAuth } from "@/context/AuthContext";
 import { LedgerWordmark } from "@/components/brand/LedgerWordmark";
 import { RequestAccessForm } from "@/components/onboarding/RequestAccessForm";
 import {
-  fetchMyProfile,
   firstNameOf,
+  lookupMyProfile,
   upsertMyProfile,
   type RolePreference,
 } from "@/lib/supabase/profiles";
@@ -40,12 +40,15 @@ export default function WelcomePage() {
     }
     let cancelled = false;
     void (async () => {
-      const profile = await fetchMyProfile();
+      const lookup = await lookupMyProfile();
       if (cancelled) return;
-      // A profile means onboarding already happened; no metadata name means
-      // the account predates the flow — either way there's nothing to ask.
-      if (profile || !metadataName) router.replace("/dashboard");
-      else setStep("role");
+      // Only a confirmed missing row gets the role step: a profile means
+      // onboarding already happened, no metadata name means the account
+      // predates the flow, and a failed lookup proves nothing — showing the
+      // step on error would overwrite an existing role choice, so fail open
+      // to the Dashboard (the gate re-steers a truly new user later).
+      if (lookup.status === "none" && metadataName) setStep("role");
+      else router.replace("/dashboard");
     })();
     return () => {
       cancelled = true;

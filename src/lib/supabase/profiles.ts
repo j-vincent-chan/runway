@@ -14,10 +14,20 @@ export type Profile = {
   rolePreference: RolePreference | null;
 };
 
-export async function fetchMyProfile(): Promise<Profile | null> {
+/**
+ * "none" is the onboarding signal (no row = the role step hasn't happened),
+ * so it must never be conflated with a failed fetch — a transient error
+ * would otherwise re-onboard an existing user or gate a finished one.
+ */
+export type ProfileLookup =
+  | { status: "found"; profile: Profile }
+  | { status: "none" }
+  | { status: "error" };
+
+export async function lookupMyProfile(): Promise<ProfileLookup> {
   const supabase = getSupabase();
   const userId = await getCurrentUserId();
-  if (!supabase || !userId) return null;
+  if (!supabase || !userId) return { status: "error" };
   const { data, error } = await supabase
     .from("profiles")
     .select("user_id, full_name, role_preference")
@@ -25,14 +35,22 @@ export async function fetchMyProfile(): Promise<Profile | null> {
     .maybeSingle();
   if (error) {
     console.warn("[supabase] fetch profile failed:", error.message);
-    return null;
+    return { status: "error" };
   }
-  if (!data) return null;
+  if (!data) return { status: "none" };
   return {
-    userId: data.user_id,
-    fullName: data.full_name ?? "",
-    rolePreference: (data.role_preference as RolePreference | null) ?? null,
+    status: "found",
+    profile: {
+      userId: data.user_id,
+      fullName: data.full_name ?? "",
+      rolePreference: (data.role_preference as RolePreference | null) ?? null,
+    },
   };
+}
+
+export async function fetchMyProfile(): Promise<Profile | null> {
+  const lookup = await lookupMyProfile();
+  return lookup.status === "found" ? lookup.profile : null;
 }
 
 export async function upsertMyProfile(input: {
