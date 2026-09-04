@@ -73,7 +73,7 @@ export function AssumedOkFundingCell({
           title={`${formatCurrency(sharedMonthlyBurn)}/mo × months to end date`}
         >
           {formatCurrencyBalance(estimatedBalance)}
-          <span className="ml-1 text-[10px] font-normal text-sky-700">est.</span>
+          <span className="ml-1 text-[10px] font-normal text-estimated">est.</span>
         </p>
       ) : (
         <p className="mt-1.5 text-[10px] leading-snug text-muted">

@@ -244,8 +244,8 @@ function AccountBlock({
               className={cn(
                 "shrink-0 rounded p-0.5",
                 notMine
-                  ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90"
-                  : "text-muted hover:bg-sky-50 hover:text-sky-700"
+                  ? "bg-estimated-soft text-estimated ring-1 ring-estimated/40"
+                  : "text-muted hover:bg-estimated-soft hover:text-estimated"
               )}
               title={
                 notMine

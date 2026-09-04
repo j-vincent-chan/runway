@@ -26,9 +26,13 @@ export function LedgerWordmark({
         {/* The app's caption step, not a bespoke 9/10px: both old sizes sat
             under the 11px floor. Allowed to wrap if a longer label ever
             returns — a readable second line beats an unreadable first one. */}
+        {/* On the navy ground the accent is pinned to its on-dark value, since
+            that ground is dark in both themes. Everywhere else it rides
+            --accent, which flips: the fixed on-light teal sat at 2.5:1 once
+            the card behind it went dark. */}
         <p
           className="type-caption mt-0 font-medium"
-          style={{ color: light ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight }}
+          style={{ color: light ? RUNWAY_ACCENT.onDark : "var(--accent)" }}
         >
           {parentLabel}
         </p>

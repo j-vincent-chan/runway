@@ -128,7 +128,7 @@ export function OrgStructureBoard({
               onKeyDown={(e) => e.key === "Enter" && commitTitleEdit()}
             />
             <input
-              className="w-full border-b border-control bg-transparent text-center text-sm text-sky-700 outline-none"
+              className="w-full border-b border-control bg-transparent text-center text-sm text-estimated outline-none"
               value={subtitleDraft}
               onChange={(e) => setSubtitleDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && commitTitleEdit()}
@@ -151,7 +151,7 @@ export function OrgStructureBoard({
             <h2 className="text-3xl font-bold text-ink group-hover:text-accent">
               {structure.title ?? DEFAULT_ORG_TITLE}
             </h2>
-            <p className="mt-1 text-sm font-medium text-sky-700 group-hover:text-sky-800">
+            <p className="mt-1 text-sm font-medium text-estimated group-hover:text-estimated">
               {structure.subtitle ?? DEFAULT_ORG_SUBTITLE}
             </p>
           </button>

@@ -35,7 +35,7 @@ export function PayrollImportPreview({
       </div>
 
       {mergeInfo?.isMerge && (
-        <div className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900">
+        <div className="mt-3 rounded-lg border border-estimated/40 bg-estimated-soft p-3 text-sm text-estimated">
           <p className="font-semibold">Merge with existing data</p>
           <p className="mt-1">
             <span className="font-medium">Overwrite</span> months in this file:{" "}

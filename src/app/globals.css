@@ -64,6 +64,17 @@
    */
   --on-brand: #ffffff;
   --on-brand-muted: #94a3b8;
+  /*
+   * Two indicator hues that predate this palette: "linked" (a shared account)
+   * and "estimated" (a balance from an estimated end date). They are the
+   * Runway/Projections badge legend's remaining categorical pair. Kept as they
+   * looked, but tokenized — as raw violet-700/sky-700 they sat at 2.5:1 and
+   * 2.9:1 once the card behind them went dark.
+   */
+  --linked: #6d28d9;
+  --linked-soft: #f5f3ff;
+  --estimated: #0369a1;
+  --estimated-soft: #e0f2fe;
   /* Grid furniture: diagonal hatching and the one permitted hairline shadow. */
   --hatch: rgba(12, 35, 64, 0.07);
   --shadow: rgba(12, 35, 64, 0.08);
@@ -96,6 +107,10 @@
     --on-healthy: #0c111a;
     --accent-hover: #83cdd6;
     --brand-ground: #080d15;
+    --linked: #c4b5fd;
+    --linked-soft: #2a1f45;
+    --estimated: #7dd3fc;
+    --estimated-soft: #0c2a3d;
     --hatch: rgba(231, 235, 242, 0.09);
     --shadow: rgba(0, 0, 0, 0.5);
   }
@@ -126,6 +141,10 @@
   --on-healthy: #0c111a;
   --accent-hover: #83cdd6;
   --brand-ground: #080d15;
+  --linked: #c4b5fd;
+  --linked-soft: #2a1f45;
+  --estimated: #7dd3fc;
+  --estimated-soft: #0c2a3d;
   --hatch: rgba(231, 235, 242, 0.09);
   --shadow: rgba(0, 0, 0, 0.5);
 }
@@ -162,6 +181,10 @@
   --color-brand-ground: var(--brand-ground);
   --color-on-brand: var(--on-brand);
   --color-on-brand-muted: var(--on-brand-muted);
+  --color-linked: var(--linked);
+  --color-linked-soft: var(--linked-soft);
+  --color-estimated: var(--estimated);
+  --color-estimated-soft: var(--estimated-soft);
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -182,7 +205,12 @@ textarea,
 select {
   background-color: var(--surface);
   color: var(--ink);
-  border-color: var(--rule-strong);
+  /*
+   * --control, not --rule-strong: an input's fill matches the card it sits on,
+   * so the border is the only thing that delineates the control and has to
+   * clear 3:1 on its own. --rule-strong managed 1.75:1 against a dark card.
+   */
+  border-color: var(--control);
 }
 
 input::placeholder,

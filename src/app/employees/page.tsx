@@ -482,7 +482,7 @@ function EmployeeTableRow({
               <span className="ml-1.5 text-[10px] font-normal text-muted">(hidden)</span>
             )}
             {isAlumniView && (
-              <span className="ml-1.5 text-[10px] font-normal text-violet-600">Alumni</span>
+              <span className="ml-1.5 text-[10px] font-normal text-linked">Alumni</span>
             )}
           </div>
         </div>

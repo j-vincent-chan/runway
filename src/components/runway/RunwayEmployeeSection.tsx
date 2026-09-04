@@ -217,7 +217,7 @@ export function RunwayEmployeeSection({
                       !acct.isAssumedOk &&
                       !acct.isHidden &&
                       isLinked &&
-                      "bg-violet-50/50",
+                      "bg-linked-soft/50",
                     !isDeficit &&
                       !acct.isAssumedOk &&
                       !acct.isHidden &&
@@ -253,10 +253,10 @@ export function RunwayEmployeeSection({
                         <button
                           type="button"
                           className={cn(
-                            "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60",
+                            "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-estimated/60",
                             acct.isAssumedOk
-                              ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
-                              : "text-muted hover:bg-sky-50 hover:text-sky-700"
+                              ? "bg-estimated-soft text-estimated ring-1 ring-estimated/40 hover:bg-estimated/25"
+                              : "text-muted hover:bg-estimated-soft hover:text-estimated"
                           )}
                           title={
                             acct.isAssumedOk
@@ -395,7 +395,7 @@ function AccountIndicators({
 
   return (
     <p
-      className="mt-0.5 text-[10px] text-violet-700"
+      className="mt-0.5 text-[10px] text-linked"
       title={`${acct.sharedContributorCount} people on this account · ${formatCurrency(acct.sharedMonthlyBurn)}/mo combined burn`}
     >
       Shared · {acct.sharedContributorCount} people · {formatCurrency(acct.sharedMonthlyBurn)}/mo
@@ -477,7 +477,7 @@ function BurnPercentInput({
             "w-12 rounded-md border border-rule bg-surface px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
             readOnly && "cursor-default bg-inset text-ink-2",
             isOverride ? "border-accent bg-accent-soft/50" : "border-rule bg-surface",
-            isLinked && !isOverride && "border-violet-300 bg-violet-50/50",
+            isLinked && !isOverride && "border-linked/50 bg-linked-soft/50",
             !canLink && !readOnly && "opacity-50"
           )}
           title={
@@ -525,7 +525,7 @@ function BurnPercentInput({
             "w-[4.5rem] rounded-md border border-rule bg-surface px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
             readOnly && "cursor-default bg-inset text-ink-2",
             isOverride ? "border-accent bg-accent-soft/50" : "border-rule bg-surface",
-            isLinked && !isOverride && "border-violet-300 bg-violet-50/50"
+            isLinked && !isOverride && "border-linked/50 bg-linked-soft/50"
           )}
           title={
             isLinked
@@ -567,7 +567,7 @@ function BurnPercentInput({
         <p className="max-w-[11rem] text-right text-[10px] leading-snug text-muted">
           {isLinked && (
             <span
-              className="text-violet-700"
+              className="text-linked"
               title={`${sharedContributorCount} people · combined burn for runway`}
             >
               {formatCurrency(sharedMonthlyBurn)}/mo combined

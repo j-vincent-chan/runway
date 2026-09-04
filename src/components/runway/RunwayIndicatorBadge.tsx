@@ -12,12 +12,12 @@ export type RunwayIndicatorVariant =
   | "estimated";
 
 const STYLES: Record<RunwayIndicatorVariant, string> = {
-  linked: "bg-violet-50 text-violet-700",
+  linked: "bg-linked-soft text-linked",
   manual: "bg-accent-soft text-accent",
   report: "bg-inset text-ink-2",
   missing: "bg-caution-soft text-caution",
   assumedOk: "bg-inset text-ink-2",
-  estimated: "bg-sky-50 text-sky-700",
+  estimated: "bg-estimated-soft text-estimated",
 };
 
 export function RunwayIndicatorBadge({

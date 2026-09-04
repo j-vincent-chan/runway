@@ -28,18 +28,19 @@ export function LedgerName({
   const styles = sizeClasses[size];
   return (
     <span className={cn("inline-flex items-baseline leading-none", className)}>
-      <span className={cn(styles.name, light ? "text-white" : "text-ink")}>
+      <span className={cn(styles.name, light ? "text-on-brand" : "text-ink")}>
         {PRODUCT_NAME}
       </span>
       {showAlpha && (
         <sup
           /* Mono and muted: ALPHA is metadata. The rose was an orphan of the
              ImmunoX petal palette the mark no longer uses, and red is the
-             reserved critical semantic. */
+             reserved critical semantic. On the navy ground the metadata step
+             is --on-brand-muted; plain --muted sits at 3.05:1 there. */
           className={cn(
             "ml-1 font-mono font-medium leading-none",
             styles.alpha,
-            light ? "text-muted" : "text-muted"
+            light ? "text-on-brand-muted" : "text-muted"
           )}
         >
           ALPHA

@@ -36,7 +36,7 @@ export function PositionSalaryFilesCard() {
           <span className="text-xs font-semibold uppercase tracking-wide text-ink">
             3. Employee and Position Salary Report
           </span>
-          <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
+          <span className="rounded-full bg-estimated-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-estimated">
             Optional
           </span>
         </div>

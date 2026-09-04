@@ -27,7 +27,7 @@ export function AlertsList({
             a.severity === "urgent"
               ? "border-critical bg-critical-soft/50"
               : a.severity === "atRisk"
-                ? "border-orange-200 bg-orange-50/40"
+                ? "border-caution/40 bg-caution-soft/40"
                 : "border-rule bg-inset/50"
           )}
         >

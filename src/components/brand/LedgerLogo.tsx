@@ -16,8 +16,13 @@ export function LedgerLogo({
   /** Light-teal fills and translucent tracks for navy grounds (sidebar, login). */
   onDark?: boolean;
 }) {
-  const fill = onDark ? RUNWAY_ACCENT.onDark : RUNWAY_ACCENT.onLight;
-  const track = onDark ? "#FFFFFF" : "#DEEBEE";
+  /*
+   * The navy ground is dark in both themes, so it pins the on-dark teal over a
+   * translucent white track. Everywhere else the mark rides the theme: a fixed
+   * on-light teal with a light track inverted the meter on a dark card.
+   */
+  const fill = onDark ? RUNWAY_ACCENT.onDark : "var(--accent)";
+  const track = onDark ? "#FFFFFF" : "var(--accent-soft)";
   const trackOpacity = onDark ? 0.16 : 1;
 
   return (

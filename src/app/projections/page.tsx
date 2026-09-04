@@ -350,7 +350,7 @@ export default function ProjectionsPage() {
           )}
 
           {conflicts.length > 0 && (
-            <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+            <div className="rounded-lg border border-estimated/40 bg-estimated-soft px-3 py-2 text-xs text-estimated">
               <p className="font-medium">Payroll still disagrees with {conflicts.length} rule(s)</p>
               <ul className="mt-1 list-disc pl-4">
                 {conflicts.slice(0, 5).map((c) => (
