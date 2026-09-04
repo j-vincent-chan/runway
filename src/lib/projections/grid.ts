@@ -1,7 +1,10 @@
 import { roundPercentDisplay } from "@/lib/utils/parse";
 
 export const PROJECTION_MONTH_COL_MIN = 52;
-export const PROJECTION_LABEL_COL = 300;
+// 360, not 300: the fund rows carry eye/landmark/rule/remove buttons, the
+// rename input, and the project number. At 300 the fixed parts alone summed to
+// 321px, so the project number — last in the row — was clipped away entirely.
+export const PROJECTION_LABEL_COL = 360;
 export const PROJECTION_SCOPE_COL = 48;
 
 export function groupMonthsByYear(months: string[]): { year: string; months: string[] }[] {

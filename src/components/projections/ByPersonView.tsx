@@ -536,7 +536,7 @@ function EmployeeBlock({
                     }
                     compact
                     onSave={(base) => onSaveAlias(fs.id, base)}
-                    className={cn("shrink-0", hidden && "opacity-50")}
+                    className={cn("min-w-0", hidden && "opacity-50")}
                   />
                 </div>
                 {/* No sub-line: the rule's effect is the effort change already

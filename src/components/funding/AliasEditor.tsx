@@ -65,7 +65,12 @@ export function AliasEditor({
         className={cn(
           "rounded border border-rule bg-surface px-2 py-1 text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent",
           compact
-            ? cn(ALIAS_INPUT_WIDTH_CLASS, "shrink-0 text-xs")
+            ? // Shrinkable, with a floor. The project number beside it is the
+              // account's identifier and is shrink-0, so when the column runs
+              // short the alias — which scrolls inside its own input and is
+              // repeated in the title — is what gives way. Previously both
+              // were shrink-0, so the number was simply clipped off the end.
+              cn(ALIAS_INPUT_WIDTH_CLASS, "min-w-[7rem] text-xs")
             : fullWidth
               ? "min-w-[11.5rem] max-w-[36rem] w-auto text-sm [field-sizing:content]"
               : cn(ALIAS_INPUT_WIDTH_CLASS, "max-w-[280px] shrink-0 text-sm")

@@ -46,7 +46,9 @@ import type { AppSettings } from "@/types";
 
 /** Minimum month column width; columns grow equally to fill available space above this. */
 const MONTH_COL_MIN_WIDTH = 52;
-const LABEL_COL_WIDTH = 300;
+// See PROJECTION_LABEL_COL: wide enough that the alias input keeps its full
+// width and the project number beside it still fits.
+const LABEL_COL_WIDTH = 360;
 const APPT_COL_WIDTH = 48;
 
 function groupMonthsByYear(months: string[]): { year: string; months: string[] }[] {
