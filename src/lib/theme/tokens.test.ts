@@ -2,11 +2,19 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-function tsxFiles(dir: string): string[] {
+/**
+ * Both .tsx and .ts: class strings are not confined to components. The runway
+ * severity ramp lives in src/lib/runway/calculate.ts and the catalog fallback
+ * pills in src/lib/**, and scanning only .tsx let those keep raw palette
+ * classes through an entire tokenization pass. Test files are excluded — they
+ * legitimately quote class strings as expected values.
+ */
+function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
     const p = join(dir, e.name);
-    if (e.isDirectory()) return tsxFiles(p);
-    return e.name.endsWith(".tsx") ? [p] : [];
+    if (e.isDirectory()) return sourceFiles(p);
+    if (/\.(test|spec)\.tsx?$/.test(e.name)) return [];
+    return /\.tsx?$/.test(e.name) ? [p] : [];
   });
 }
 
@@ -101,7 +109,7 @@ describe("theme tokens", () => {
       /\b(?:[a-z-]+:)*(?:bg|text|border|ring|divide|from|to|via)-(?:white|black|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(?:-\d{2,3})?(?:\/(?:\[[^\]]+\]|\d+))?(?![\w-])/g;
 
     const offenders: string[] = [];
-    for (const file of tsxFiles(join(process.cwd(), "src"))) {
+    for (const file of sourceFiles(join(process.cwd(), "src"))) {
       for (const m of readFileSync(file, "utf8").matchAll(PALETTE)) {
         // Variants (hover:, focus-visible:, md:…) do not change which colour
         // is named, so the allowlist is keyed on the bare utility.

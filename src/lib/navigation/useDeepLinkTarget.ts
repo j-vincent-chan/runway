@@ -45,4 +45,4 @@ export function useDeepLinkTarget(
 
 /** Ring applied to a deep-linked row. Same treatment on every destination. */
 export const DEEP_LINK_HIGHLIGHT =
-  "ring-2 ring-inset ring-teal-600/70 scroll-mt-24";
+  "ring-2 ring-inset ring-accent/70 scroll-mt-24";

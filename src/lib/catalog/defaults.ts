@@ -42,8 +42,8 @@ export const DEFAULT_FUNDING_SOURCE_TYPES: FundingSourceTypeDef[] = [
   {
     id: "startup",
     label: "Start-up",
-    pillClass: "bg-[#0c2340] text-white ring-1 ring-[#0c2340]/30",
-    dotClass: "bg-slate-200",
+    pillClass: "bg-brand-ground text-on-brand ring-1 ring-brand-ground/30",
+    dotClass: "bg-rule",
     chartColor: "#0c2340",
     sortOrder: 0,
   },

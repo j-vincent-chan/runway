@@ -33,8 +33,8 @@ export function getAccountCategoryMeta(value: AccountCategory, settings?: AppSet
   return {
     value,
     label: value,
-    pillClass: "bg-slate-200 text-slate-700 ring-1 ring-slate-200/50",
-    dotClass: "bg-slate-500",
+    pillClass: "bg-inset text-ink-2 ring-1 ring-rule",
+    dotClass: "bg-muted",
     chartColor: "#94a3b8",
   };
 }

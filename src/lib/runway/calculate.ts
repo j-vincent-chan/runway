@@ -586,23 +586,30 @@ export function runwayHealthTier(months: number | null): RunwayHealthTier {
 export function runwayHealthDotClass(tier: RunwayHealthTier): string {
   switch (tier) {
     case "green":
-      return "bg-emerald-500";
+      return "bg-healthy";
     case "yellow":
-      return "bg-amber-400";
+      return "bg-caution";
     case "red":
-      return "bg-red-500";
+      return "bg-critical";
     default:
-      return "bg-slate-300";
+      return "bg-rule-strong";
   }
 }
 
+/**
+ * Thresholds are unchanged; only the hues move onto the reserved semantics so
+ * they follow the theme. The ramp keeps five steps by varying opacity within a
+ * severity rather than reaching for a sixth hue — the palette defines exactly
+ * three state colours, and the raw red-700/red-500 and amber-500/yellow-400
+ * pairs it used before did not flip at all.
+ */
 export function runwayUrgencyClass(months: number | null): string {
-  if (months === null) return "bg-slate-200";
-  if (months < 0) return "bg-red-700";
-  if (months < 3) return "bg-red-500";
-  if (months < 6) return "bg-amber-500";
-  if (months < 12) return "bg-yellow-400";
-  return "bg-emerald-500";
+  if (months === null) return "bg-rule";
+  if (months < 0) return "bg-critical";
+  if (months < 3) return "bg-critical/75";
+  if (months < 6) return "bg-caution";
+  if (months < 12) return "bg-caution/70";
+  return "bg-healthy";
 }
 
 export function isRunwayStatusLabel(months: number | null): boolean {
@@ -611,10 +618,10 @@ export function isRunwayStatusLabel(months: number | null): boolean {
 
 export function runwayLabelClass(months: number | null): string {
   if (months !== null && months < 0) {
-    return "inline-flex min-h-[1.125rem] items-center justify-center rounded bg-red-600 px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-white shadow-sm";
+    return "inline-flex min-h-[1.125rem] items-center justify-center rounded bg-critical px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-on-critical shadow-sm";
   }
   if (months === 0) {
-    return "inline-flex min-h-[1.125rem] items-center justify-center rounded bg-red-100 px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-red-800 ring-1 ring-red-200";
+    return "inline-flex min-h-[1.125rem] items-center justify-center rounded bg-critical-soft px-2 py-0.5 text-center text-[10px] font-semibold leading-none text-critical ring-1 ring-critical/40";
   }
-  return "text-slate-700";
+  return "text-ink-2";
 }
