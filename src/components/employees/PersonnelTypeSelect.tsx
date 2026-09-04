@@ -35,7 +35,7 @@ function PersonnelTypePill({
   return (
     <span
       className={cn(
-        "inline-flex max-w-full items-center rounded-full bg-slate-100 px-2.5 py-1 text-left text-xs font-medium leading-snug text-slate-700 ring-1 ring-slate-200",
+        "inline-flex max-w-full items-center rounded-full bg-inset px-2.5 py-1 text-left text-xs font-medium leading-snug text-ink-2 ring-1 ring-rule",
         className
       )}
       title={meta.label}
@@ -75,7 +75,7 @@ export function PersonnelTypeSelect({
           "flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1 text-left",
           value
             ? "border-transparent bg-transparent"
-            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+            : "border-rule bg-surface text-muted hover:bg-inset"
         )}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -84,14 +84,14 @@ export function PersonnelTypeSelect({
           {value ? (
             <PersonnelTypePill type={value} />
           ) : (
-            <span className="text-xs text-slate-500">Select team</span>
+            <span className="text-xs text-muted">Select team</span>
           )}
         </span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted" />
       </button>
       {open && (
         <div
-          className="absolute left-0 z-30 mt-1 w-[12.5rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 z-30 mt-1 w-[12.5rem] rounded-lg border border-rule bg-surface py-1 shadow-lg"
           role="listbox"
         >
           {groups.map((t) => (
@@ -100,7 +100,7 @@ export function PersonnelTypeSelect({
               type="button"
               role="option"
               aria-selected={value === t.id}
-              className="flex w-full justify-start px-2 py-1.5 text-left hover:bg-slate-50"
+              className="flex w-full justify-start px-2 py-1.5 text-left hover:bg-inset"
               onClick={() => {
                 onChange(t.id);
                 setOpen(false);
@@ -112,7 +112,7 @@ export function PersonnelTypeSelect({
           {value && (
             <button
               type="button"
-              className="w-full border-t px-2 py-1.5 text-left text-[10px] text-slate-500 hover:bg-slate-50"
+              className="w-full border-t px-2 py-1.5 text-left text-[10px] text-muted hover:bg-inset"
               onClick={() => {
                 onChange(null);
                 setOpen(false);

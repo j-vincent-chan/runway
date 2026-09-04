@@ -122,20 +122,20 @@ export function OrgStructureBoard({
           <div className="mx-auto max-w-lg space-y-2">
             <input
               autoFocus
-              className="w-full border-b-2 border-[#0c2340] bg-transparent text-center text-3xl font-bold text-[#0c2340] outline-none"
+              className="w-full border-b-2 border-brand-ground bg-transparent text-center text-3xl font-bold text-ink outline-none"
               value={titleDraft}
               onChange={(e) => setTitleDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && commitTitleEdit()}
             />
             <input
-              className="w-full border-b border-slate-300 bg-transparent text-center text-sm text-sky-700 outline-none"
+              className="w-full border-b border-control bg-transparent text-center text-sm text-sky-700 outline-none"
               value={subtitleDraft}
               onChange={(e) => setSubtitleDraft(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && commitTitleEdit()}
             />
             <button
               type="button"
-              className="text-xs text-teal-700 hover:underline"
+              className="text-xs text-accent hover:underline"
               onClick={commitTitleEdit}
             >
               Done editing
@@ -148,7 +148,7 @@ export function OrgStructureBoard({
             title="Click to edit title and subtitle"
             onClick={() => setEditingTitle(true)}
           >
-            <h2 className="text-3xl font-bold text-[#0c2340] group-hover:text-teal-900">
+            <h2 className="text-3xl font-bold text-ink group-hover:text-accent">
               {structure.title ?? DEFAULT_ORG_TITLE}
             </h2>
             <p className="mt-1 text-sm font-medium text-sky-700 group-hover:text-sky-800">
@@ -163,7 +163,7 @@ export function OrgStructureBoard({
         <div
           className={cn(
             "min-h-[4.5rem] transition-colors",
-            dropTarget?.branchId === null && dropTarget.index === -1 && "rounded-full ring-2 ring-teal-400"
+            dropTarget?.branchId === null && dropTarget.index === -1 && "rounded-full ring-2 ring-accent"
           )}
           onDragOver={(e) => {
             e.preventDefault();
@@ -182,13 +182,13 @@ export function OrgStructureBoard({
               onDragEnd={endDrag}
             />
           ) : (
-            <div className="flex h-16 min-w-[14rem] items-center justify-center rounded-full border-2 border-dashed border-slate-300 bg-slate-50 px-6 text-sm text-slate-500">
+            <div className="flex h-16 min-w-[14rem] items-center justify-center rounded-full border-2 border-dashed border-control bg-inset px-6 text-sm text-muted">
               Drag director here
             </div>
           )}
         </div>
         {structure.branches.length > 0 && (
-          <div className="mt-0 h-10 w-0.5 bg-slate-400" aria-hidden />
+          <div className="mt-0 h-10 w-0.5 bg-muted" aria-hidden />
         )}
       </div>
 
@@ -196,7 +196,7 @@ export function OrgStructureBoard({
       {structure.branches.length > 0 && (
         <div className="relative mt-0 px-4">
           <div
-            className="pointer-events-none absolute left-[8%] right-[8%] top-0 h-0.5 bg-slate-400"
+            className="pointer-events-none absolute left-[8%] right-[8%] top-0 h-0.5 bg-muted"
             aria-hidden
           />
           <div className="flex justify-center gap-6 overflow-x-auto pb-4 pt-6">
@@ -249,10 +249,10 @@ export function OrgStructureBoard({
       )}
 
       {/* Edit toolbar */}
-      <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-6 text-xs text-slate-500">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3 border-t border-rule pt-6 text-xs text-muted">
         <button
           type="button"
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 hover:bg-slate-50"
+          className="inline-flex items-center gap-1 rounded-lg border border-rule bg-surface px-3 py-1.5 hover:bg-inset"
           onClick={() => onStructureChange(addOrgBranch(structure, "New branch"))}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -261,7 +261,7 @@ export function OrgStructureBoard({
         {unassigned.length > 0 && (
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-900 hover:bg-amber-100"
+            className="inline-flex items-center gap-1 rounded-lg border border-caution bg-caution-soft px-3 py-1.5 text-caution hover:bg-caution-soft"
             onClick={() => setShowUnassigned((v) => !v)}
           >
             {showUnassigned ? (
@@ -328,7 +328,7 @@ function ChartColumn({
     <div
       className={cn(
         "flex w-[min(100%,13.5rem)] shrink-0 flex-col items-center",
-        isActive && "rounded-lg ring-2 ring-teal-200"
+        isActive && "rounded-lg ring-2 ring-accent"
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -342,13 +342,13 @@ function ChartColumn({
         onDropAt(id, branch.id, branch.employeeIds.length);
       }}
     >
-      <div className="mb-4 h-6 w-0.5 bg-slate-400" aria-hidden />
+      <div className="mb-4 h-6 w-0.5 bg-muted" aria-hidden />
 
       <div className="group/header relative w-full text-center">
         {editingName ? (
           <input
             autoFocus
-            className="w-full border-b border-slate-300 bg-transparent text-center text-xs font-semibold uppercase tracking-[0.12em] text-slate-600 outline-none"
+            className="w-full border-b border-control bg-transparent text-center text-xs font-semibold uppercase tracking-[0.12em] text-ink-2 outline-none"
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onBlur={() => {
@@ -365,7 +365,7 @@ function ChartColumn({
         ) : (
           <button
             type="button"
-            className="w-full text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 hover:text-[#0c2340]"
+            className="w-full text-xs font-semibold uppercase tracking-[0.12em] text-muted hover:text-ink"
             onClick={() => setEditingName(true)}
           >
             {branch.name}
@@ -373,7 +373,7 @@ function ChartColumn({
         )}
         <button
           type="button"
-          className="absolute -right-1 top-0 rounded p-0.5 text-slate-300 opacity-0 hover:text-red-600 group-hover/header:opacity-100"
+          className="absolute -right-1 top-0 rounded p-0.5 text-muted opacity-0 hover:text-critical group-hover/header:opacity-100"
           title="Remove branch"
           onClick={onRemove}
         >
@@ -383,7 +383,7 @@ function ChartColumn({
 
       <div className="mt-4 flex w-full flex-col items-center gap-3">
         {branch.employeeIds.length === 0 ? (
-          <p className="py-6 text-center text-[10px] text-slate-400">Drop here</p>
+          <p className="py-6 text-center text-[10px] text-muted">Drop here</p>
         ) : (
           branch.employeeIds.map((id, index) => {
             const emp = empMap.get(id);
@@ -428,7 +428,7 @@ function AddBranchColumn({ onAdd, wide }: { onAdd: () => void; wide?: boolean })
     <button
       type="button"
       className={cn(
-        "flex shrink-0 flex-col items-center justify-center gap-1 self-start rounded-lg border-2 border-dashed border-slate-200 text-slate-400 hover:border-teal-400 hover:text-teal-700",
+        "flex shrink-0 flex-col items-center justify-center gap-1 self-start rounded-lg border-2 border-dashed border-rule text-muted hover:border-accent hover:text-accent",
         wide ? "mt-16 min-h-[8rem] w-48" : "mt-10 h-32 w-28"
       )}
       onClick={onAdd}
@@ -458,7 +458,7 @@ function UnassignedStrip({
 }) {
   return (
     <div
-      className="mt-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4"
+      className="mt-4 rounded-xl border border-caution bg-caution-soft/50 p-4"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -466,7 +466,7 @@ function UnassignedStrip({
         if (id) onDropAt(id, null, 0);
       }}
     >
-      <p className="mb-3 text-xs font-medium text-amber-900">Unassigned — drag onto the chart</p>
+      <p className="mb-3 text-xs font-medium text-caution">Unassigned — drag onto the chart</p>
       <div className="flex flex-wrap justify-center gap-3">
         {employeeIds.map((id) => {
           const emp = empMap.get(id);
@@ -517,7 +517,7 @@ function DropIndicator({
       }}
       className={cn(
         "w-full rounded-full transition-all",
-        active ? "my-0.5 h-1.5 bg-teal-500" : "h-1 bg-transparent"
+        active ? "my-0.5 h-1.5 bg-accent" : "h-1 bg-transparent"
       )}
     />
   );

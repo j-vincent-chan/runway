@@ -50,17 +50,17 @@ export function PayrollReportCard() {
       : null;
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4">
+    <section className="rounded-xl border border-rule bg-surface shadow-sm">
+      <div className="border-b border-rule px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#0c2340]">
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink">
             1. Payroll Funding Report
           </span>
-          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-800">
+          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold uppercase text-accent">
             Required
           </span>
         </div>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-2">
           Powers the personnel funding timeline, coverage gaps, account views, and salary + benefits
           calculations. Upload multiple reports — overlapping months are replaced by newer files.
         </p>
@@ -80,7 +80,7 @@ export function PayrollReportCard() {
         <div className={DATA_SOURCE_DROPZONE_MIN_H}>
           {payrollImports.length === 0 && !pendingPreview ? (
             <div
-              className={`flex h-full ${DATA_SOURCE_DROPZONE_MIN_H} items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/30 p-4 text-center text-sm text-slate-500`}
+              className={`flex h-full ${DATA_SOURCE_DROPZONE_MIN_H} items-center justify-center rounded-lg border border-dashed border-rule bg-inset/30 p-4 text-center text-sm text-muted`}
             >
               {pendingPreview
                 ? "Confirm the preview below to load this report into Runway."
@@ -88,7 +88,7 @@ export function PayrollReportCard() {
             </div>
           ) : (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                 Uploaded files ({payrollImports.length})
               </p>
               <ul className="mt-2 space-y-2">
@@ -97,33 +97,33 @@ export function PayrollReportCard() {
                   return (
                     <li
                       key={imp.id}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2"
+                      className="flex items-start justify-between gap-2 rounded-lg border border-rule bg-inset/50 px-3 py-2"
                     >
                       <div className="flex min-w-0 gap-2">
-                        <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                        <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-800">
+                          <p className="truncate text-sm font-medium text-ink">
                             {imp.sourceFileName}
                           </p>
-                          <p className="mt-0.5 text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs text-muted">
                             {formatMonthRange(imp.snapshot)} · {imp.employeeCount} employees ·{" "}
                             {imp.fundingSourceCount} funding sources
                           </p>
-                          <p className="text-xs text-slate-500">
+                          <p className="text-xs text-muted">
                             Imported {new Date(imp.uploadedAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         {isLatest && (
-                          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-800">
+                          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
                             Latest
                           </span>
                         )}
                         <StatusBadge status={imp.parseStatus} />
                         <button
                           type="button"
-                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          className="rounded p-1 text-muted hover:bg-critical-soft hover:text-critical"
                           title="Remove this import"
                           onClick={() => removePayrollImport(imp.id)}
                         >
@@ -135,26 +135,26 @@ export function PayrollReportCard() {
                 })}
               </ul>
               {loaded && (
-                <div className="mt-3 flex flex-wrap gap-2 border-t border-slate-200 pt-3">
+                <div className="mt-3 flex flex-wrap gap-2 border-t border-rule pt-3">
                   <button
                     type="button"
                     onClick={() => setShowParsedPreview((v) => !v)}
-                    className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    className="rounded-lg border border-control bg-surface px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-inset"
                   >
                     {showParsedPreview ? "Hide parsed data" : "View Parsed Data"}
                   </button>
                   <Link
                     href="/timeline"
-                    className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
                   >
                     View Distributions
                   </Link>
                 </div>
               )}
               {showParsedPreview && snapshot && (
-                <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3 text-sm">
-                  <p className="font-medium text-[#0c2340]">Merged dataset</p>
-                  <p className="mt-1 text-slate-600">
+                <div className="mt-3 rounded-lg border border-rule bg-surface p-3 text-sm">
+                  <p className="font-medium text-ink">Merged dataset</p>
+                  <p className="mt-1 text-ink-2">
                     {snapshot.monthlyAllocations.length} allocations · {snapshot.monthlyCosts.length}{" "}
                     cost rows · {formatMonthRange(snapshot)}
                   </p>
@@ -165,8 +165,8 @@ export function PayrollReportCard() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-t border-slate-100 px-5 py-3 text-xs text-slate-600">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+      <div className="flex gap-2 border-t border-rule px-5 py-3 text-xs text-ink-2">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" />
         <p>
           Overlapping months are replaced by the newer report. Removing a file re-builds the merged
           dataset from the remaining uploads.
@@ -174,7 +174,7 @@ export function PayrollReportCard() {
       </div>
 
       {uploadWarnings.length > 0 && (
-        <ul className="border-t border-amber-100 bg-amber-50/50 px-5 py-2 text-xs text-amber-800">
+        <ul className="border-t border-caution bg-caution-soft/50 px-5 py-2 text-xs text-caution">
           {uploadWarnings.map((w) => (
             <li key={w.id}>{w.message}</li>
           ))}
@@ -182,7 +182,7 @@ export function PayrollReportCard() {
       )}
 
       {pendingPreview && pendingSnapshot && (
-        <div className="border-t border-slate-100 px-5 pb-5">
+        <div className="border-t border-rule px-5 pb-5">
           <PayrollImportPreview
             preview={pendingPreview}
             snapshot={pendingSnapshot}

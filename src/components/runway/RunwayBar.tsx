@@ -40,7 +40,7 @@ export function RunwayBar({
             : undefined
         }
       >
-        <div className="relative h-3 overflow-visible rounded-sm bg-slate-100">
+        <div className="relative h-3 overflow-visible rounded-sm bg-inset">
           <div
             className={cn(
               "absolute inset-y-0 left-0 rounded-sm transition-all",
@@ -54,17 +54,17 @@ export function RunwayBar({
               className="pointer-events-none absolute inset-y-0 right-0 flex items-center"
               aria-hidden
             >
-              <div className="absolute right-0 top-1/2 h-5 w-8 -translate-y-1/2 bg-emerald-500/80" />
+              <div className="absolute right-0 top-1/2 h-5 w-8 -translate-y-1/2 bg-healthy/80" />
               <div className="relative flex items-center">
-                <span className="absolute -right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-emerald-400/70 blur-[3px]" />
-                <span className="absolute right-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-emerald-300" />
-                <Sparkles className="relative -mr-2.5 h-4 w-4 text-emerald-600 drop-shadow-sm" />
+                <span className="absolute -right-1 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full bg-healthy/70 blur-[3px]" />
+                <span className="absolute right-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-healthy" />
+                <Sparkles className="relative -mr-2.5 h-4 w-4 text-healthy drop-shadow-sm" />
               </div>
             </div>
           )}
         </div>
         {showScale && (
-          <div className="mt-0.5 flex justify-between text-[8px] tabular-nums text-slate-300">
+          <div className="mt-0.5 flex justify-between text-[8px] tabular-nums text-muted">
             <span>0</span>
             <span>3 yr</span>
           </div>
@@ -79,7 +79,7 @@ export function RunwayBar({
               : cn(
                   "min-w-[3.25rem] text-right tabular-nums",
                   runwayLabelClass(months),
-                  beyondCap && "font-semibold text-emerald-800"
+                  beyondCap && "font-semibold text-healthy"
                 )
           )}
         >

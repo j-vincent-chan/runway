@@ -94,19 +94,19 @@ export function EmployeeEditDialog({
       }}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
+        className="w-full max-w-md rounded-xl border border-rule bg-surface p-5 shadow-xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-2">
           <div>
-            <h2 id="employee-edit-title" className="text-lg font-semibold text-[#0c2340]">
+            <h2 id="employee-edit-title" className="text-lg font-semibold text-ink">
               Edit employee
             </h2>
-            <p className="text-sm text-slate-500">{employee.name}</p>
+            <p className="text-sm text-muted">{employee.name}</p>
           </div>
           <button
             type="button"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded p-1 text-muted hover:bg-inset hover:text-ink-2"
             aria-label="Close"
             onClick={onClose}
           >
@@ -116,7 +116,7 @@ export function EmployeeEditDialog({
 
         {onUploadFile && (
           <div className="mb-4">
-            <p className="mb-2 text-sm font-medium text-slate-700">Upload photo</p>
+            <p className="mb-2 text-sm font-medium text-ink-2">Upload photo</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -127,19 +127,19 @@ export function EmployeeEditDialog({
             <button
               type="button"
               disabled={uploading}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded-lg border border-rule px-3 py-1.5 text-sm text-ink-2 hover:bg-inset disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
             >
               {uploading ? "Uploading…" : "Choose image"}
             </button>
-            <p className="mt-1 text-xs text-slate-500">Saved to Supabase Storage (max 5 MB).</p>
+            <p className="mt-1 text-xs text-muted">Saved to Supabase Storage (max 5 MB).</p>
           </div>
         )}
 
-        <label htmlFor="employee-photo-url" className="block text-sm font-medium text-slate-700">
+        <label htmlFor="employee-photo-url" className="block text-sm font-medium text-ink-2">
           Photo URL
         </label>
-        <p className="mb-2 text-xs text-slate-500">
+        <p className="mb-2 text-xs text-muted">
           Paste a link to a square image (optional). Shown as a circle next to the name.
           {onUploadFile ? " Saved to Supabase when you click Save." : ""}
         </p>
@@ -147,7 +147,7 @@ export function EmployeeEditDialog({
           id="employee-photo-url"
           type="text"
           autoComplete="off"
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-rule px-3 py-2 text-sm"
           placeholder="https://…"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -159,12 +159,12 @@ export function EmployeeEditDialog({
           }}
         />
 
-        {uploadError && <p className="mt-2 text-xs text-red-600">{uploadError}</p>}
+        {uploadError && <p className="mt-2 text-xs text-critical">{uploadError}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border border-rule px-3 py-1.5 text-sm text-ink-2 hover:bg-inset"
             onClick={onClose}
           >
             Cancel
@@ -172,7 +172,7 @@ export function EmployeeEditDialog({
           <button
             type="button"
             disabled={uploading}
-            className="rounded-lg bg-[#0c2340] px-3 py-1.5 text-sm font-medium text-white hover:bg-[#0c2340]/90 disabled:opacity-50"
+            className="rounded-lg bg-brand-ground px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-ground/90 disabled:opacity-50"
             onClick={handleSave}
           >
             Save

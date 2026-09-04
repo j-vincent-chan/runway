@@ -13,10 +13,10 @@ export type RunwayIndicatorVariant =
 
 const STYLES: Record<RunwayIndicatorVariant, string> = {
   linked: "bg-violet-50 text-violet-700",
-  manual: "bg-teal-50 text-teal-700",
-  report: "bg-slate-100 text-slate-600",
-  missing: "bg-amber-50 text-amber-800",
-  assumedOk: "bg-slate-100 text-slate-600",
+  manual: "bg-accent-soft text-accent",
+  report: "bg-inset text-ink-2",
+  missing: "bg-caution-soft text-caution",
+  assumedOk: "bg-inset text-ink-2",
   estimated: "bg-sky-50 text-sky-700",
 };
 
@@ -58,10 +58,10 @@ export function RunwayIndicatorBadge({
 export function RunwayIndicatorLegend() {
   return (
     <div
-      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-[10px] text-slate-600"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-rule bg-inset/80 px-3 py-2 text-[10px] text-ink-2"
       role="note"
     >
-      <span className="font-medium text-slate-500">Legend</span>
+      <span className="font-medium text-muted">Legend</span>
       <RunwayIndicatorBadge variant="linked" title="Shared account — runway uses combined burn">
         Linked
       </RunwayIndicatorBadge>

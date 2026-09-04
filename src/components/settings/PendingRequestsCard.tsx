@@ -73,20 +73,20 @@ export function PendingRequestsCard() {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-teal-700/40 bg-white p-5 shadow-sm">
-      <h3 className="font-semibold text-[#0c2340]">Access requests</h3>
-      <p className="text-sm text-slate-600">
+    <section className="space-y-3 rounded-xl border border-accent/40 bg-surface p-5 shadow-sm">
+      <h3 className="font-semibold text-ink">Access requests</h3>
+      <p className="text-sm text-ink-2">
         These people asked to work in your workspace as financial analysts. Approving gives
         them the same view and edit access you have, until you remove them below.
       </p>
-      <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+      <ul className="divide-y divide-rule rounded-lg border border-rule">
         {requests.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-slate-800">
+              <p className="truncate text-sm font-medium text-ink">
                 {r.analystName ? `${r.analystName} · ${r.analystEmail}` : r.analystEmail}
               </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-muted">
                 Asked {formatIsoDateDisplay(r.createdAt) ?? r.createdAt}
                 {r.note ? ` · “${r.note}”` : ""}
               </p>
@@ -96,7 +96,7 @@ export function PendingRequestsCard() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void respond(r, true)}
-                className="inline-flex items-center gap-1 rounded-lg bg-teal-700 px-2.5 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg bg-accent px-2.5 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
               >
                 <Check className="h-3.5 w-3.5" aria-hidden />
                 Approve
@@ -105,7 +105,7 @@ export function PendingRequestsCard() {
                 type="button"
                 disabled={busyId === r.id}
                 onClick={() => void respond(r, false)}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded-lg border border-control px-2.5 py-1.5 text-sm font-medium text-ink-2 hover:bg-inset disabled:opacity-50"
               >
                 <X className="h-3.5 w-3.5" aria-hidden />
                 Decline
@@ -114,7 +114,7 @@ export function PendingRequestsCard() {
           </li>
         ))}
       </ul>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-critical">{error}</p>}
     </section>
   );
 }

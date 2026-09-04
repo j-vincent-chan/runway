@@ -137,19 +137,19 @@ function EmployeesPageContent() {
       <main
         className={cn(
           "flex-1 overflow-auto p-6",
-          pageTab === "structure" && "bg-white"
+          pageTab === "structure" && "bg-surface"
         )}
       >
         {/* One toolbar row instead of two stacked toggle rows — the review's
             "heavy header" note. Roster/Structure and the roster's own controls
             share the line; the import button sits at the far end. */}
         <div className="mb-4 flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
+          <div className="inline-flex rounded-lg border border-rule bg-surface p-0.5 text-sm shadow-sm">
             <button
               type="button"
               className={cn(
                 "rounded-md px-3 py-1.5 font-medium",
-                pageTab === "roster" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+                pageTab === "roster" ? "bg-brand-ground text-white" : "text-ink-2 hover:bg-inset"
               )}
               onClick={() => selectPageTab("roster")}
             >
@@ -159,7 +159,7 @@ function EmployeesPageContent() {
               type="button"
               className={cn(
                 "rounded-md px-3 py-1.5 font-medium",
-                pageTab === "structure" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+                pageTab === "structure" ? "bg-brand-ground text-white" : "text-ink-2 hover:bg-inset"
               )}
               onClick={() => selectPageTab("structure")}
             >
@@ -168,12 +168,12 @@ function EmployeesPageContent() {
           </div>
           {pageTab === "roster" && hasData && snapshot && (
             <>
-              <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm">
+              <div className="inline-flex rounded-lg border border-rule bg-surface p-0.5 text-sm shadow-sm">
                 <button
                   type="button"
                   className={cn(
                     "rounded-md px-3 py-1.5 font-medium",
-                    view === "active" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+                    view === "active" ? "bg-brand-ground text-white" : "text-ink-2 hover:bg-inset"
                   )}
                   onClick={() => setView("active")}
                 >
@@ -183,7 +183,7 @@ function EmployeesPageContent() {
                   type="button"
                   className={cn(
                     "rounded-md px-3 py-1.5 font-medium",
-                    view === "alumni" ? "bg-[#0c2340] text-white" : "text-slate-600 hover:bg-slate-50"
+                    view === "alumni" ? "bg-brand-ground text-white" : "text-ink-2 hover:bg-inset"
                   )}
                   onClick={() => setView("alumni")}
                 >
@@ -191,12 +191,12 @@ function EmployeesPageContent() {
                 </button>
               </div>
               {view === "active" && hiddenCount > 0 && (
-                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-slate-600">
+                <label className="flex cursor-pointer items-center gap-1.5 text-xs text-ink-2">
                   <input
                     type="checkbox"
                     checked={showHidden}
                     onChange={(e) => setShowHidden(e.target.checked)}
-                    className="rounded border-slate-300"
+                    className="rounded border-control"
                   />
                   Show {hiddenCount} hidden employee{hiddenCount === 1 ? "" : "s"}
                 </label>
@@ -206,24 +206,24 @@ function EmployeesPageContent() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Filter by name, role, or ID…"
-                className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                className="w-full max-w-xs rounded-lg border border-rule bg-surface px-3 py-1.5 text-sm text-ink shadow-sm placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               />
               <button
                 type="button"
                 disabled={ocrSyncBusy}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                className="rounded-lg border border-rule bg-surface px-3 py-1.5 text-sm font-medium text-ink-2 shadow-sm hover:bg-inset disabled:opacity-50"
                 title="Pull headshots from your lab People page"
                 onClick={() => setShowLabPhotoPrompt(true)}
               >
                 {ocrSyncBusy ? "Importing…" : "Import photos from your lab website"}
               </button>
               {showLabPhotoPrompt && (
-                <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                  <label className="text-xs font-medium text-slate-700">
+                <div className="flex w-full flex-wrap items-center gap-2 rounded-lg border border-rule bg-inset px-3 py-2">
+                  <label className="text-xs font-medium text-ink-2">
                     Page URL
                     <input
                       type="url"
-                      className="ml-2 w-[min(100%,22rem)] rounded border border-slate-300 bg-white px-2 py-1 text-sm"
+                      className="ml-2 w-[min(100%,22rem)] rounded border border-control bg-surface px-2 py-1 text-sm"
                       value={labPhotoUrl}
                       onChange={(e) => setLabPhotoUrl(e.target.value)}
                       placeholder="https://yoursite.edu/people"
@@ -232,7 +232,7 @@ function EmployeesPageContent() {
                   <button
                     type="button"
                     disabled={ocrSyncBusy || !labPhotoUrl.trim()}
-                    className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
                     onClick={() => {
                       void (async () => {
                         setOcrSyncBusy(true);
@@ -263,7 +263,7 @@ function EmployeesPageContent() {
                   </button>
                   <button
                     type="button"
-                    className="rounded-lg border px-3 py-1.5 text-sm text-slate-600 hover:bg-white"
+                    className="rounded-lg border px-3 py-1.5 text-sm text-ink-2 hover:bg-surface"
                     onClick={() => setShowLabPhotoPrompt(false)}
                   >
                     Cancel
@@ -271,7 +271,7 @@ function EmployeesPageContent() {
                 </div>
               )}
               {ocrSyncMessage && (
-                <span className="text-xs text-slate-600">{ocrSyncMessage}</span>
+                <span className="text-xs text-ink-2">{ocrSyncMessage}</span>
               )}
             </>
           )}
@@ -282,13 +282,13 @@ function EmployeesPageContent() {
         ) : !hasData || !snapshot ? (
           <EmptyState />
         ) : (
-          <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+          <div className="overflow-x-auto rounded-xl border bg-surface shadow-sm">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[#0c2340] text-xs text-white">
+                <thead className="bg-brand-ground text-xs text-white">
                   <tr>
                     {/* Pinned like Runway's months column: identity must stay
                         on screen while the rest of the row scrolls at 1440. */}
-                    <th className="sticky left-0 z-10 bg-[#0c2340] px-3 py-2">Employee</th>
+                    <th className="sticky left-0 z-10 bg-brand-ground px-3 py-2">Employee</th>
                     <th className="min-w-[9.5rem] px-3 py-2">Team</th>
                     <th className="min-w-[8rem] px-3 py-2">Start date</th>
                     {view === "alumni" && <th className="min-w-[7rem] px-3 py-2">End date</th>}
@@ -306,7 +306,7 @@ function EmployeesPageContent() {
                     <tr>
                       <td
                         colSpan={view === "alumni" ? 11 : 10}
-                        className="px-3 py-8 text-center text-slate-500"
+                        className="px-3 py-8 text-center text-muted"
                       >
                         {view === "alumni"
                           ? "No alumni yet. Use the row menu on an active employee to move someone here."
@@ -354,7 +354,7 @@ function EmployeesPageContent() {
                   )}
                 </tbody>
               </table>
-              <p className="border-t px-3 py-2 text-xs text-slate-500">
+              <p className="border-t px-3 py-2 text-xs text-muted">
                 Planning estimates only. Confirm with your finance/post-award analyst. Hidden employees
                 are excluded from timeline and runway; alumni are kept for reference only.
               </p>
@@ -461,17 +461,17 @@ function EmployeeTableRow({
   return (
     <tr
       className={cn(
-        "group border-t hover:bg-slate-50",
-        isHidden && "bg-slate-50/80 opacity-75",
-        isAlumniView && "bg-slate-50/50"
+        "group border-t hover:bg-inset",
+        isHidden && "bg-inset/80 opacity-75",
+        isAlumniView && "bg-inset/50"
       )}
     >
       {/* Sticky cells need their own opaque fill, mirroring the row states. */}
       <td
         className={cn(
-          "sticky left-0 z-[1] bg-white px-3 py-2 group-hover:bg-slate-50",
-          isHidden && "bg-slate-100",
-          isAlumniView && "bg-slate-50"
+          "sticky left-0 z-[1] bg-surface px-3 py-2 group-hover:bg-inset",
+          isHidden && "bg-inset",
+          isAlumniView && "bg-inset"
         )}
       >
         <div className="flex items-center gap-2.5">
@@ -479,7 +479,7 @@ function EmployeeTableRow({
           <div className="min-w-0">
             <span className="font-medium">{emp.name}</span>
             {isHidden && (
-              <span className="ml-1.5 text-[10px] font-normal text-slate-400">(hidden)</span>
+              <span className="ml-1.5 text-[10px] font-normal text-muted">(hidden)</span>
             )}
             {isAlumniView && (
               <span className="ml-1.5 text-[10px] font-normal text-violet-600">Alumni</span>
@@ -509,7 +509,7 @@ function EmployeeTableRow({
             type="date"
             value={getEmployeeEndDate(settings, emp.id) ?? ""}
             onChange={(e) => onEndDateChange(e.target.value || null)}
-            className="w-full min-w-[7rem] rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-800"
+            className="w-full min-w-[7rem] rounded border border-rule px-1.5 py-0.5 text-xs text-ink"
             title="Employment end date"
           />
         </td>
@@ -533,10 +533,10 @@ function EmployeeTableRow({
       </td>
       <td className="px-3 py-2">
         {cov.allocatedPercent.toFixed(0)}%
-        <span className="text-slate-400"> / {getEffectiveExpectedPercent(emp, settings)}%</span>
+        <span className="text-muted"> / {getEffectiveExpectedPercent(emp, settings)}%</span>
       </td>
       {/* Amber only when there is a gap — an em-dash is not a caution state. */}
-      <td className={cn("px-3 py-2", gaps ? "text-amber-700" : "text-slate-400")}>
+      <td className={cn("px-3 py-2", gaps ? "text-caution" : "text-muted")}>
         {gaps ? formatMonthDisplay(gaps) : "—"}
       </td>
       <td className="px-3 py-2">{formatCurrency(cost.total)}</td>

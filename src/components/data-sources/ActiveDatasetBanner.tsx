@@ -12,20 +12,20 @@ export function ActiveDatasetBanner({
   snapshot: PayrollReportSnapshot;
 }) {
   return (
-    <div className="rounded-xl border border-teal-200 bg-teal-50 px-5 py-4 shadow-sm">
+    <div className="rounded-xl border border-accent bg-accent-soft px-5 py-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 flex-1 gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white shadow-sm">
-            <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface shadow-sm">
+            <CheckCircle2 className="h-5 w-5 text-healthy" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <FileSpreadsheet className="h-4 w-4 shrink-0 text-teal-800" />
-              <p className="truncate font-semibold text-[#0c2340]">
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-accent" />
+              <p className="truncate font-semibold text-ink">
                 Merged payroll dataset · {snapshot.sourceFileName}
               </p>
             </div>
-            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+            <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-2">
               <div>
                 <dt className="sr-only">Imported</dt>
                 <dd>Updated {new Date(snapshot.uploadedAt).toLocaleString()}</dd>
@@ -36,14 +36,14 @@ export function ActiveDatasetBanner({
                   {/* "on the report" names the scope: planning pages count a
                       smaller active roster (hidden and alumni removed), so the
                       raw report total needs to say which set it is. */}
-                  <span className="font-medium text-slate-800">{snapshot.employees.length}</span>{" "}
+                  <span className="font-medium text-ink">{snapshot.employees.length}</span>{" "}
                   employees on the report
                 </dd>
               </div>
               <div>
                 <dt className="sr-only">Funding sources</dt>
                 <dd>
-                  <span className="font-medium text-slate-800">{snapshot.fundingSources.length}</span>{" "}
+                  <span className="font-medium text-ink">{snapshot.fundingSources.length}</span>{" "}
                   funding sources
                 </dd>
               </div>
@@ -52,7 +52,7 @@ export function ActiveDatasetBanner({
                 <dd>{formatMonthRange(snapshot)}</dd>
               </div>
               <div className="flex items-center gap-1.5">
-                <dt className="text-slate-500">Parse</dt>
+                <dt className="text-muted">Parse</dt>
                 <dd>
                   <StatusBadge status={snapshot.parseStatus} />
                 </dd>
@@ -63,7 +63,7 @@ export function ActiveDatasetBanner({
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Link
             href="/timeline"
-            className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
           >
             View Distributions
           </Link>

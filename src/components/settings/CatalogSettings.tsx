@@ -69,7 +69,7 @@ function CatalogRow({
   undeletableReason?: string;
 }) {
   return (
-    <li className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+    <li className="flex items-center justify-between gap-2 rounded-lg border border-rule px-3 py-2">
       <span
         className={cn(
           "inline-flex max-w-[70%] items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
@@ -82,20 +82,20 @@ function CatalogRow({
       <div className="flex shrink-0 gap-1">
         <button
           type="button"
-          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          className="rounded p-1 text-muted hover:bg-inset hover:text-ink-2"
           title="Edit"
           onClick={onEdit}
         >
           <Pencil className="h-3.5 w-3.5" />
         </button>
         {undeletableReason ? (
-          <span className="self-center text-[11.5px] text-slate-500" title={undeletableReason}>
+          <span className="self-center text-[11.5px] text-muted" title={undeletableReason}>
             Built in
           </span>
         ) : (
           <button
             type="button"
-            className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+            className="rounded p-1 text-muted hover:bg-critical-soft hover:text-critical"
             title="Delete"
             onClick={onDelete}
           >
@@ -138,10 +138,10 @@ export function PersonnelGroupsSettings() {
   };
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+    <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
       <div>
         <h3 className="font-semibold">Teams</h3>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-2">
           Assigned on Employees, and used to group Timeline, Projections, Runway, and the
           Dashboard.
         </p>
@@ -181,7 +181,7 @@ export function PersonnelGroupsSettings() {
         <button
           type="button"
           onClick={() => void save()}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
+          className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
         >
           <Plus className="h-3.5 w-3.5" />
           {editingId ? "Save" : "Add"}
@@ -189,7 +189,7 @@ export function PersonnelGroupsSettings() {
         {editingId && (
           <button
             type="button"
-            className="rounded-lg border px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border px-3 py-1.5 text-sm text-ink-2 hover:bg-inset"
             onClick={() => {
               setEditingId(null);
               setDraft("");
@@ -233,10 +233,10 @@ export function FundingSourceTypesSettings() {
   };
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+    <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
       <div>
         <h3 className="font-semibold">Funding sources</h3>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-2">
           Labels used on Accounts and Dashboard funding type mix pie slices.
         </p>
       </div>
@@ -275,7 +275,7 @@ export function FundingSourceTypesSettings() {
         <button
           type="button"
           onClick={() => void save()}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
+          className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
         >
           <Plus className="h-3.5 w-3.5" />
           {editingId ? "Save" : "Add"}
@@ -283,7 +283,7 @@ export function FundingSourceTypesSettings() {
         {editingId && (
           <button
             type="button"
-            className="rounded-lg border px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border px-3 py-1.5 text-sm text-ink-2 hover:bg-inset"
             onClick={() => {
               setEditingId(null);
               setDraft("");
@@ -327,10 +327,10 @@ export function AccountGroupsSettings() {
   };
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+    <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
       <div>
         <h3 className="font-semibold">Account groups</h3>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-2">
           Tags used to organize accounts on Account Balances and Net Position Report Accounts.
         </p>
       </div>
@@ -362,7 +362,7 @@ export function AccountGroupsSettings() {
         })}
       </ul>
       {groups.length === 0 && (
-        <p className="text-sm text-slate-500">No account groups yet. Add one below.</p>
+        <p className="text-sm text-muted">No account groups yet. Add one below.</p>
       )}
       <div className="flex flex-wrap gap-2 pt-1">
         <input
@@ -377,7 +377,7 @@ export function AccountGroupsSettings() {
         <button
           type="button"
           onClick={() => void save()}
-          className="inline-flex items-center gap-1 rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800"
+          className="inline-flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
         >
           <Plus className="h-3.5 w-3.5" />
           {editingId ? "Save" : "Add"}
@@ -385,7 +385,7 @@ export function AccountGroupsSettings() {
         {editingId && (
           <button
             type="button"
-            className="rounded-lg border px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+            className="rounded-lg border px-3 py-1.5 text-sm text-ink-2 hover:bg-inset"
             onClick={() => {
               setEditingId(null);
               setDraft("");
@@ -447,16 +447,16 @@ export function AccountsSettings() {
 
   if (items.length === 0) {
     return (
-      <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
         <div>
           <h3 className="font-semibold">Accounts</h3>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-ink-2">
             Name each account, put it in an account group, and classify its funding source.
           </p>
         </div>
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <p className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
           No accounts yet. Upload a Net Position Report on{" "}
-          <Link href="/upload" className="font-medium underline hover:text-amber-950">
+          <Link href="/upload" className="font-medium underline hover:text-caution">
             Upload
           </Link>{" "}
           to list your payroll accounts here.
@@ -466,10 +466,10 @@ export function AccountsSettings() {
   }
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
+    <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
       <div>
         <h3 className="font-semibold">Accounts</h3>
-        <p className="mt-1 text-sm text-slate-600">
+        <p className="mt-1 text-sm text-ink-2">
           Every account on your Net Position Report. Name it, put it in an account group, and
           classify its funding source — groups appear on Account Balances, funding sources on the
           Dashboard.
@@ -481,16 +481,16 @@ export function AccountsSettings() {
         <button
           type="button"
           onClick={() => setShowHidden((v) => !v)}
-          className="text-sm font-medium text-[#0c2340] underline underline-offset-2 hover:text-[#12626e]"
+          className="text-sm font-medium text-ink underline underline-offset-2 hover:text-accent"
         >
           {showHidden
             ? `Hide ${hiddenItems.length} hidden ${hiddenItems.length === 1 ? "account" : "accounts"}`
             : `Show ${hiddenItems.length} hidden ${hiddenItems.length === 1 ? "account" : "accounts"}`}
         </button>
       )}
-      <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+      <div className="overflow-x-auto rounded-xl border bg-surface shadow-sm">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-[#0c2340] text-xs text-white">
+          <thead className="bg-brand-ground text-xs text-white">
             <tr>
               <th className="min-w-[14rem] px-3 py-2">Account</th>
               <th className="px-3 py-2">Fund–dept–project</th>
@@ -566,7 +566,7 @@ function AccountRow({
     aliasEntry?.alias ?? resolveAccountBalanceAlias(settings.fundingSourceAliases, accountKey);
 
   return (
-    <tr className="border-t hover:bg-slate-50/80">
+    <tr className="border-t hover:bg-inset/80">
       <td className="px-3 py-2">
         <AliasEditor
           source={primarySource}
@@ -577,7 +577,7 @@ function AccountRow({
           onSave={(base) => onAliasSave(primarySource.id, base)}
         />
       </td>
-      <td className="px-3 py-2 font-mono text-xs text-slate-500">{item.displayKey}</td>
+      <td className="px-3 py-2 font-mono text-xs text-muted">{item.displayKey}</td>
       <td className="px-3 py-2">
         {/* Assigning "Not my accounts" here is the same action as the landmark mark
             on Runway and Timeline — one store, three doors. */}
@@ -595,7 +595,7 @@ function AccountRow({
       <td className="px-3 py-2">
         <EmployeeAvatarStack employees={employees} settings={settings} />
       </td>
-      <td className="px-3 py-2 text-right tabular-nums text-slate-700">
+      <td className="px-3 py-2 text-right tabular-nums text-ink-2">
         {formatCurrency(item.displayBalance)}
       </td>
     </tr>

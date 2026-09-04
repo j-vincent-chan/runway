@@ -76,7 +76,7 @@ export default function WorkspacesPage() {
 
   if (!ready || !user || !workspaceReady || rolePreference !== "analyst") {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0c2340] text-slate-400">
+      <main className="flex min-h-screen items-center justify-center bg-brand-ground text-on-brand-muted">
         Loading…
       </main>
     );
@@ -85,13 +85,13 @@ export default function WorkspacesPage() {
   const buckets = partitionAnalystRequests(requests, delegationsToMe);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-brand-ground p-6">
       <div className="mb-8">
         <LedgerWordmark variant="sidebar" />
       </div>
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
-        <h1 className="text-xl font-semibold text-[#0c2340]">Your PI workspaces</h1>
-        <p className="mt-1 text-sm text-slate-600">
+      <div className="w-full max-w-lg rounded-xl bg-surface p-6 shadow-lg">
+        <h1 className="text-xl font-semibold text-ink">Your PI workspaces</h1>
+        <p className="mt-1 text-sm text-ink-2">
           Runway opens inside the workspace of a PI you support. Pick one below, or
           request access to another.
         </p>
@@ -99,7 +99,7 @@ export default function WorkspacesPage() {
         <div className="mt-4 space-y-2">
           {delegationsToMe.length === 0 ? (
             requestsLoaded && buckets.pending.length === 0 ? (
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+              <p className="rounded-lg border border-rule bg-inset px-3 py-3 text-sm text-ink-2">
                 No PI has approved access yet. Send a request below — their workspace
                 appears here the moment they approve, and you&apos;ll get an email.
               </p>
@@ -110,17 +110,17 @@ export default function WorkspacesPage() {
                 key={g.piUserId}
                 type="button"
                 onClick={() => openWorkspace(g.piUserId)}
-                className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-300 p-4 text-left hover:border-teal-700 hover:bg-teal-50/40"
+                className="flex w-full items-center justify-between gap-3 rounded-lg border border-control p-4 text-left hover:border-accent hover:bg-accent-soft/40"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-medium text-[#0c2340]">
+                  <span className="block truncate text-sm font-medium text-ink">
                     {g.piEmail}
                   </span>
-                  <span className="mt-0.5 block text-xs text-slate-500">
+                  <span className="mt-0.5 block text-xs text-muted">
                     Access since {formatIsoDateDisplay(g.createdAt) ?? g.createdAt}
                   </span>
                 </span>
-                <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-teal-700">
+                <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent">
                   Open workspace
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </span>
@@ -131,13 +131,13 @@ export default function WorkspacesPage() {
           {buckets.pending.map((r) => (
             <div
               key={r.id}
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed border-slate-300 p-4"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-dashed border-control p-4"
             >
               <span className="min-w-0">
-                <span className="block truncate text-sm font-medium text-slate-700">
+                <span className="block truncate text-sm font-medium text-ink-2">
                   {r.piEmail}
                 </span>
-                <span className="mt-0.5 flex items-center gap-1 text-xs text-slate-500">
+                <span className="mt-0.5 flex items-center gap-1 text-xs text-muted">
                   <Clock className="h-3 w-3" aria-hidden />
                   Pending — waiting for {r.piEmail} to approve · asked{" "}
                   {formatIsoDateDisplay(r.createdAt) ?? r.createdAt}
@@ -145,7 +145,7 @@ export default function WorkspacesPage() {
               </span>
               <button
                 type="button"
-                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-inset"
                 onClick={() => {
                   void cancelDelegationRequest(r.id).then(refreshRequests);
                 }}
@@ -157,9 +157,9 @@ export default function WorkspacesPage() {
           ))}
 
           {[...buckets.revoked, ...buckets.declined].map((r) => (
-            <div key={r.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <p className="truncate text-sm font-medium text-slate-600">{r.piEmail}</p>
-              <p className="mt-0.5 text-xs text-slate-500">
+            <div key={r.id} className="rounded-lg border border-rule bg-inset p-4">
+              <p className="truncate text-sm font-medium text-ink-2">{r.piEmail}</p>
+              <p className="mt-0.5 text-xs text-muted">
                 {r.status === "declined"
                   ? `Declined${r.respondedAt ? ` ${formatIsoDateDisplay(r.respondedAt) ?? ""}` : ""}`
                   : "Access removed"}{" "}
@@ -169,8 +169,8 @@ export default function WorkspacesPage() {
           ))}
         </div>
 
-        <div className="mt-6 border-t border-slate-200 pt-4">
-          <h2 className="text-sm font-semibold text-[#0c2340]">
+        <div className="mt-6 border-t border-rule pt-4">
+          <h2 className="text-sm font-semibold text-ink">
             Request access to another PI
           </h2>
           <div className="mt-2">
@@ -181,7 +181,7 @@ export default function WorkspacesPage() {
       <button
         type="button"
         onClick={() => void signOut()}
-        className="mt-6 text-sm text-slate-400 hover:text-slate-200 hover:underline"
+        className="mt-6 text-sm text-muted hover:text-on-brand hover:underline"
       >
         Sign out
       </button>

@@ -25,11 +25,11 @@ export function PayrollImportPreview({
   const router = useRouter();
 
   return (
-    <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50/40 p-4">
+    <div className="mt-4 rounded-lg border border-accent bg-accent-soft/40 p-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h4 className="text-sm font-semibold text-[#0c2340]">Parsed data preview</h4>
-          <p className="text-xs text-slate-500">{snapshot.sourceFileName}</p>
+          <h4 className="text-sm font-semibold text-ink">Parsed data preview</h4>
+          <p className="text-xs text-muted">{snapshot.sourceFileName}</p>
         </div>
         <StatusBadge status={preview.parseStatus} />
       </div>
@@ -52,15 +52,15 @@ export function PayrollImportPreview({
 
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
         <div>
-          <dt className="text-slate-500">Employees</dt>
+          <dt className="text-muted">Employees</dt>
           <dd className="font-medium">{preview.employees}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">Funding sources</dt>
+          <dt className="text-muted">Funding sources</dt>
           <dd className="font-medium">{preview.fundingSources}</dd>
         </div>
         <div>
-          <dt className="text-slate-500">Month range</dt>
+          <dt className="text-muted">Month range</dt>
           <dd>
             {preview.monthRange.start
               ? `${formatMonthDisplay(preview.monthRange.start)} – ${formatMonthDisplay(preview.monthRange.end)}`
@@ -68,15 +68,15 @@ export function PayrollImportPreview({
           </dd>
         </div>
         <div>
-          <dt className="text-slate-500">Sheet</dt>
+          <dt className="text-muted">Sheet</dt>
           <dd>{preview.selectedSheet}</dd>
         </div>
       </dl>
 
       {preview.warnings.length > 0 && (
-        <div className="mt-3 rounded-lg bg-amber-50 p-3">
-          <h5 className="text-xs font-semibold text-amber-900">Parse warnings ({preview.warnings.length})</h5>
-          <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto text-xs text-amber-800">
+        <div className="mt-3 rounded-lg bg-caution-soft p-3">
+          <h5 className="text-xs font-semibold text-caution">Parse warnings ({preview.warnings.length})</h5>
+          <ul className="mt-1 max-h-28 space-y-0.5 overflow-y-auto text-xs text-caution">
             {preview.warnings.map((w) => (
               <li key={w.id}>{w.message}</li>
             ))}
@@ -85,7 +85,7 @@ export function PayrollImportPreview({
       )}
 
       {preview.parseStatus === "failed" && (
-        <p className="mt-3 text-sm text-red-700">
+        <p className="mt-3 text-sm text-critical">
           Parse failed — verify Employee and Compensation Type header rows exist.
         </p>
       )}
@@ -94,7 +94,7 @@ export function PayrollImportPreview({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
+          className="rounded-lg border border-control bg-surface px-3 py-1.5 text-sm hover:bg-inset"
         >
           Cancel
         </button>
@@ -105,7 +105,7 @@ export function PayrollImportPreview({
             onConfirm();
             router.push("/timeline");
           }}
-          className="rounded-lg bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+          className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
         >
           Confirm import
         </button>

@@ -51,7 +51,7 @@ export default function DataSourcesPage() {
           hasPayroll ? { label: "View Distributions", href: "/timeline" } : undefined
         }
       />
-      <main className="flex-1 overflow-auto bg-slate-50/60 p-6">
+      <main className="flex-1 overflow-auto bg-inset/60 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
           {snapshot && !pendingPreview && <ActiveDatasetBanner snapshot={snapshot} />}
 

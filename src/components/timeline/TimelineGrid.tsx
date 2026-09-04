@@ -93,7 +93,7 @@ function MergedAllocationBar({
   if (!hasPercentEffort(pct) && !editing) {
     return (
       <div
-        className="h-8 w-full cursor-pointer bg-white hover:bg-slate-50"
+        className="h-8 w-full cursor-pointer bg-surface hover:bg-inset"
         title={tooltip}
         onDoubleClick={() => {
           setEditing(true);
@@ -124,7 +124,7 @@ function MergedAllocationBar({
       {editing ? (
         <input
           autoFocus
-          className="h-full w-full rounded-none border-2 border-teal-600 bg-white text-center text-[10px] text-slate-800"
+          className="h-full w-full rounded-none border-2 border-accent bg-surface text-center text-[10px] text-ink"
           value={val}
           onChange={(e) => setVal(e.target.value)}
           onBlur={() => {
@@ -141,7 +141,7 @@ function MergedAllocationBar({
       ) : (
         <div
           className={cn(
-            "allocation-bar allocation-bar-flat flex h-full w-full items-center justify-center text-center text-[10px] font-medium text-slate-800",
+            "allocation-bar allocation-bar-flat flex h-full w-full items-center justify-center text-center text-[10px] font-medium text-ink",
             display === "both" && "px-0.5 leading-tight",
             segment.isFuture && "pattern-future-flat",
             segment.isEdited && "allocation-bar--edited",
@@ -239,7 +239,7 @@ export function TimelineGrid() {
   const totalHiddenFunds = countAllHiddenFunds(settings);
 
   return (
-    <div className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-sm">
       <TimelineToolbar
         display={display}
         onDisplayChange={setDisplay}
@@ -438,7 +438,7 @@ function EmployeeRows({
                 name={emp.name}
                 photoUrl={getEmployeePhotoUrlFor(settings, emp)}
                 size="xs"
-                className="ring-slate-300"
+                className="ring-control"
               />
               {/* The ID used to sit in its own shrink-0 span, permanently
                   spending fixed width and pushing the truncation point on
@@ -454,7 +454,7 @@ function EmployeeRows({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-rule/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-rule-strong/80"
                 title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -484,8 +484,8 @@ function EmployeeRows({
               key={m}
               className={cn(
                 "text-center text-[10px]",
-                c.status === "overallocated" && "bg-red-500/20",
-                c.status === "underallocated" && "bg-amber-500/20"
+                c.status === "overallocated" && "bg-critical/20",
+                c.status === "underallocated" && "bg-caution/20"
               )}
               title={`${c.allocatedPercent.toFixed(0)}% of ${c.expectedPercent}% scope`}
             >
@@ -512,20 +512,20 @@ function EmployeeRows({
             <tr
               key={fs.id}
               className={cn(
-                "border-t border-slate-100 hover:bg-slate-50/50",
-                hidden && "bg-slate-50/90"
+                "border-t border-rule hover:bg-inset/50",
+                hidden && "bg-inset/90"
               )}
             >
               <td
-                className="sticky left-0 z-10 bg-white px-1 py-0.5 pl-2"
+                className="sticky left-0 z-10 bg-surface px-1 py-0.5 pl-2"
                 style={{ width: LABEL_COL_WIDTH, minWidth: LABEL_COL_WIDTH, maxWidth: LABEL_COL_WIDTH }}
               >
                 <div className="flex items-center gap-1 overflow-x-auto whitespace-nowrap">
                   <button
                     type="button"
                     className={cn(
-                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
-                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                      "shrink-0 rounded p-0.5 hover:bg-inset",
+                      hidden ? "text-muted" : "text-muted hover:text-ink-2"
                     )}
                     title={
                       hidden
@@ -548,7 +548,7 @@ function EmployeeRows({
                       "shrink-0 rounded p-0.5",
                       notMine
                         ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
-                        : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                        : "text-muted hover:bg-sky-50 hover:text-sky-700"
                     )}
                     title={
                       notMine
@@ -574,7 +574,7 @@ function EmployeeRows({
                 </div>
               </td>
               <td
-                className="sticky z-10 bg-white text-center text-[9px] text-slate-400"
+                className="sticky z-10 bg-surface text-center text-[9px] text-muted"
                 style={{ left: LABEL_COL_WIDTH, width: APPT_COL_WIDTH, minWidth: APPT_COL_WIDTH }}
               >
                 {hidden ? "hidden" : ""}
@@ -598,7 +598,7 @@ function EmployeeRows({
                     key={`${fs.id}-${idx}-${segment.months[0]}`}
                     colSpan={segment.colspan}
                     className={cn(
-                      "border border-slate-200 p-0 align-middle",
+                      "border border-rule p-0 align-middle",
                       hidden && "opacity-60"
                     )}
                   >

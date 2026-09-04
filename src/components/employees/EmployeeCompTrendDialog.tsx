@@ -65,11 +65,11 @@ export function EmployeeCompTrendDialog({
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 sm:items-center">
       <button type="button" className="absolute inset-0" aria-label="Close" onClick={onClose} />
-      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-xl bg-white p-5 shadow-xl sm:rounded-xl">
+      <div className="relative z-10 max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-xl bg-surface p-5 shadow-xl sm:rounded-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-[#0c2340]">Yearly compensation</h2>
-            <p className="mt-0.5 text-sm text-slate-600">
+            <h2 className="text-lg font-semibold text-ink">Yearly compensation</h2>
+            <p className="mt-0.5 text-sm text-ink-2">
               {employee.name}
               {snapshot.actualMonths.length > 0
                 ? ` · ${formatMonthDisplay(snapshot.actualMonths[0]!)}–${formatMonthDisplay(
@@ -80,7 +80,7 @@ export function EmployeeCompTrendDialog({
           </div>
           <button
             type="button"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded p-1 text-muted hover:bg-inset hover:text-ink-2"
             onClick={onClose}
             aria-label="Close"
           >
@@ -108,11 +108,11 @@ export function EmployeeCompTrendDialog({
           </div>
         )}
 
-        <p className="mt-5 text-xs font-medium uppercase tracking-wide text-slate-500">
+        <p className="mt-5 text-xs font-medium uppercase tracking-wide text-muted">
           Annualized from each month’s payroll
         </p>
         {chartRows.length > 0 ? (
-          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/50 p-2">
+          <div className="mt-2 rounded-lg border border-rule bg-inset/50 p-2">
             <ChartResponsive height={220}>
               <LineChart data={chartRows} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -156,18 +156,18 @@ export function EmployeeCompTrendDialog({
                 />
               </LineChart>
             </ChartResponsive>
-            <p className="px-2 pb-1 text-[10px] text-slate-500">
+            <p className="px-2 pb-1 text-[10px] text-muted">
               Solid = yearly S+B · dashed = yearly salary (12 × that month’s payroll)
             </p>
           </div>
         ) : (
-          <p className="mt-2 text-sm text-slate-500">No payroll months on file.</p>
+          <p className="mt-2 text-sm text-muted">No payroll months on file.</p>
         )}
 
         {trend.yearly.length > 0 && (
           <div className="mt-5 overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <thead className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                 <tr>
                   <th className="py-1.5 pr-3">Year</th>
                   <th className="py-1.5 pr-3 text-right">Months</th>
@@ -178,12 +178,12 @@ export function EmployeeCompTrendDialog({
               </thead>
               <tbody>
                 {trend.yearly.map((y) => (
-                  <tr key={y.year} className="border-t border-slate-100">
-                    <td className="py-1.5 pr-3 font-medium text-[#0c2340]">{y.year}</td>
-                    <td className="py-1.5 pr-3 text-right tabular-nums text-slate-600">{y.months}</td>
+                  <tr key={y.year} className="border-t border-rule">
+                    <td className="py-1.5 pr-3 font-medium text-ink">{y.year}</td>
+                    <td className="py-1.5 pr-3 text-right tabular-nums text-ink-2">{y.months}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{formatCurrency(y.avgYearlySalary)}</td>
                     <td className="py-1.5 pr-3 text-right tabular-nums">{formatCurrency(y.avgYearlyTotal)}</td>
-                    <td className="py-1.5 text-right tabular-nums text-slate-600">
+                    <td className="py-1.5 text-right tabular-nums text-ink-2">
                       {formatCurrency(y.paidTotal)}
                     </td>
                   </tr>
@@ -200,10 +200,10 @@ export function EmployeeCompTrendDialog({
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#0c2340]">{value}</p>
-      {hint && <p className="text-[10px] text-slate-500">{hint}</p>}
+    <div className="rounded-lg border border-rule bg-inset/80 px-3 py-2">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">{value}</p>
+      {hint && <p className="text-[10px] text-muted">{hint}</p>}
     </div>
   );
 }

@@ -48,12 +48,12 @@ export function StructureEmployeeCard({
           name={employee.name}
           photoUrl={photoUrl}
           size={isLead ? "lg" : "lg"}
-          className={cn("ring-2 ring-white", isLead && "h-14 w-14 text-sm")}
+          className={cn("ring-2 ring-surface", isLead && "h-14 w-14 text-sm")}
         />
       </div>
       <div
         className={cn(
-          "flex min-w-0 flex-1 flex-col justify-center rounded-full bg-[#0c2340] text-white shadow-md",
+          "flex min-w-0 flex-1 flex-col justify-center rounded-full bg-brand-ground text-white shadow-md",
           isLead ? "py-2.5 pl-8 pr-5" : "py-2 pl-7 pr-4 shadow-sm"
         )}
       >
@@ -67,7 +67,7 @@ export function StructureEmployeeCard({
         </p>
         <p
           className={cn(
-            "truncate leading-tight text-slate-300",
+            "truncate leading-tight text-muted",
             isLead ? "text-[11px]" : "text-[10px]"
           )}
         >

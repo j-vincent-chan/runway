@@ -70,15 +70,15 @@ export function UploadDropzone({
       className={cn(
         "flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed transition-colors",
         sizeClasses[size],
-        drag ? "border-teal-500 bg-teal-50" : "border-slate-200 bg-slate-50/80 hover:border-teal-400 hover:bg-teal-50/30",
+        drag ? "border-accent bg-accent-soft" : "border-rule bg-inset/80 hover:border-accent hover:bg-accent-soft/30",
         disabled && "pointer-events-none opacity-60",
         className
       )}
     >
-      <Upload className={cn("text-teal-600", iconClasses[size])} />
+      <Upload className={cn("text-accent", iconClasses[size])} />
       <p
         className={cn(
-          "mt-2 text-center font-medium text-slate-800",
+          "mt-2 text-center font-medium text-ink",
           !isDataSourceSize && size === "compact" && "text-sm"
         )}
       >
@@ -86,7 +86,7 @@ export function UploadDropzone({
       </p>
       <p
         className={cn(
-          "mt-1 text-center text-slate-500",
+          "mt-1 text-center text-muted",
           isDataSourceSize ? "text-sm" : size === "compact" ? "text-xs" : "text-sm"
         )}
       >

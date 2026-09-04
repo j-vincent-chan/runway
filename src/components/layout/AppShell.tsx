@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   if (!authReady || (loading && !bare)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f8] text-slate-500">
+      <div className="flex min-h-screen items-center justify-center bg-paper text-muted">
         Loading…
       </div>
     );

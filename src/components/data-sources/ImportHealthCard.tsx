@@ -41,12 +41,12 @@ export function ImportHealthCard({
   })();
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-[#0c2340]">Import Health</h3>
+    <section className="rounded-xl border border-rule bg-surface p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink">Import Health</h3>
       <ul className="mt-3 space-y-2.5 text-sm">
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">Payroll reports</span>
-          <span className="font-medium text-[#0c2340]">
+          <span className="text-ink-2">Payroll reports</span>
+          <span className="font-medium text-ink">
             {payrollImportCount === 0 && !snapshot
               ? "None"
               : `${Math.max(payrollImportCount, snapshot ? 1 : 0)} file${
@@ -55,8 +55,8 @@ export function ImportHealthCard({
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">Net Position reports</span>
-          <span className="font-medium text-[#0c2340]">
+          <span className="text-ink-2">Net Position reports</span>
+          <span className="font-medium text-ink">
             {netPositionImports.length === 0
               ? "None"
               : `${netPositionImports.length} file${
@@ -65,8 +65,8 @@ export function ImportHealthCard({
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">FY salary reports</span>
-          <span className="font-medium text-[#0c2340]">
+          <span className="text-ink-2">FY salary reports</span>
+          <span className="font-medium text-ink">
             {positionSalaryImports.length === 0
               ? "None"
               : `${positionSalaryImports.length} file${
@@ -75,8 +75,8 @@ export function ImportHealthCard({
           </span>
         </li>
         <li className="flex items-center justify-between gap-2">
-          <span className="text-slate-600">Parse warnings</span>
-          <span className={warnings > 0 ? "font-medium text-amber-700" : "font-medium text-[#0c2340]"}>
+          <span className="text-ink-2">Parse warnings</span>
+          <span className={warnings > 0 ? "font-medium text-caution" : "font-medium text-ink"}>
             {warnings}
           </span>
         </li>
@@ -84,17 +84,17 @@ export function ImportHealthCard({
           {/* "any file" is load-bearing: the provenance line elsewhere dates
               the payroll report specifically, so this newer timestamp (often a
               Net Position upload) looked like a contradiction unlabelled. */}
-          <span className="text-slate-600">Last import (any file)</span>
-          <span className="text-right text-xs font-medium text-slate-700">
+          <span className="text-ink-2">Last import (any file)</span>
+          <span className="text-right text-xs font-medium text-ink-2">
             {lastImportAt ? new Date(lastImportAt).toLocaleString() : "—"}
           </span>
         </li>
-        <li className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
-          <span className="text-slate-600">Data freshness</span>
+        <li className="flex items-center justify-between gap-2 border-t border-rule pt-2">
+          <span className="text-ink-2">Data freshness</span>
           <span className="inline-flex items-center gap-1.5 text-sm font-medium">
             <Circle
               className={`h-2 w-2 fill-current ${
-                freshness.tone === "good" ? "text-emerald-500" : "text-slate-400"
+                freshness.tone === "good" ? "text-healthy" : "text-muted"
               }`}
             />
             {freshness.label}

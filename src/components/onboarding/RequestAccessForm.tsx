@@ -107,7 +107,7 @@ export function RequestAccessForm({
           type="button"
           disabled={busy || !piEmail.trim()}
           onClick={() => void submit()}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
         >
           <Send className="h-3.5 w-3.5" aria-hidden />
           {busy ? "Sending…" : "Request access"}
@@ -120,27 +120,27 @@ export function RequestAccessForm({
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-critical">{error}</p>}
       {sentTo && (
-        <p className="text-sm text-teal-800">
+        <p className="text-sm text-accent">
           Request sent to {sentTo}. You&apos;ll see their workspace in the header&apos;s
           picker once they approve.
         </p>
       )}
 
       {!hideRequestList && pending.length > 0 && (
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <ul className="divide-y divide-rule rounded-lg border border-rule">
           {pending.map((r) => (
             <li key={r.id} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-800">{r.piEmail}</p>
-                <p className="text-xs text-slate-500">
+                <p className="truncate text-sm font-medium text-ink">{r.piEmail}</p>
+                <p className="text-xs text-muted">
                   Waiting for approval · asked {formatIsoDateDisplay(r.createdAt) ?? r.createdAt}
                 </p>
               </div>
               <button
                 type="button"
-                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-slate-500 hover:bg-slate-100"
+                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-muted hover:bg-inset"
                 onClick={() => {
                   void cancelDelegationRequest(r.id).then(refresh);
                 }}
@@ -155,7 +155,7 @@ export function RequestAccessForm({
       {!hideRequestList && responded.length > 0 && (
         <ul className="space-y-1">
           {responded.slice(0, 5).map((r) => (
-            <li key={r.id} className="text-xs text-slate-500">
+            <li key={r.id} className="text-xs text-muted">
               {r.piEmail} —{" "}
               {r.status === "approved" ? "approved" : "declined"}
               {r.respondedAt ? ` ${formatIsoDateDisplay(r.respondedAt) ?? ""}` : ""}
@@ -168,7 +168,7 @@ export function RequestAccessForm({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          className="w-full rounded-lg border border-control px-3 py-2 text-sm font-medium text-ink-2 hover:bg-inset"
         >
           {pending.length > 0 || sentTo ? "Continue to Runway" : "Skip for now"}
         </button>

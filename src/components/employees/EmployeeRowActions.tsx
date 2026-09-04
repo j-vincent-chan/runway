@@ -24,7 +24,7 @@ export function EmployeeRowActions({ actions }: { actions: Action[] }) {
     <div ref={ref} className="relative">
       <button
         type="button"
-        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+        className="rounded p-1 text-muted hover:bg-inset hover:text-ink-2"
         aria-label="Employee actions"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
@@ -33,7 +33,7 @@ export function EmployeeRowActions({ actions }: { actions: Action[] }) {
       </button>
       {open && (
         <div
-          className="absolute right-0 z-20 mt-1 min-w-[10rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 z-20 mt-1 min-w-[10rem] rounded-lg border border-rule bg-surface py-1 shadow-lg"
           onMouseDown={(e) => e.stopPropagation()}
         >
           {actions.map((action) => (
@@ -41,8 +41,8 @@ export function EmployeeRowActions({ actions }: { actions: Action[] }) {
               key={action.label}
               type="button"
               className={cn(
-                "block w-full px-3 py-1.5 text-left text-xs hover:bg-slate-50",
-                action.destructive ? "text-red-700" : "text-slate-700"
+                "block w-full px-3 py-1.5 text-left text-xs hover:bg-inset",
+                action.destructive ? "text-critical" : "text-ink-2"
               )}
               onClick={() => {
                 setOpen(false);

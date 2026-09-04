@@ -269,7 +269,7 @@ function EmployeeBlock({
               name={emp.name}
               photoUrl={getEmployeePhotoUrlFor(settings, emp)}
               size="xs"
-              className="ring-slate-300"
+              className="ring-control"
             />
             {/* The ID used to sit in its own shrink-0 span, permanently
                 spending ~55px of the fixed-width label column and pushing
@@ -305,8 +305,8 @@ function EmployeeBlock({
                 className={cn(
                   "ml-auto inline-flex shrink-0 items-center rounded p-1 disabled:opacity-50",
                   locked
-                    ? "bg-amber-300/90 text-[#0c2340] hover:bg-amber-200"
-                    : "bg-slate-200/80 hover:bg-slate-300/80"
+                    ? "bg-caution/90 text-ink hover:bg-caution-soft"
+                    : "bg-rule/80 hover:bg-rule-strong/80"
                 )}
                 title={
                   locked
@@ -331,7 +331,7 @@ function EmployeeBlock({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-rule/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-rule-strong/80"
                 title={`Show ${hiddenCount} hidden fund row${hiddenCount === 1 ? "" : "s"} for this employee`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -363,8 +363,8 @@ function EmployeeBlock({
               className={cn(
                 "text-center text-[10px]",
                 projected && "text-muted",
-                c?.status === "overallocated" && "bg-red-500/20",
-                c?.status === "underallocated" && "bg-amber-500/20"
+                c?.status === "overallocated" && "bg-critical/20",
+                c?.status === "underallocated" && "bg-caution/20"
               )}
               title={
                 c
@@ -380,9 +380,9 @@ function EmployeeBlock({
         })}
       </tr>
       {!isCollapsed && visibleSources.length === 0 && (
-        <tr className="border-t border-slate-100">
+        <tr className="border-t border-rule">
           <td
-            className="sticky left-0 z-10 bg-white px-3 py-2 pl-8 text-slate-500"
+            className="sticky left-0 z-10 bg-surface px-3 py-2 pl-8 text-muted"
             colSpan={2 + months.length}
           >
             No projected distribution yet. Use Set from origin or add a chartstring.
@@ -433,14 +433,14 @@ function EmployeeBlock({
             <tr
               key={fs.id}
               className={cn(
-                "border-t border-slate-100 hover:bg-slate-50/50",
-                hidden && "bg-slate-50/90"
+                "border-t border-rule hover:bg-inset/50",
+                hidden && "bg-inset/90"
               )}
             >
               <td
                 className={cn(
                   "sticky left-0 z-10 px-1 py-0.5 pl-4",
-                  hidden ? "bg-slate-50/90" : "bg-white"
+                  hidden ? "bg-inset/90" : "bg-surface"
                 )}
                 style={{
                   width: PROJECTION_LABEL_COL,
@@ -456,8 +456,8 @@ function EmployeeBlock({
                   <button
                     type="button"
                     className={cn(
-                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
-                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                      "shrink-0 rounded p-0.5 hover:bg-inset",
+                      hidden ? "text-muted" : "text-muted hover:text-ink-2"
                     )}
                     title={
                       hidden
@@ -478,7 +478,7 @@ function EmployeeBlock({
                       "shrink-0 rounded p-0.5",
                       notMine
                         ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
-                        : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                        : "text-muted hover:bg-sky-50 hover:text-sky-700"
                     )}
                     title={
                       notMine
@@ -503,7 +503,7 @@ function EmployeeBlock({
                   <button
                     type="button"
                     disabled={locked}
-                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    className="shrink-0 rounded p-0.5 text-muted hover:bg-inset hover:text-ink-2 disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent"
                     title={
                       locked
                         ? `Locked in — unlock ${emp.name}'s distribution to edit this rule`
@@ -516,7 +516,7 @@ function EmployeeBlock({
                   <button
                     type="button"
                     disabled={locked}
-                    className="shrink-0 rounded p-0.5 text-slate-400 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                    className="shrink-0 rounded p-0.5 text-muted hover:bg-critical-soft hover:text-critical disabled:cursor-not-allowed disabled:text-muted disabled:hover:bg-transparent"
                     title={
                       locked
                         ? `Locked in — unlock ${emp.name}'s distribution to remove accounts`
@@ -544,7 +544,7 @@ function EmployeeBlock({
                     drawn on them too. Both stay in the row's hover text. */}
               </td>
               <td
-                className="sticky z-10 bg-white"
+                className="sticky z-10 bg-surface"
                 style={{
                   left: PROJECTION_LABEL_COL,
                   width: PROJECTION_SCOPE_COL,
@@ -563,7 +563,7 @@ function EmployeeBlock({
                   <td
                     key={`${fs.id}-${segment.months[0]}`}
                     colSpan={segment.colspan}
-                    className="border border-slate-200 p-0 align-middle"
+                    className="border border-rule p-0 align-middle"
                   >
                     <ProjectionAllocationBar
                       percentEffort={segment.value}
@@ -588,9 +588,9 @@ function EmployeeBlock({
           );
         })}
       {!isCollapsed && (
-        <tr className="border-t border-slate-100">
+        <tr className="border-t border-rule">
           <td
-            className="sticky left-0 z-10 bg-white px-1 py-0.5 pl-8 text-[11px] font-medium text-amber-800"
+            className="sticky left-0 z-10 bg-surface px-1 py-0.5 pl-8 text-[11px] font-medium text-caution"
             style={{
               width: PROJECTION_LABEL_COL,
               minWidth: PROJECTION_LABEL_COL,
@@ -600,7 +600,7 @@ function EmployeeBlock({
             Uncovered
           </td>
           <td
-            className="sticky z-10 bg-white"
+            className="sticky z-10 bg-surface"
             style={{
               left: PROJECTION_LABEL_COL,
               width: PROJECTION_SCOPE_COL,
@@ -620,20 +620,20 @@ function EmployeeBlock({
             <td
               key={`gap-${emp.id}-${segment.months[0]}`}
               colSpan={segment.colspan}
-              className="border border-slate-200 p-0 align-middle"
+              className="border border-rule p-0 align-middle"
             >
               {segment.value > 0.5 ? (
                 <div
                   className={cn(
                     "flex h-8 w-full items-center justify-center text-[10px] font-medium",
-                    projected ? "bg-amber-50 text-amber-800/80" : "bg-amber-100 text-amber-900"
+                    projected ? "bg-caution-soft text-caution/80" : "bg-caution-soft text-caution"
                   )}
                   title={`Uncovered ${formatPercent(segment.value)}${projected ? " · Projected" : ""}`}
                 >
                   {formatPercent(segment.value)}
                 </div>
               ) : (
-                <div className={cn("h-8 w-full", projected ? "bg-slate-50" : "bg-white")} />
+                <div className={cn("h-8 w-full", projected ? "bg-inset" : "bg-surface")} />
               )}
             </td>
             );

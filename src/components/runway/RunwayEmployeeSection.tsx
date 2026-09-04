@@ -77,13 +77,13 @@ export function RunwayEmployeeSection({
     <section
       className={cn(
         "rounded-xl border shadow-sm",
-        hasDeficit ? "border-red-200 bg-red-50/80" : "border-slate-200 bg-white"
+        hasDeficit ? "border-critical bg-critical-soft/80" : "border-rule bg-surface"
       )}
     >
       <div className="flex w-full items-start gap-3 px-4 py-3">
         <button
           type="button"
-          className="mt-0.5 shrink-0 rounded p-0.5 text-slate-500 hover:bg-slate-100"
+          className="mt-0.5 shrink-0 rounded p-0.5 text-muted hover:bg-inset"
           aria-expanded={open}
           aria-label={open ? "Collapse accounts" : "Expand accounts"}
           onClick={() => setOpen((v) => !v)}
@@ -95,7 +95,7 @@ export function RunwayEmployeeSection({
           tabIndex={0}
           className={cn(
             "min-w-0 flex-1 cursor-pointer text-left",
-            hasDeficit ? "hover:bg-red-100/50" : "hover:bg-slate-50/80"
+            hasDeficit ? "hover:bg-critical-soft/50" : "hover:bg-inset/80"
           )}
           onClick={() => setOpen((v) => !v)}
           onKeyDown={(e) => {
@@ -106,8 +106,8 @@ export function RunwayEmployeeSection({
           }}
         >
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h3 className="font-semibold text-[#0c2340]">{employee.name}</h3>
-            <p className="text-xs text-slate-500">
+            <h3 className="font-semibold text-ink">{employee.name}</h3>
+            <p className="text-xs text-muted">
               {visibleCount} active account{visibleCount === 1 ? "" : "s"}
               {employee.employeeId && ` · ${employee.employeeId}`}
             </p>
@@ -115,7 +115,7 @@ export function RunwayEmployeeSection({
           {visibleCount > 0 && (
             <>
               {allVisibleAssumedOk ? (
-                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
+                <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-2">
                   <RunwayIndicatorBadge
                     variant="assumedOk"
                     title="Not my account — runway is not calculated"
@@ -135,13 +135,13 @@ export function RunwayEmployeeSection({
                       showLabel={!isRunwayDeficit(blendedMonthsRunway)}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-slate-600">
+                  <p className="mt-1 text-xs text-ink-2">
                     Combined net balance{" "}
-                    <span className="font-semibold text-[#0c2340]">
+                    <span className="font-semibold text-ink">
                       {formatCurrency(totalBalance)}
                     </span>
                     {latestBalanceAsOf && (
-                      <span className="text-slate-500">
+                      <span className="text-muted">
                         {" "}
                         as of {formatIsoDateDisplay(latestBalanceAsOf)}
                       </span>
@@ -149,7 +149,7 @@ export function RunwayEmployeeSection({
                     {" · "}
                     {formatCurrency(totalMonthlyBurn)}/mo shared burn
                     {assumedOkVisibleCount > 0 && (
-                      <span className="text-slate-400">
+                      <span className="text-muted">
                         {" "}
                         · {assumedOkVisibleCount} assumed OK
                       </span>
@@ -163,7 +163,7 @@ export function RunwayEmployeeSection({
         {hiddenAccountCount > 0 && !revealHidden && (
           <button
             type="button"
-            className="shrink-0 self-start rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-normal text-slate-600 hover:bg-slate-200"
+            className="shrink-0 self-start rounded bg-inset px-1.5 py-0.5 text-[10px] font-normal text-ink-2 hover:bg-rule"
             title="Show hidden funds for this person"
             onClick={onRevealHidden}
           >
@@ -175,7 +175,7 @@ export function RunwayEmployeeSection({
       {open && accounts.length > 0 && (
         <div className="overflow-x-auto border-t">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50/90 text-xs font-medium text-slate-600">
+            <thead className="border-b border-rule bg-inset/90 text-xs font-medium text-ink-2">
               <tr>
                 <th className="w-14 px-2 py-2.5" />
                 <th className="min-w-[11.5rem] px-3 py-2.5 text-left font-medium">Chartstring</th>
@@ -185,7 +185,7 @@ export function RunwayEmployeeSection({
                 {/* The page exists for this column, and at 1440×900 it was the
                     part that scrolled out of view. Pinned right so months
                     remaining stay visible whatever the other columns need. */}
-                <th className="sticky right-0 min-w-[15.5rem] border-l border-slate-200 bg-slate-50 px-4 py-2.5 text-right font-medium">
+                <th className="sticky right-0 min-w-[15.5rem] border-l border-rule bg-inset px-4 py-2.5 text-right font-medium">
                   Runway
                 </th>
               </tr>
@@ -207,12 +207,12 @@ export function RunwayEmployeeSection({
                   className={cn(
                     "border-t align-middle",
                     isDeepLinked && DEEP_LINK_HIGHLIGHT,
-                    hasDeficit ? "border-red-100" : "border-slate-100",
-                    acct.isHidden && "bg-slate-50/80",
+                    hasDeficit ? "border-critical" : "border-rule",
+                    acct.isHidden && "bg-inset/80",
                     acct.isAssumedOk &&
                       !acct.isHidden &&
-                      "border-l-2 border-l-slate-300 bg-slate-50/50",
-                    isDeficit && "bg-red-50/80",
+                      "border-l-2 border-l-slate-300 bg-inset/50",
+                    isDeficit && "bg-critical-soft/80",
                     !isDeficit &&
                       !acct.isAssumedOk &&
                       !acct.isHidden &&
@@ -223,18 +223,18 @@ export function RunwayEmployeeSection({
                       !acct.isHidden &&
                       !isLinked &&
                       isManualBalance &&
-                      "bg-teal-50/30"
+                      "bg-accent-soft/30"
                   )}
                 >
                   <td className="px-2 py-2.5">
-                    <div className="inline-flex gap-0.5 rounded-md bg-slate-100/70 p-0.5">
+                    <div className="inline-flex gap-0.5 rounded-md bg-inset/70 p-0.5">
                       <button
                         type="button"
                         className={cn(
-                          "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60",
+                          "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-caution/60",
                           acct.isHidden
-                            ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200/90 hover:bg-amber-200"
-                            : "text-slate-400 hover:bg-amber-50 hover:text-amber-700"
+                            ? "bg-caution-soft text-caution ring-1 ring-caution/90 hover:bg-caution-soft"
+                            : "text-muted hover:bg-caution-soft hover:text-caution"
                         )}
                         title={
                           acct.isHidden
@@ -256,7 +256,7 @@ export function RunwayEmployeeSection({
                             "rounded p-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60",
                             acct.isAssumedOk
                               ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90 hover:bg-sky-200"
-                              : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                              : "text-muted hover:bg-sky-50 hover:text-sky-700"
                           )}
                           title={
                             acct.isAssumedOk
@@ -272,7 +272,7 @@ export function RunwayEmployeeSection({
                   </td>
                   <td
                     className={cn(
-                      "whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-slate-500",
+                      "whitespace-nowrap px-3 py-2.5 font-mono text-[11px] text-muted",
                       acct.isHidden && "opacity-60"
                     )}
                     title={acct.chartstring}
@@ -281,20 +281,20 @@ export function RunwayEmployeeSection({
                   </td>
                   <td
                     className={cn(
-                      "min-w-[14rem] max-w-[18rem] px-3 py-2.5 text-slate-800",
+                      "min-w-[14rem] max-w-[18rem] px-3 py-2.5 text-ink",
                       acct.isHidden && "opacity-60"
                     )}
                     title={acct.displayName}
                   >
                     <span className="block text-sm leading-snug">{acct.displayName}</span>
                     {!acct.isHidden && acct.isAssumedOk && (
-                      <p className="mt-0.5 text-[10px] text-slate-500">Not my account</p>
+                      <p className="mt-0.5 text-[10px] text-muted">Not my account</p>
                     )}
                     {!acct.isHidden && !acct.isAssumedOk && isLinked && (
                       <AccountIndicators acct={acct} isLinked={isLinked} />
                     )}
                     {acct.isHidden && (
-                      <span className="ml-1 text-[10px] text-slate-400">(hidden)</span>
+                      <span className="ml-1 text-[10px] text-muted">(hidden)</span>
                     )}
                   </td>
                   <td className={cn("px-3 py-2.5 text-right", acct.isHidden && "opacity-60")}>
@@ -346,10 +346,10 @@ export function RunwayEmployeeSection({
                   </td>
                   <td
                     className={cn(
-                      "sticky right-0 border-l border-slate-100 px-4 py-2.5",
+                      "sticky right-0 border-l border-rule px-4 py-2.5",
                       // Sticky needs an opaque ground; translucent row tints
                       // would let scrolled columns bleed through the bars.
-                      isDeficit ? "bg-red-50" : acct.isHidden ? "bg-slate-50" : "bg-white",
+                      isDeficit ? "bg-critical-soft" : acct.isHidden ? "bg-inset" : "bg-surface",
                       acct.isHidden && "opacity-60"
                     )}
                   >
@@ -362,7 +362,7 @@ export function RunwayEmployeeSection({
                             showScale={false}
                           />
                         ) : (
-                          <span className="text-[11px] text-slate-400">Set fund end date</span>
+                          <span className="text-[11px] text-muted">Set fund end date</span>
                         )
                       ) : (
                         <RunwayBar
@@ -460,7 +460,7 @@ function BurnPercentInput({
   };
 
   if (disabled) {
-    return <span className="text-slate-400">—</span>;
+    return <span className="text-muted">—</span>;
   }
 
   const showEmpty = !hasPercentEffort(percentEffort) && monthlyBurn === 0;
@@ -474,9 +474,9 @@ function BurnPercentInput({
           readOnly={readOnly}
           disabled={!readOnly && !canLink && monthlyBurn > 0}
           className={cn(
-            "w-12 rounded-md border border-slate-200 bg-white px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
-            readOnly && "cursor-default bg-slate-50 text-slate-600",
-            isOverride ? "border-teal-500 bg-teal-50/50" : "border-slate-200 bg-white",
+            "w-12 rounded-md border border-rule bg-surface px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
+            readOnly && "cursor-default bg-inset text-ink-2",
+            isOverride ? "border-accent bg-accent-soft/50" : "border-rule bg-surface",
             isLinked && !isOverride && "border-violet-300 bg-violet-50/50",
             !canLink && !readOnly && "opacity-50"
           )}
@@ -515,16 +515,16 @@ function BurnPercentInput({
             }
           }}
         />
-        <span className="text-[10px] text-slate-400">%</span>
-        <span className="text-slate-300">·</span>
+        <span className="text-[10px] text-muted">%</span>
+        <span className="text-muted">·</span>
         <input
           type="text"
           inputMode="decimal"
           readOnly={readOnly}
           className={cn(
-            "w-[4.5rem] rounded-md border border-slate-200 bg-white px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
-            readOnly && "cursor-default bg-slate-50 text-slate-600",
-            isOverride ? "border-teal-500 bg-teal-50/50" : "border-slate-200 bg-white",
+            "w-[4.5rem] rounded-md border border-rule bg-surface px-1.5 py-1 text-right text-xs tabular-nums shadow-sm",
+            readOnly && "cursor-default bg-inset text-ink-2",
+            isOverride ? "border-accent bg-accent-soft/50" : "border-rule bg-surface",
             isLinked && !isOverride && "border-violet-300 bg-violet-50/50"
           )}
           title={
@@ -564,7 +564,7 @@ function BurnPercentInput({
         />
       </div>
       {(isLinked || (isOverride && !readOnly)) && (
-        <p className="max-w-[11rem] text-right text-[10px] leading-snug text-slate-500">
+        <p className="max-w-[11rem] text-right text-[10px] leading-snug text-muted">
           {isLinked && (
             <span
               className="text-violet-700"
@@ -576,7 +576,7 @@ function BurnPercentInput({
           {isOverride && !readOnly && (
             <>
               {isLinked && " · "}
-              <button type="button" className="text-teal-700 hover:underline" onClick={onReset}>
+              <button type="button" className="text-accent hover:underline" onClick={onReset}>
                 Reset burn
               </button>
             </>
@@ -618,12 +618,12 @@ function BalanceInput({
         inputMode="decimal"
         disabled={disabled}
         className={cn(
-          "w-[7.75rem] rounded-md border px-2 py-1 text-right text-sm font-semibold tabular-nums text-[#0c2340] shadow-sm",
+          "w-[7.75rem] rounded-md border px-2 py-1 text-right text-sm font-semibold tabular-nums text-ink shadow-sm",
           disabled && "cursor-not-allowed opacity-50",
-          source === "manual" && "border-teal-500 bg-teal-50/50",
-          source === "report" && "border-teal-200 bg-white",
-          source === "none" && !disabled && "border-amber-300 bg-amber-50/80",
-          source === "none" && disabled && "border-slate-200 bg-slate-50"
+          source === "manual" && "border-accent bg-accent-soft/50",
+          source === "report" && "border-accent bg-surface",
+          source === "none" && !disabled && "border-caution bg-caution-soft/80",
+          source === "none" && disabled && "border-rule bg-inset"
         )}
         title={
           reportHint ??
@@ -660,7 +660,7 @@ function BalanceInput({
         }}
       />
       {!disabled && source !== "none" && (
-        <p className="text-[10px] text-slate-500" title={reportHint}>
+        <p className="text-[10px] text-muted" title={reportHint}>
           {source === "manual"
             ? "Manual entry"
             : asOfLabel
@@ -669,7 +669,7 @@ function BalanceInput({
         </p>
       )}
       {!disabled && source === "none" && (
-        <p className="text-[10px] text-amber-700">Upload a Net Position Report or enter amount</p>
+        <p className="text-[10px] text-caution">Upload a Net Position Report or enter amount</p>
       )}
     </div>
   );

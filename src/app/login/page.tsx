@@ -31,16 +31,16 @@ export default function LoginPage() {
 
   if (!configured) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-50 p-6">
-        <div className="max-w-md rounded-xl border bg-white p-6 shadow-sm">
-          <h1 className="text-lg font-semibold text-[#0c2340]">Cloud not configured</h1>
-          <p className="mt-2 text-sm text-slate-600">
+      <main className="flex min-h-screen items-center justify-center bg-inset p-6">
+        <div className="max-w-md rounded-xl border bg-surface p-6 shadow-sm">
+          <h1 className="text-lg font-semibold text-ink">Cloud not configured</h1>
+          <p className="mt-2 text-sm text-ink-2">
             Add Supabase URL and publishable key to{" "}
             <code className="text-xs">.env.local</code>, then enable Email auth in the
             Supabase dashboard. You can keep using Runway in local-only mode without
             signing in.
           </p>
-          <Link href="/dashboard" className="mt-4 inline-block text-sm text-teal-700 hover:underline">
+          <Link href="/dashboard" className="mt-4 inline-block text-sm text-accent hover:underline">
             Continue to app
           </Link>
         </div>
@@ -50,7 +50,7 @@ export default function LoginPage() {
 
   if (user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f6f8] text-slate-500">
+      <div className="flex min-h-screen items-center justify-center bg-paper text-muted">
         Loading…
       </div>
     );
@@ -98,30 +98,30 @@ export default function LoginPage() {
 
   if (sentToEmail) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-brand-ground p-6">
         <div className="mb-8 origin-center scale-[1.2] text-white">
           <LedgerWordmark variant="sidebar" />
         </div>
-        <div className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-white p-6 shadow-lg">
-          <h1 className="text-xl font-semibold text-[#0c2340]">Check your inbox</h1>
-          <p className="text-sm text-slate-600">
+        <div className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-surface p-6 shadow-lg">
+          <h1 className="text-xl font-semibold text-ink">Check your inbox</h1>
+          <p className="text-sm text-ink-2">
             We sent a confirmation link to{" "}
-            <span className="font-medium text-[#0c2340]">{sentToEmail}</span>. Click it to
+            <span className="font-medium text-ink">{sentToEmail}</span>. Click it to
             finish setting up your account — it opens right where you left off.
           </p>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {resendNote && <p className="text-sm text-teal-800">{resendNote}</p>}
+          {error && <p className="text-sm text-critical">{error}</p>}
+          {resendNote && <p className="text-sm text-accent">{resendNote}</p>}
           <button
             type="button"
             disabled={busy}
             onClick={() => void resend()}
-            className="w-full rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-[#0c2340] hover:border-teal-700 hover:bg-teal-50/40 disabled:opacity-60"
+            className="w-full rounded-lg border border-control px-4 py-2 text-sm font-medium text-ink hover:border-accent hover:bg-accent-soft/40 disabled:opacity-60"
           >
             {busy ? "Please wait…" : "Resend email"}
           </button>
           <button
             type="button"
-            className="w-full text-sm text-slate-600 hover:underline"
+            className="w-full text-sm text-ink-2 hover:underline"
             onClick={() => {
               setSentToEmail(null);
               setResendNote(null);
@@ -137,16 +137,16 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-brand-ground p-6">
       <div className="mb-8 origin-center scale-[1.2] text-white">
         <LedgerWordmark variant="sidebar" />
       </div>
       <form
         onSubmit={onSubmit}
-        className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-white p-6 shadow-lg"
+        className="w-full max-w-md space-y-4 rounded-xl border border-white/10 bg-surface p-6 shadow-lg"
       >
         <div>
-          <h1 className="text-xl font-semibold text-[#0c2340]">
+          <h1 className="text-xl font-semibold text-ink">
             {mode === "signin" ? "Sign in" : "Create account"}
           </h1>
         </div>
@@ -187,17 +187,17 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </label>
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-critical">{error}</p>}
         <button
           type="submit"
           disabled={busy}
-          className="w-full rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-60"
+          className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-60"
         >
           {busy ? "Please wait…" : mode === "signin" ? "Sign in" : "Sign up"}
         </button>
         <button
           type="button"
-          className="w-full text-sm text-slate-600 hover:underline"
+          className="w-full text-sm text-ink-2 hover:underline"
           onClick={() => {
             setMode(mode === "signin" ? "signup" : "signin");
             setError(null);
@@ -207,12 +207,12 @@ export default function LoginPage() {
         </button>
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center justify-center gap-1.5">
-            <Link href="/dashboard" className="text-sm text-slate-500 hover:underline">
+            <Link href="/dashboard" className="text-sm text-muted hover:underline">
               Use local-mode only
             </Link>
             <button
               type="button"
-              className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+              className="rounded-full p-0.5 text-muted hover:text-ink-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               aria-label="About local-mode only"
               aria-expanded={localModeInfoOpen}
               aria-controls={localModeInfoId}
@@ -224,7 +224,7 @@ export default function LoginPage() {
           {localModeInfoOpen && (
             <p
               id={localModeInfoId}
-              className="max-w-xs rounded-lg bg-slate-50 px-3 py-2 text-center text-xs leading-relaxed text-slate-600"
+              className="max-w-xs rounded-lg bg-inset px-3 py-2 text-center text-xs leading-relaxed text-ink-2"
             >
               While in local-mode, your data is only stored in your browser and never
               uploaded to the cloud. Clearing your browser data will permanently delete

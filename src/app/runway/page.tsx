@@ -178,9 +178,9 @@ export default function RunwayPage() {
           ) : (
             <div className="space-y-4">
               {netPositionImports.length === 0 && (
-                <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                <p className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
                   No Net Position Reports uploaded yet.{" "}
-                  <Link href="/upload" className="font-medium underline hover:text-amber-950">
+                  <Link href="/upload" className="font-medium underline hover:text-caution">
                     Upload balances on the Upload page
                   </Link>{" "}
                   or enter balances manually on each account row.
@@ -198,14 +198,14 @@ export default function RunwayPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Filter by person or account…"
-                    className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                    className="w-full max-w-xs rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink shadow-sm placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                   {orderIsHeld && (
                     <button
                       type="button"
                       onClick={() => setFrozenOrder(naturalOrder.map((s) => s.employee.id))}
                       title="Rows keep their positions while you hide accounts, so a hidden row's neighbours stay put."
-                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-slate-600 underline underline-offset-2 hover:text-[#12626e]"
+                      className="inline-flex min-h-11 items-center gap-1.5 text-xs font-medium text-ink-2 underline underline-offset-2 hover:text-accent"
                     >
                       Order held · re-sort now
                     </button>
@@ -221,8 +221,8 @@ export default function RunwayPage() {
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
                       showHiddenFunds
-                        ? "border-teal-600 bg-teal-50 text-teal-800"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        ? "border-accent bg-accent-soft text-accent"
+                        : "border-rule bg-surface text-ink-2 hover:bg-inset"
                     )}
                   >
                     {showHiddenFunds ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -233,7 +233,7 @@ export default function RunwayPage() {
                 )}
               </div>
               {visibleSummaries.length === 0 && query.trim() !== "" && (
-                <p className="py-6 text-center text-sm text-slate-500">
+                <p className="py-6 text-center text-sm text-muted">
                   No person or account matches “{query.trim()}”.
                 </p>
               )}

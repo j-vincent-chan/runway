@@ -47,16 +47,16 @@ function formatPeriodAxis(key: string): string {
 }
 
 function ChangeBadge({ value }: { value: number | null }) {
-  if (value === null) return <span className="text-xs text-slate-400">—</span>;
+  if (value === null) return <span className="text-xs text-muted">—</span>;
   const positive = value > 0;
   const negative = value < 0;
   return (
     <span
       className={cn(
         "text-xs font-medium tabular-nums",
-        positive && "text-emerald-700",
-        negative && "text-red-700",
-        !positive && !negative && "text-slate-600"
+        positive && "text-healthy",
+        negative && "text-critical",
+        !positive && !negative && "text-ink-2"
       )}
     >
       {positive ? "+" : ""}
@@ -72,7 +72,7 @@ function GroupBadge({ groupId }: { groupId?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700 ring-1 ring-slate-200"
+        "inline-flex items-center gap-1 rounded-full bg-inset px-1.5 py-0.5 text-[10px] font-medium text-ink-2 ring-1 ring-rule"
       )}
       title={meta.label}
     >
@@ -83,7 +83,7 @@ function GroupBadge({ groupId }: { groupId?: string }) {
 
 function Sparkline({ series }: { series: NetPositionAccountSeries }) {
   if (series.points.length < 2) {
-    return <div className="h-12 w-28 text-[10px] text-slate-400">Need 2+ periods</div>;
+    return <div className="h-12 w-28 text-[10px] text-muted">Need 2+ periods</div>;
   }
   const data = series.points.map((p) => ({
     key: p.periodKey,
@@ -116,11 +116,11 @@ function BalanceTooltip({
   const row = payload[0]?.payload;
   if (!row) return null;
   return (
-    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-md">
-      <p className="font-medium text-slate-800">{row.label}</p>
-      <p className="mt-1 text-slate-600">
+    <div className="rounded-lg border border-rule bg-surface px-3 py-2 text-xs shadow-md">
+      <p className="font-medium text-ink">{row.label}</p>
+      <p className="mt-1 text-ink-2">
         Ending:{" "}
-        <span className="font-medium text-[#0c2340]">{formatCurrencyBalance(row.balance)}</span>
+        <span className="font-medium text-ink">{formatCurrencyBalance(row.balance)}</span>
       </p>
     </div>
   );
@@ -138,7 +138,7 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
   }));
 
   return (
-    <div className="space-y-4 border-t border-slate-100 px-5 py-4">
+    <div className="space-y-4 border-t border-rule px-5 py-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Meta
           label="Fund"
@@ -163,7 +163,7 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
 
       {series.points.length >= 2 ? (
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
             Ending balance over time
           </p>
           <ChartResponsive height={DETAIL_CHART_HEIGHT}>
@@ -198,7 +198,7 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
+            <tr className="border-b border-rule text-xs uppercase tracking-wide text-muted">
               <th className="pb-2 pr-3 font-semibold">Period</th>
               <th className="pb-2 pr-3 text-right font-semibold">Beginning</th>
               <th className="pb-2 pr-3 text-right font-semibold">Expenses</th>
@@ -208,23 +208,23 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
           </thead>
           <tbody>
             {[...series.points].reverse().map((p) => (
-              <tr key={`${p.importId}-${p.periodKey}`} className="border-b border-slate-50">
-                <td className="py-2 pr-3 text-slate-700">
+              <tr key={`${p.importId}-${p.periodKey}`} className="border-b border-rule">
+                <td className="py-2 pr-3 text-ink-2">
                   {netPositionPeriodLabel(p)}
-                  <span className="mt-0.5 block text-[11px] text-slate-400">
+                  <span className="mt-0.5 block text-[11px] text-muted">
                     Run {p.reportRunDate}
                   </span>
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                <td className="py-2 pr-3 text-right tabular-nums text-ink-2">
                   {formatCurrencyBalance(p.beginningBalance)}
                 </td>
-                <td className="py-2 pr-3 text-right tabular-nums text-slate-700">
+                <td className="py-2 pr-3 text-right tabular-nums text-ink-2">
                   {formatCurrencyBalance(p.expenses)}
                 </td>
                 <td className="py-2 pr-3 text-right">
                   <ChangeBadge value={p.netChange} />
                 </td>
-                <td className="py-2 text-right tabular-nums font-medium text-[#0c2340]">
+                <td className="py-2 text-right tabular-nums font-medium text-ink">
                   {formatCurrencyBalance(p.endingBalance)}
                 </td>
               </tr>
@@ -239,8 +239,8 @@ function AccountDetail({ item }: { item: AccountBalanceViewItem }) {
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-0.5 text-sm text-slate-700">{value}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p className="mt-0.5 text-sm text-ink-2">{value}</p>
     </div>
   );
 }
@@ -296,8 +296,8 @@ function AccountCard({
     <li
       className={cn(
         "transition-colors",
-        "hover:bg-slate-50/80",
-        open && "bg-teal-50/40",
+        "hover:bg-inset/80",
+        open && "bg-accent-soft/40",
         item.isHidden && "opacity-70"
       )}
     >
@@ -318,7 +318,7 @@ function AccountCard({
           type="button"
           title={item.isHidden ? "Show on Account Balances" : "Hide from Account Balances"}
           aria-label={item.isHidden ? "Unhide account" : "Hide account"}
-          className="shrink-0 rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+          className="shrink-0 rounded p-1 text-muted hover:bg-inset hover:text-ink"
           onClick={(e) => {
             e.stopPropagation();
             onToggleHidden();
@@ -350,12 +350,12 @@ function AccountCard({
             </div>
             <GroupBadge groupId={item.accountGroupId} />
             {item.isHidden ? (
-              <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+              <span className="text-[10px] font-medium uppercase tracking-wide text-muted">
                 Hidden
               </span>
             ) : null}
           </div>
-          <p className="mt-0.5 truncate text-xs text-slate-500">
+          <p className="mt-0.5 truncate text-xs text-muted">
             {item.displayKey}
             {item.parentAwardDescription
               ? ` · ${item.parentAwardDescription}`
@@ -374,28 +374,28 @@ function AccountCard({
         {item.series ? (
           <Sparkline series={item.series} />
         ) : (
-          <div className="hidden h-12 w-28 shrink-0 items-center text-[10px] text-slate-400 sm:flex">
+          <div className="hidden h-12 w-28 shrink-0 items-center text-[10px] text-muted sm:flex">
             Snapshot only
           </div>
         )}
         {showPriorColumn && (
           <div className="hidden w-28 shrink-0 text-right sm:block">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
               vs prior
             </p>
             <ChangeBadge value={item.changeFromPrior} />
           </div>
         )}
         <div className="w-28 shrink-0 text-right sm:w-32">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
             Ending
           </p>
           <p
             className={cn(
               "text-base font-semibold tabular-nums",
               item.displayBalance !== null && item.displayBalance < 0
-                ? "text-red-700"
-                : "text-[#0c2340]"
+                ? "text-critical"
+                : "text-ink"
             )}
           >
             {item.displayBalance !== null ? formatCurrency(item.displayBalance) : "—"}
@@ -565,7 +565,7 @@ export default function AccountBalancesPage() {
           hasAnySource ? { label: "Upload another", href: "/upload" } : undefined
         }
       />
-      <main className="flex-1 overflow-auto bg-slate-50/60 p-6">
+      <main className="flex-1 overflow-auto bg-inset/60 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
           {!hasAnySource ? (
             <EmptyState
@@ -590,13 +590,13 @@ export default function AccountBalancesPage() {
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap gap-6">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                       Accounts
                     </p>
-                    <p className="text-lg font-semibold tabular-nums text-[#0c2340]">
+                    <p className="text-lg font-semibold tabular-nums text-ink">
                       {filtered.length}
                       {filtered.length !== visibleItems.length ? (
-                        <span className="text-sm font-normal text-slate-500">
+                        <span className="text-sm font-normal text-muted">
                           {" "}
                           of {visibleItems.length}
                         </span>
@@ -604,19 +604,19 @@ export default function AccountBalancesPage() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                       Total ending
                     </p>
-                    <p className="text-lg font-semibold tabular-nums text-[#0c2340]">
+                    <p className="text-lg font-semibold tabular-nums text-ink">
                       {formatCurrency(totalEnding)}
                     </p>
                   </div>
                   {latestPeriod && (
                     <div>
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                         Latest NP period
                       </p>
-                      <p className="text-lg font-semibold text-[#0c2340]">{latestPeriod}</p>
+                      <p className="text-lg font-semibold text-ink">{latestPeriod}</p>
                     </div>
                   )}
                 </div>
@@ -638,8 +638,8 @@ export default function AccountBalancesPage() {
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
                         showHidden
-                          ? "border-teal-600 bg-teal-50 text-teal-800"
-                          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-rule bg-surface text-ink-2 hover:bg-inset"
                       )}
                     >
                       {showHidden ? (
@@ -657,28 +657,28 @@ export default function AccountBalancesPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Filter by project, fund, dept…"
-                    className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-teal-600 focus:outline-none focus:ring-1 focus:ring-teal-600"
+                    className="w-full max-w-xs rounded-lg border border-rule bg-surface px-3 py-2 text-sm text-ink shadow-sm placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                   />
                 </div>
               </div>
 
-              <p className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+              <p className="rounded-lg border border-rule bg-surface px-3 py-2 text-xs text-ink-2">
                 {netPositionImports.length} Net Position report
                 {netPositionImports.length === 1 ? "" : "s"}.
                 {!anyPriorData && (
                   <> Change vs prior needs two report periods — upload another to see movement.</>
                 )}{" "}
-                <Link href="/upload" className="font-medium underline hover:text-slate-900">
+                <Link href="/upload" className="font-medium underline hover:text-ink">
                   Manage uploads
                 </Link>
               </p>
 
               {!hasVisibleContent ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-600">
+                <div className="rounded-xl border border-dashed border-control bg-surface px-6 py-12 text-center text-sm text-ink-2">
                   No accounts on the list yet. Upload a Net Position Report.
                 </div>
               ) : filtered.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center text-sm text-slate-600">
+                <div className="rounded-xl border border-dashed border-control bg-surface px-6 py-12 text-center text-sm text-ink-2">
                   {query.trim()
                     ? `No accounts match “${query.trim()}”.`
                     : (settings.accountGroupFilter?.length ?? 0) > 0
@@ -692,14 +692,14 @@ export default function AccountBalancesPage() {
                   {sections.map((section) => (
                     <div key={section.key} className="space-y-3">
                       {accountGroups.length > 0 && section.key !== "all" ? (
-                        <h3 className="flex items-center gap-2 text-sm font-semibold text-[#0c2340]">
+                        <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
                           {section.label}
-                          <span className="font-normal text-slate-500">
+                          <span className="font-normal text-muted">
                             ({section.items.length})
                           </span>
                         </h3>
                       ) : null}
-                      <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                      <ul className="divide-y divide-rule overflow-hidden rounded-xl border border-rule bg-surface shadow-sm">
                         {section.items.map((s) => (
                           <AccountCard
                             key={s.accountKey}

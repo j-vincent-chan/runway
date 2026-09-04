@@ -21,7 +21,7 @@ export default function TimelinePage() {
         ) : (
           <div className="flex flex-col gap-4">
             {dataMigrated && (
-              <p className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+              <p className="rounded-lg border border-accent bg-accent-soft px-3 py-2 text-sm text-accent">
                 Payroll data was refreshed with improved parsing (employees matched by HR ID, not last
                 name; X+Y effort rows combined). The same grant may appear for two people in different
                 months—that is a handoff, not a mix-up.

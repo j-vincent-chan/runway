@@ -65,8 +65,8 @@ export function ProjectionAllocationBar({
         disabled={readOnly}
         className={cn(
           "h-8 w-full",
-          readOnly ? "cursor-default" : "cursor-pointer hover:bg-slate-50",
-          projected ? "bg-slate-50" : "bg-white",
+          readOnly ? "cursor-default" : "cursor-pointer hover:bg-inset",
+          projected ? "bg-inset" : "bg-surface",
           // No effort charged, so nothing is unfunded here — but the cliff edge
           // still marks where the account's money ran out.
           dryStart && "allocation-bar--dry-start"
@@ -94,10 +94,10 @@ export function ProjectionAllocationBar({
         "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-center text-[10px] font-medium",
         readOnly && "cursor-default",
         display === "both" && "px-0.5 leading-tight",
-        projected ? "text-slate-600" : "text-slate-800",
+        projected ? "text-ink-2" : "text-ink",
         // Muted against the faded fill, so the figure stays readable without
         // competing with the mark that says it is unfunded.
-        unfunded && "text-slate-500",
+        unfunded && "text-muted",
         isReversal && "allocation-bar--reversal",
         unfunded && "allocation-bar--unfunded",
         dryStart && "allocation-bar--dry-start"

@@ -28,7 +28,7 @@ export function EmployeeScopeEditor({
         max={100}
         step={0.5}
         className={cn(
-          "w-14 rounded border border-teal-500 bg-white px-1 py-0.5 text-center text-[10px] text-slate-800",
+          "w-14 rounded border border-accent bg-surface px-1 py-0.5 text-center text-[10px] text-ink",
           className
         )}
         value={val}
@@ -58,7 +58,7 @@ export function EmployeeScopeEditor({
       type="button"
       className={cn(
         "px-1 py-0.5 text-[11px] font-medium underline-offset-2 hover:underline",
-        hasCustomScope ? "text-teal-700" : "text-muted",
+        hasCustomScope ? "text-accent" : "text-muted",
         className
       )}
       title={

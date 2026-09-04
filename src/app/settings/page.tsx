@@ -67,7 +67,7 @@ export default function SettingsPage() {
               instead of a second left rail inside a page that already has the
               app sidebar. Hash deep links (/settings#accounts) are unchanged. */}
           <nav
-            className="inline-flex max-w-full flex-wrap gap-0.5 self-start rounded-lg border border-slate-200 bg-white p-0.5 text-sm shadow-sm"
+            className="inline-flex max-w-full flex-wrap gap-0.5 self-start rounded-lg border border-rule bg-surface p-0.5 text-sm shadow-sm"
             aria-label="Settings sections"
           >
             {TABS.map((t) => (
@@ -78,8 +78,8 @@ export default function SettingsPage() {
                 className={cn(
                   "whitespace-nowrap rounded-md px-3 py-1.5 font-medium transition-colors",
                   tab === t.id
-                    ? "bg-[#0c2340] text-white"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                    ? "bg-brand-ground text-white"
+                    : "text-ink-2 hover:bg-inset hover:text-ink"
                 )}
               >
                 {t.label}
@@ -100,7 +100,7 @@ export default function SettingsPage() {
             )}
 
             {tab === "planning" && (
-              <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
+              <section className="space-y-3 rounded-xl border bg-surface p-5 shadow-sm">
                 <h3 className="font-semibold">Planning defaults</h3>
                 <label className="block text-sm">
                   Fiscal year start month
@@ -144,8 +144,8 @@ export default function SettingsPage() {
             {tab === "accounts" && <AccountsSettings />}
 
             {tab === "data" && (
-              <section className="rounded-xl border bg-white p-5 text-sm text-slate-600">
-                <h3 className="font-semibold text-[#0c2340]">Data &amp; about</h3>
+              <section className="rounded-xl border bg-surface p-5 text-sm text-ink-2">
+                <h3 className="font-semibold text-ink">Data &amp; about</h3>
                 <p className="mt-3">Parser version: {PARSER_VERSION}</p>
                 <p className="mt-1">
                   Planning data is stored in this browser. Private cloud sync runs only when you
@@ -162,7 +162,7 @@ export default function SettingsPage() {
                       )
                         clearAll();
                     }}
-                    className="mt-4 text-red-600 hover:underline"
+                    className="mt-4 text-critical hover:underline"
                   >
                     Clear all imported data
                   </button>

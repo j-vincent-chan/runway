@@ -40,8 +40,8 @@ export function WhatThisPowersCard({
   hasPositionSalary?: boolean;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-[#0c2340]">What This Powers</h3>
+    <section className="rounded-xl border border-rule bg-surface p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink">What This Powers</h3>
       {(
         [
           { caption: "Pages", items: PAGES },
@@ -49,7 +49,7 @@ export function WhatThisPowersCard({
         ] as const
       ).map((group) => (
         <div key={group.caption} className="mt-3">
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-muted">
             {group.caption}
           </p>
           <ul className="mt-1.5 space-y-2">
@@ -63,12 +63,12 @@ export function WhatThisPowersCard({
                 <li key={item.label} className="flex items-center gap-2 text-sm">
                   <span
                     className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                      active ? "bg-teal-100 text-teal-700" : "bg-slate-100 text-slate-300"
+                      active ? "bg-accent-soft text-accent" : "bg-inset text-muted"
                     }`}
                   >
                     <Check className="h-3 w-3" />
                   </span>
-                  <span className={active ? "text-slate-800" : "text-slate-400"}>
+                  <span className={active ? "text-ink" : "text-muted"}>
                     {item.label}
                   </span>
                 </li>

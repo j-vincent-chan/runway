@@ -48,6 +48,22 @@
   --on-caution: #ffffff;
   --on-critical: #ffffff;
   --on-healthy: #ffffff;
+  /* Hover for a saturated accent fill: darker in light, lighter in dark. */
+  --accent-hover: #0d4a53;
+  /*
+   * The navy brand ground behind the sign-in / welcome lockup. Deepened in
+   * dark so a --surface card still lifts off it; navy alone sat at 1.1:1
+   * against the card.
+   */
+  --brand-ground: #0c2340;
+  /*
+   * Foreground on the navy brand ground. That ground is dark in BOTH themes,
+   * so these do not flip — defined once here rather than per theme. The muted
+   * step clears 5.4:1 on light-mode navy and 6.7:1 on the dark ground; the
+   * standard --muted would have sat at 3.0:1 there.
+   */
+  --on-brand: #ffffff;
+  --on-brand-muted: #94a3b8;
   /* Grid furniture: diagonal hatching and the one permitted hairline shadow. */
   --hatch: rgba(12, 35, 64, 0.07);
   --shadow: rgba(12, 35, 64, 0.08);
@@ -78,6 +94,8 @@
     --on-caution: #0c111a;
     --on-critical: #0c111a;
     --on-healthy: #0c111a;
+    --accent-hover: #83cdd6;
+    --brand-ground: #080d15;
     --hatch: rgba(231, 235, 242, 0.09);
     --shadow: rgba(0, 0, 0, 0.5);
   }
@@ -106,6 +124,8 @@
   --on-caution: #0c111a;
   --on-critical: #0c111a;
   --on-healthy: #0c111a;
+  --accent-hover: #83cdd6;
+  --brand-ground: #080d15;
   --hatch: rgba(231, 235, 242, 0.09);
   --shadow: rgba(0, 0, 0, 0.5);
 }
@@ -138,6 +158,10 @@
   --color-on-caution: var(--on-caution);
   --color-on-critical: var(--on-critical);
   --color-on-healthy: var(--on-healthy);
+  --color-accent-hover: var(--accent-hover);
+  --color-brand-ground: var(--brand-ground);
+  --color-on-brand: var(--on-brand);
+  --color-on-brand-muted: var(--on-brand-muted);
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 

@@ -28,17 +28,17 @@ export function NetPositionFilesCard() {
   );
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-100 px-5 py-4">
+    <section className="rounded-xl border border-rule bg-surface shadow-sm">
+      <div className="border-b border-rule px-5 py-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#0c2340]">
+          <span className="text-xs font-semibold uppercase tracking-wide text-ink">
             2. Net Position Reports
           </span>
           <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-sky-800">
             Optional
           </span>
         </div>
-        <p className="mt-2 text-sm text-slate-600">
+        <p className="mt-2 text-sm text-ink-2">
           Supplies every account balance Runway spends against — run it against your payroll accounts. Powers Runway, projections, and Account Balances trends.
         </p>
       </div>
@@ -58,13 +58,13 @@ export function NetPositionFilesCard() {
         <div className={DATA_SOURCE_DROPZONE_MIN_H}>
           {netPositionImports.length === 0 ? (
             <div
-              className={`flex h-full ${DATA_SOURCE_DROPZONE_MIN_H} items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/30 p-4 text-center text-sm text-slate-500`}
+              className={`flex h-full ${DATA_SOURCE_DROPZONE_MIN_H} items-center justify-center rounded-lg border border-dashed border-rule bg-inset/30 p-4 text-center text-sm text-muted`}
             >
               No Net Position reports uploaded yet.
             </div>
           ) : (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
                 Uploaded files ({netPositionImports.length})
               </p>
               <ul className="mt-2 space-y-2">
@@ -77,28 +77,28 @@ export function NetPositionFilesCard() {
                   return (
                     <li
                       key={imp.id}
-                      className="flex items-start justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-2"
+                      className="flex items-start justify-between gap-2 rounded-lg border border-rule bg-inset/50 px-3 py-2"
                     >
                       <div className="flex min-w-0 gap-2">
-                        <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+                        <FileSpreadsheet className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
                         <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-slate-800">
+                          <p className="truncate text-sm font-medium text-ink">
                             {imp.sourceFileName}
                           </p>
-                          <p className="mt-0.5 text-xs text-slate-500">
+                          <p className="mt-0.5 text-xs text-muted">
                             Period {period} · Run {imp.reportRunDate} · {imp.rows.length} accounts
                           </p>
                         </div>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         {isLatest && (
-                          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold text-teal-800">
+                          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-semibold text-accent">
                             Latest
                           </span>
                         )}
                         <button
                           type="button"
-                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                          className="rounded p-1 text-muted hover:bg-critical-soft hover:text-critical"
                           title="Remove this import"
                           onClick={() => removeNetPositionImport(imp.id)}
                         >
@@ -114,8 +114,8 @@ export function NetPositionFilesCard() {
         </div>
       </div>
 
-      <div className="flex gap-2 border-t border-slate-100 px-5 py-3 text-xs text-slate-600">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+      <div className="flex gap-2 border-t border-rule px-5 py-3 text-xs text-ink-2">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted" />
         <p>
           Accounts are keyed by fund–dept–project. Re-uploading the same period replaces that
           period&apos;s balances; earlier periods are kept for trends.
@@ -123,7 +123,7 @@ export function NetPositionFilesCard() {
       </div>
 
       {warnings.length > 0 && (
-        <ul className="border-t border-amber-100 bg-amber-50/50 px-5 py-2 text-xs text-amber-800">
+        <ul className="border-t border-caution bg-caution-soft/50 px-5 py-2 text-xs text-caution">
           {warnings.map((w) => (
             <li key={w.id}>{w.message}</li>
           ))}

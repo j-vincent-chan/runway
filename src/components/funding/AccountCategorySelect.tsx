@@ -27,7 +27,7 @@ function CategoryPill({
         className
       )}
     >
-      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10", meta.dotClass)} aria-hidden />
+      <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-rule/10", meta.dotClass)} aria-hidden />
       {meta.label}
     </span>
   );
@@ -37,11 +37,11 @@ export function AccountCategoryLegend() {
   const { settings } = useApp();
   const types = getFundingSourceTypes(settings);
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-      <span className="font-medium text-slate-700">Funding source</span>
+    <div className="flex flex-wrap items-center gap-3 text-xs text-ink-2">
+      <span className="font-medium text-ink-2">Funding source</span>
       {types.map((c) => (
         <span key={c.id} className="inline-flex items-center gap-1.5">
-          <span className={cn("h-3 w-3 rounded-full ring-1 ring-black/10", c.dotClass)} aria-hidden />
+          <span className={cn("h-3 w-3 rounded-full ring-1 ring-rule/10", c.dotClass)} aria-hidden />
           {c.label}
         </span>
       ))}
@@ -79,7 +79,7 @@ export function AccountCategorySelect({
           "flex w-full items-center justify-between gap-1 rounded-lg border px-2 py-1 text-left",
           value
             ? "border-transparent bg-transparent"
-            : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"
+            : "border-rule bg-surface text-muted hover:bg-inset"
         )}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -87,13 +87,13 @@ export function AccountCategorySelect({
         {value ? (
           <CategoryPill category={value} />
         ) : (
-          <span className="text-xs text-slate-500">Select funding source</span>
+          <span className="text-xs text-muted">Select funding source</span>
         )}
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted" />
       </button>
       {open && (
         <div
-          className="absolute left-0 z-30 mt-1 min-w-[11rem] rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute left-0 z-30 mt-1 min-w-[11rem] rounded-lg border border-rule bg-surface py-1 shadow-lg"
           role="listbox"
         >
           {types.map((c) => (
@@ -102,7 +102,7 @@ export function AccountCategorySelect({
               type="button"
               role="option"
               aria-selected={value === c.id}
-              className="flex w-full px-2 py-1.5 hover:bg-slate-50"
+              className="flex w-full px-2 py-1.5 hover:bg-inset"
               onClick={() => {
                 onChange(c.id);
                 setOpen(false);
@@ -114,7 +114,7 @@ export function AccountCategorySelect({
           {value && (
             <button
               type="button"
-              className="w-full border-t px-2 py-1.5 text-left text-[10px] text-slate-500 hover:bg-slate-50"
+              className="w-full border-t px-2 py-1.5 text-left text-[10px] text-muted hover:bg-inset"
               onClick={() => {
                 onChange(null);
                 setOpen(false);

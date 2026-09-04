@@ -73,8 +73,8 @@ function NavLink({
       className={cn(
         "relative flex min-h-11 items-center gap-2.5 rounded-md px-3 text-sm",
         active
-          ? "bg-white/[0.07] font-medium text-white"
-          : "text-slate-400 hover:bg-white/[0.06] hover:text-white"
+          ? "bg-white/[0.07] font-medium text-on-brand"
+          : "text-on-brand-muted hover:bg-white/[0.06] hover:text-on-brand"
       )}
     >
       {active && (
@@ -100,7 +100,7 @@ export function Sidebar() {
   if (settings.sidebarHidden) return null;
 
   return (
-    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto bg-[#0c2340] text-white">
+    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col overflow-y-auto bg-brand-ground text-on-brand">
       <div className="border-b border-white/10 px-3 py-4">
         <LedgerWordmark variant="sidebar" />
       </div>
@@ -131,7 +131,7 @@ export function Sidebar() {
                   ? `${(user.user_metadata?.full_name as string).trim()} · ${user.email ?? ""}`
                   : user.email) ?? "Sign out"
               }
-              className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm text-slate-400 hover:bg-white/[0.06] hover:text-white"
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-3 text-left text-sm text-on-brand-muted hover:bg-white/[0.06] hover:text-on-brand"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               Sign out
@@ -146,7 +146,7 @@ export function Sidebar() {
             href="https://ocr.ucsf.edu/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-slate-400 underline-offset-2 hover:text-white hover:underline"
+            className="text-on-brand-muted underline-offset-2 hover:text-on-brand hover:underline"
           >
             Powered by the UCSF Office of Collaboration
           </a>

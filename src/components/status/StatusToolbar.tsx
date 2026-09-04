@@ -56,7 +56,7 @@ export function StatusToolbar({
             className={cn(
               "type-row inline-flex min-h-10 items-center gap-1.5 rounded-md px-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
               filter === tab.id
-                ? "bg-[#0c2340] font-medium text-white"
+                ? "bg-brand-ground font-medium text-white"
                 : "text-muted hover:bg-inset hover:text-ink"
             )}
           >

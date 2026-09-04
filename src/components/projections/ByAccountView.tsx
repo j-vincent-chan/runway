@@ -245,7 +245,7 @@ function AccountBlock({
                 "shrink-0 rounded p-0.5",
                 notMine
                   ? "bg-sky-100 text-sky-800 ring-1 ring-sky-200/90"
-                  : "text-slate-400 hover:bg-sky-50 hover:text-sky-700"
+                  : "text-muted hover:bg-sky-50 hover:text-sky-700"
               )}
               title={
                 notMine
@@ -274,7 +274,7 @@ function AccountBlock({
               />
             </span>
             {isPlanned && (
-              <span className="shrink-0 rounded bg-teal-100 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-teal-800">
+              <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-accent">
                 PLANNED
               </span>
             )}
@@ -284,7 +284,7 @@ function AccountBlock({
             {hiddenCount > 0 && !revealHidden && (
               <button
                 type="button"
-                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-slate-200/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-slate-300/80"
+                className="ml-auto inline-flex shrink-0 items-center gap-0.5 rounded bg-rule/80 px-1.5 py-0.5 text-[10px] font-medium tabular-nums hover:bg-rule-strong/80"
                 title={`Show ${hiddenCount} hidden person row${hiddenCount === 1 ? "" : "s"} on this account`}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -319,7 +319,7 @@ function AccountBlock({
               projected && "text-muted",
               // Quieter than the fill it sits above: the number reaching zero
               // is already the statement, the tint only has to group the run.
-              empty && "bg-red-500/15 text-red-800",
+              empty && "bg-critical/15 text-critical",
               // A hard edge on the month it crosses zero, matching the same
               // mark on the people's cells directly below.
               i === dryIndex && "allocation-bar--dry-start"
@@ -360,14 +360,14 @@ function AccountBlock({
             <tr
               key={emp.id}
               className={cn(
-                "border-t border-slate-100 hover:bg-slate-50/50",
-                hidden && "bg-slate-50/90"
+                "border-t border-rule hover:bg-inset/50",
+                hidden && "bg-inset/90"
               )}
             >
               <td
                 className={cn(
                   "sticky left-0 z-10 px-1 py-0.5 pl-4",
-                  hidden ? "bg-slate-50/90" : "bg-white"
+                  hidden ? "bg-inset/90" : "bg-surface"
                 )}
                 style={{
                   width: PROJECTION_LABEL_COL,
@@ -379,8 +379,8 @@ function AccountBlock({
                   <button
                     type="button"
                     className={cn(
-                      "shrink-0 rounded p-0.5 hover:bg-slate-100",
-                      hidden ? "text-slate-500" : "text-slate-400 hover:text-slate-700"
+                      "shrink-0 rounded p-0.5 hover:bg-inset",
+                      hidden ? "text-muted" : "text-muted hover:text-ink-2"
                     )}
                     title={
                       hidden
@@ -404,10 +404,10 @@ function AccountBlock({
                         : `Edit ${emp.name}'s distribution rule on this account`
                     }
                     className={cn(
-                      "flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-slate-700",
+                      "flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] font-medium text-ink-2",
                       locked
                         ? "cursor-default"
-                        : "hover:text-teal-800 hover:underline",
+                        : "hover:text-accent hover:underline",
                       hidden && "opacity-50"
                     )}
                     onClick={() => onEdit(emp, fs)}
@@ -418,12 +418,12 @@ function AccountBlock({
                       size="xs"
                     />
                     <span className="truncate">{emp.name}</span>
-                    {locked && <Lock className="h-3 w-3 shrink-0 text-amber-600" aria-hidden />}
+                    {locked && <Lock className="h-3 w-3 shrink-0 text-caution" aria-hidden />}
                   </button>
                 </div>
               </td>
               <td
-                className="sticky z-10 bg-white"
+                className="sticky z-10 bg-surface"
                 style={{
                   left: PROJECTION_LABEL_COL,
                   width: PROJECTION_SCOPE_COL,
@@ -442,7 +442,7 @@ function AccountBlock({
                   <td
                     key={`${emp.id}-${segment.months[0]}`}
                     colSpan={segment.colspan}
-                    className="border border-slate-200 p-0 align-middle"
+                    className="border border-rule p-0 align-middle"
                   >
                     <ProjectionAllocationBar
                       percentEffort={segment.value}

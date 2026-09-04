@@ -35,7 +35,7 @@ export function PageStatRow({
     <section
       aria-label="Summary"
       className={cn(
-        "flex flex-col divide-y divide-slate-200 sm:flex-row sm:divide-x sm:divide-y-0",
+        "flex flex-col divide-y divide-rule sm:flex-row sm:divide-x sm:divide-y-0",
         className
       )}
     >
@@ -44,23 +44,23 @@ export function PageStatRow({
           key={stat.label}
           className="min-w-0 flex-1 py-2 sm:px-5 sm:py-0 sm:first:pl-0 sm:last:pr-0"
         >
-          <p className="text-[11.5px] font-medium uppercase tracking-[0.11em] text-slate-500">
+          <p className="text-[11.5px] font-medium uppercase tracking-[0.11em] text-muted">
             {stat.label}
           </p>
           <p
             className={cn(
               "mt-1 text-[26px] font-medium leading-8 tabular-nums",
               stat.tone === "critical"
-                ? "text-[#95382B]"
+                ? "text-critical"
                 : stat.tone === "caution"
-                  ? "text-[#8F620F]"
-                  : "text-[#0F1A2B]"
+                  ? "text-caution"
+                  : "text-ink"
             )}
           >
             {stat.value}
           </p>
           {stat.basis && (
-            <p className="mt-0.5 text-[11.5px] text-slate-500">{stat.basis}</p>
+            <p className="mt-0.5 text-[11.5px] text-muted">{stat.basis}</p>
           )}
         </div>
       ))}

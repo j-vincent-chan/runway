@@ -62,15 +62,15 @@ export function AnalyticsPanel() {
   if (!snapshot || !data || settings.analyticsPanelHidden) return null;
 
   return (
-    <aside className="sticky top-0 z-10 w-72 shrink-0 self-start border-l border-slate-200 bg-slate-50/50 p-4">
+    <aside className="sticky top-0 z-10 w-72 shrink-0 self-start border-l border-rule bg-inset/50 p-4">
       <div className="space-y-4">
       <div className="-mt-1 mb-1 flex items-center justify-between">
-        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <h2 className="text-[10px] font-semibold uppercase tracking-wider text-muted">
           Insights
         </h2>
         <button
           type="button"
-          className="rounded-md p-1 text-slate-400 hover:bg-white hover:text-[#0c2340]"
+          className="rounded-md p-1 text-muted hover:bg-surface hover:text-ink"
           aria-label="Hide insights"
           title="Hide insights panel"
           onClick={() => updateSettings({ analyticsPanelHidden: true })}
@@ -79,9 +79,9 @@ export function AnalyticsPanel() {
         </button>
       </div>
       <GapsAlertsPanel />
-      <div className="rounded-xl border bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-semibold text-[#0c2340]">Coverage summary</h3>
-        <p className="text-[10px] text-slate-500">Current month · planning estimate</p>
+      <div className="rounded-xl border bg-surface p-3 shadow-sm">
+        <h3 className="text-sm font-semibold text-ink">Coverage summary</h3>
+        <p className="text-[10px] text-muted">Current month · planning estimate</p>
         <div className="mt-2">
           <ChartResponsive height={COVERAGE_CHART_HEIGHT}>
             <PieChart>
@@ -104,22 +104,22 @@ export function AnalyticsPanel() {
         </ul>
       </div>
 
-      <div className="rounded-xl border bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-semibold text-[#0c2340]">Top upcoming funding cliffs</h3>
+      <div className="rounded-xl border bg-surface p-3 shadow-sm">
+        <h3 className="text-sm font-semibold text-ink">Top upcoming funding cliffs</h3>
         <ul className="mt-2 space-y-2 text-xs">
-          {data.cliffs.length === 0 && <li className="text-slate-500">None detected at default threshold.</li>}
+          {data.cliffs.length === 0 && <li className="text-muted">None detected at default threshold.</li>}
           {data.cliffs.map((c) => (
-            <li key={c.id} className="border-b border-slate-100 pb-2 last:border-0">
+            <li key={c.id} className="border-b border-rule pb-2 last:border-0">
               <span className="font-medium">{c.employeeName}</span>
-              <p className="text-slate-600">{c.dropPercent.toFixed(0)}% drop after {formatMonthDisplay(c.fromMonth)}</p>
+              <p className="text-ink-2">{c.dropPercent.toFixed(0)}% drop after {formatMonthDisplay(c.fromMonth)}</p>
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="rounded-xl border bg-white p-3 shadow-sm">
-        <h3 className="text-sm font-semibold text-[#0c2340]">Monthly cost</h3>
-        <p className="text-[10px] text-slate-500">Salary + benefits</p>
+      <div className="rounded-xl border bg-surface p-3 shadow-sm">
+        <h3 className="text-sm font-semibold text-ink">Monthly cost</h3>
+        <p className="text-[10px] text-muted">Salary + benefits</p>
         <div className="mt-2">
           <ChartResponsive height={COST_TREND_CHART_HEIGHT}>
             <LineChart data={data.costTrend}>
@@ -132,7 +132,7 @@ export function AnalyticsPanel() {
         </div>
       </div>
 
-      <p className="text-[10px] text-slate-400">
+      <p className="text-[10px] text-muted">
         Planning estimates only. Confirm allowability with your finance/post-award analyst.
       </p>
       </div>

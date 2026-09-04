@@ -16,9 +16,9 @@ export function GapsAlertsPanel() {
   if (!snapshot) return null;
 
   return (
-    <div className="rounded-xl border bg-white p-3 shadow-sm">
-      <h3 className="text-sm font-semibold text-[#0c2340]">Gaps &amp; alerts</h3>
-      <p className="text-[10px] text-slate-500">Coverage gaps, cliffs, and data issues</p>
+    <div className="rounded-xl border bg-surface p-3 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink">Gaps &amp; alerts</h3>
+      <p className="text-[10px] text-muted">Coverage gaps, cliffs, and data issues</p>
       <AlertsList alerts={alerts} className="mt-2 max-h-64 overflow-y-auto" />
     </div>
   );

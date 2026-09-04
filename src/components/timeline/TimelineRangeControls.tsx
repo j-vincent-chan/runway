@@ -24,8 +24,8 @@ function SegmentedButton({
       className={cn(
         "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-[#0c2340] text-white shadow-sm"
-          : "text-slate-600 hover:bg-white hover:text-slate-900"
+          ? "bg-brand-ground text-white shadow-sm"
+          : "text-ink-2 hover:bg-surface hover:text-ink"
       )}
     >
       {children}
@@ -61,24 +61,24 @@ export function TimelineRangeControls({
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <input
         type="month"
-        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm"
+        className="rounded-md border border-rule bg-surface px-2 py-1 text-xs text-ink shadow-sm"
         min={minMonth}
         max={maxMonth}
         value={range.start}
         onChange={(e) => apply(e.target.value, range.end)}
         aria-label="Range start month"
       />
-      <span className="text-slate-400">–</span>
+      <span className="text-muted">–</span>
       <input
         type="month"
-        className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm"
+        className="rounded-md border border-rule bg-surface px-2 py-1 text-xs text-ink shadow-sm"
         min={minMonth}
         max={maxMonth}
         value={range.end}
         onChange={(e) => apply(range.start, e.target.value)}
         aria-label="Range end month"
       />
-      <div className="flex rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80">
+      <div className="flex rounded-lg bg-inset/90 p-0.5 ring-1 ring-rule/80">
         <SegmentedButton
           active={rangesEqual(range, preset6)}
           onClick={() => onChange(preset6)}

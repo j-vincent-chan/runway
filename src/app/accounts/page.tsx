@@ -10,7 +10,7 @@ export default function AccountsRedirectPage() {
     router.replace("/settings#accounts");
   }, [router]);
   return (
-    <main className="flex flex-1 items-center justify-center p-6 text-sm text-slate-500">
+    <main className="flex flex-1 items-center justify-center p-6 text-sm text-muted">
       Redirecting to Settings…
     </main>
   );

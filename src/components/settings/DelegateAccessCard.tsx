@@ -20,9 +20,9 @@ export function DelegateAccessCard() {
 
   if (!user || !cloudSyncEnabled) {
     return (
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-[#0c2340]">Financial analyst access</h3>
-        <p className="mt-2 text-sm text-slate-600">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm">
+        <h3 className="font-semibold text-ink">Financial analyst access</h3>
+        <p className="mt-2 text-sm text-ink-2">
           Sign in with cloud sync on to share this workspace with your financial analyst.
           Access grants live in your private cloud workspace, so they need it enabled.
         </p>
@@ -32,9 +32,9 @@ export function DelegateAccessCard() {
 
   if (activeOwner && !activeOwner.isSelf) {
     return (
-      <section className="rounded-xl border bg-white p-5 shadow-sm">
-        <h3 className="font-semibold text-[#0c2340]">Financial analyst access</h3>
-        <p className="mt-2 text-sm text-slate-600">
+      <section className="rounded-xl border bg-surface p-5 shadow-sm">
+        <h3 className="font-semibold text-ink">Financial analyst access</h3>
+        <p className="mt-2 text-sm text-ink-2">
           You&apos;re working in {activeOwner.email}&apos;s workspace. Only the workspace owner
           can grant or revoke analyst access — switch back to your own workspace to manage
           yours.
@@ -58,27 +58,27 @@ export function DelegateAccessCard() {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border bg-white p-5 shadow-sm">
-      <h3 className="font-semibold text-[#0c2340]">Financial analyst access</h3>
-      <p className="text-sm text-slate-600">
+    <section className="space-y-3 rounded-xl border bg-surface p-5 shadow-sm">
+      <h3 className="font-semibold text-ink">Financial analyst access</h3>
+      <p className="text-sm text-ink-2">
         An analyst you add signs in with their own account and opens your workspace from the
         picker in the header. They see and edit everything you can — including uploading
         monthly reports — until you remove them here.
       </p>
 
       {myDelegates.length > 0 ? (
-        <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+        <ul className="divide-y divide-rule rounded-lg border border-rule">
           {myDelegates.map((g) => (
             <li key={g.analystEmail} className="flex items-center justify-between gap-3 px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-slate-800">{g.analystEmail}</p>
-                <p className="text-xs text-slate-500">
+                <p className="truncate text-sm font-medium text-ink">{g.analystEmail}</p>
+                <p className="text-xs text-muted">
                   Access granted {formatIsoDateDisplay(g.createdAt) ?? g.createdAt}
                 </p>
               </div>
               <button
                 type="button"
-                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-red-600 hover:bg-red-50"
+                className="flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5 text-sm text-critical hover:bg-critical-soft"
                 onClick={() => {
                   if (
                     window.confirm(
@@ -96,7 +96,7 @@ export function DelegateAccessCard() {
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           No one else can open this workspace yet. Add your analyst&apos;s email to share it.
         </p>
       )}
@@ -106,7 +106,7 @@ export function DelegateAccessCard() {
           type="email"
           value={email}
           placeholder="analyst@ucsf.edu"
-          className="w-64 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="w-64 rounded-lg border border-control px-3 py-2 text-sm"
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") void grant();
@@ -116,13 +116,13 @@ export function DelegateAccessCard() {
           type="button"
           disabled={busy || !email.trim()}
           onClick={() => void grant()}
-          className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+          className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
         >
           {busy ? "Granting…" : "Grant access"}
         </button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <p className="text-xs text-slate-500">
+      {error && <p className="text-sm text-critical">{error}</p>}
+      <p className="text-xs text-muted">
         The email must match the account your analyst signs in with. They&apos;ll see your
         workspace in their header picker the next time they sign in or refresh.
       </p>

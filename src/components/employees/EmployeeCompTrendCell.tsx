@@ -47,7 +47,7 @@ export function EmployeeCompTrendCell({
   const { pct, rising } = changeFromFirstToLast(values);
 
   if (values.length === 0) {
-    return <span className="text-slate-400">—</span>;
+    return <span className="text-muted">—</span>;
   }
 
   const deltaLabel =
@@ -60,17 +60,17 @@ export function EmployeeCompTrendCell({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex min-w-[8.5rem] flex-col items-start gap-0.5 rounded-md px-0.5 py-0.5 text-left hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-500/50"
+        className="group flex min-w-[8.5rem] flex-col items-start gap-0.5 rounded-md px-0.5 py-0.5 text-left hover:bg-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
         title="Open yearly compensation trend"
       >
         <CompSparkline values={values} rising={rising} />
         <span
           className={
             rising === true
-              ? "text-[10px] font-medium text-teal-800"
+              ? "text-[10px] font-medium text-accent"
               : rising === false
-                ? "text-[10px] font-medium text-red-700"
-                : "text-[10px] text-slate-500"
+                ? "text-[10px] font-medium text-critical"
+                : "text-[10px] text-muted"
           }
         >
           {deltaLabel}

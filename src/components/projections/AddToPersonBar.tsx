@@ -46,7 +46,7 @@ export function AddToPersonBar({
 
   return (
     <div className="flex flex-wrap items-end gap-2 text-sm">
-      <label className="text-xs text-slate-600">
+      <label className="text-xs text-ink-2">
         Put
         <select
           className="ml-1 rounded border px-2 py-1 text-sm"
@@ -60,7 +60,7 @@ export function AddToPersonBar({
           ))}
         </select>
       </label>
-      <label className="text-xs text-slate-600">
+      <label className="text-xs text-ink-2">
         on
         <select
           className="ml-1 rounded border px-2 py-1 text-sm"
@@ -74,7 +74,7 @@ export function AddToPersonBar({
           ))}
         </select>
       </label>
-      <label className="text-xs text-slate-600">
+      <label className="text-xs text-ink-2">
         at
         <input
           className="ml-1 w-16 rounded border px-2 py-1"
@@ -85,7 +85,7 @@ export function AddToPersonBar({
       </label>
       <button
         type="button"
-        className="rounded bg-teal-700 px-3 py-1.5 text-xs font-medium text-white"
+        className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-on-accent"
         onClick={() => {
           const emp = employees.find((e) => e.id === employeeId);
           const fs = sources.find((s) => s.id === sourceId);
@@ -106,7 +106,7 @@ export function AddToPersonBar({
       >
         Set from origin
       </button>
-      <span className="text-slate-300">|</span>
+      <span className="text-muted">|</span>
       <input
         className="rounded border px-2 py-1 text-xs"
         placeholder="New chartstring alias"

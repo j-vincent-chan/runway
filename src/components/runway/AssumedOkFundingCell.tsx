@@ -36,15 +36,15 @@ export function AssumedOkFundingCell({
   return (
     <div
       className={cn(
-        "ml-auto w-full max-w-[12rem] rounded-lg border border-slate-200 bg-white p-2",
+        "ml-auto w-full max-w-[12rem] rounded-lg border border-rule bg-surface p-2",
         "text-right shadow-sm"
       )}
     >
       <div className="flex items-center justify-end gap-2">
-        <label className="shrink-0 text-[10px] font-medium text-slate-500">Fund ends</label>
+        <label className="shrink-0 text-[10px] font-medium text-muted">Fund ends</label>
         <input
           type="date"
-          className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 text-[11px] text-slate-800"
+          className="min-w-0 flex-1 rounded border border-rule px-1.5 py-1 text-[11px] text-ink"
           value={pendingEmpty ? "" : (endDate ?? "")}
           onChange={(e) => {
             const next = e.target.value;
@@ -69,14 +69,14 @@ export function AssumedOkFundingCell({
       </div>
       {hasEstimate ? (
         <p
-          className="mt-1.5 text-sm font-semibold tabular-nums text-[#0c2340]"
+          className="mt-1.5 text-sm font-semibold tabular-nums text-ink"
           title={`${formatCurrency(sharedMonthlyBurn)}/mo × months to end date`}
         >
           {formatCurrencyBalance(estimatedBalance)}
           <span className="ml-1 text-[10px] font-normal text-sky-700">est.</span>
         </p>
       ) : (
-        <p className="mt-1.5 text-[10px] leading-snug text-slate-400">
+        <p className="mt-1.5 text-[10px] leading-snug text-muted">
           {sharedMonthlyBurn > 0 ? "Set an end date to estimate this balance" : "No burn data"}
         </p>
       )}

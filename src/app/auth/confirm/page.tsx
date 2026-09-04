@@ -46,28 +46,28 @@ export default function ConfirmPage() {
   const failed = hashError !== null || (timedOut && !user);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0c2340] p-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-brand-ground p-6">
       <div className="mb-8">
         <LedgerWordmark variant="sidebar" />
       </div>
       {failed ? (
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-lg">
-          <h1 className="text-xl font-semibold text-[#0c2340]">
+        <div className="w-full max-w-md rounded-xl bg-surface p-6 shadow-lg">
+          <h1 className="text-xl font-semibold text-ink">
             This confirmation link is invalid or has expired
           </h1>
-          <p className="mt-2 text-sm text-slate-600">
+          <p className="mt-2 text-sm text-ink-2">
             Sign in to request a fresh link, or create the account again if you never
             finished signing up.
           </p>
           <Link
             href="/login"
-            className="mt-4 inline-block rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+            className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
           >
             Back to sign in
           </Link>
         </div>
       ) : (
-        <p className="text-slate-400">Confirming your email…</p>
+        <p className="text-muted">Confirming your email…</p>
       )}
     </main>
   );

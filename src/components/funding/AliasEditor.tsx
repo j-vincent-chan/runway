@@ -63,7 +63,7 @@ export function AliasEditor({
           accountTitle ? ` · Report: ${accountTitle}` : ""
         }`}
         className={cn(
-          "rounded border border-slate-200 bg-white px-2 py-1 text-slate-800 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500",
+          "rounded border border-rule bg-surface px-2 py-1 text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent",
           compact
             ? cn(ALIAS_INPUT_WIDTH_CLASS, "shrink-0 text-xs")
             : fullWidth
@@ -81,7 +81,7 @@ export function AliasEditor({
       {showProjectSuffix && project && (
         <span
           className={cn(
-            "shrink-0 whitespace-nowrap text-slate-500",
+            "shrink-0 whitespace-nowrap text-muted",
             compact ? "text-[10px]" : "text-xs"
           )}
           title="Project number (always appended)"
@@ -111,7 +111,7 @@ export function AliasDisplay({
   return (
     <span className={className} title={source.accountString ?? source.rawName}>
       {base}
-      {project && <span className="text-slate-500"> · {displayCode}</span>}
+      {project && <span className="text-muted"> · {displayCode}</span>}
     </span>
   );
 }

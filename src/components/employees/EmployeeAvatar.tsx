@@ -46,7 +46,7 @@ export function EmployeeAvatar({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-200 font-semibold text-slate-600 ring-1 ring-slate-200",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-rule font-semibold text-ink-2 ring-1 ring-rule",
         dim,
         className
       )}

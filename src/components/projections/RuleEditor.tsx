@@ -150,15 +150,15 @@ export function RuleEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/30 sm:items-center sm:justify-center">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-t-xl bg-white p-5 shadow-xl sm:rounded-xl">
+      <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-t-xl bg-surface p-5 shadow-xl sm:rounded-xl">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-[#0c2340]">Distribution rule</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <h2 className="text-lg font-semibold text-ink">Distribution rule</h2>
+            <p className="mt-1 text-sm text-ink-2">
               {employee.name} · {projectionSourceLabel(source, settings, accountTitlesByChartstring)}
             </p>
           </div>
-          <button type="button" className="text-sm text-slate-500 hover:text-slate-800" onClick={onClose}>
+          <button type="button" className="text-sm text-muted hover:text-ink" onClick={onClose}>
             Close
           </button>
         </div>
@@ -209,7 +209,7 @@ export function RuleEditor({
           </label>
         )}
         {mode === "fundsDepleted" && (
-          <p className="mt-3 text-xs text-slate-600">
+          <p className="mt-3 text-xs text-ink-2">
             Uses remaining cash from the Net Position Report minus personnel in this report only.
             {shared > 1 ? ` ${shared} people currently draw on this account.` : ""}
             {depletedMonth
@@ -244,7 +244,7 @@ export function RuleEditor({
 
         {mode !== "continue" && mode !== "setEffort" && (
           <div className="mt-4 space-y-2 text-sm">
-            <p className="font-medium text-slate-800">When they come off</p>
+            <p className="font-medium text-ink">When they come off</p>
             <label className="flex items-center gap-2">
               <input
                 type="radio"
@@ -284,13 +284,13 @@ export function RuleEditor({
             </label>
             <button
               type="button"
-              className="text-xs font-medium text-teal-800 hover:underline"
+              className="text-xs font-medium text-accent hover:underline"
               onClick={() => setShowAdd((v) => !v)}
             >
               {showAdd ? "Cancel new chartstring" : "Add a chartstring"}
             </button>
             {showAdd && (
-              <div className="space-y-2 rounded border bg-slate-50 p-3">
+              <div className="space-y-2 rounded border bg-inset p-3">
                 <input
                   className="w-full rounded border px-2 py-1.5"
                   placeholder="Alias (e.g. Startup)"
@@ -309,7 +309,7 @@ export function RuleEditor({
                   value={newBalance}
                   onChange={(e) => setNewBalance(e.target.value)}
                 />
-                <label className="block text-xs text-slate-600">
+                <label className="block text-xs text-ink-2">
                   Project end month (optional)
                   <input
                     type="month"
@@ -320,7 +320,7 @@ export function RuleEditor({
                 </label>
                 <button
                   type="button"
-                  className="rounded bg-teal-700 px-3 py-1.5 text-xs font-medium text-white"
+                  className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-on-accent"
                   onClick={addPlanned}
                 >
                   Add and use as destination
@@ -330,7 +330,7 @@ export function RuleEditor({
           </div>
         )}
 
-        <label className="mt-4 flex items-start gap-2 text-xs text-slate-600">
+        <label className="mt-4 flex items-start gap-2 text-xs text-ink-2">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -344,7 +344,7 @@ export function RuleEditor({
           {existing && (
             <button
               type="button"
-              className="rounded border px-3 py-1.5 text-sm text-red-700"
+              className="rounded border px-3 py-1.5 text-sm text-critical"
               onClick={() => {
                 onRemove(existing.id);
                 onClose();
@@ -353,11 +353,11 @@ export function RuleEditor({
               Remove rule
             </button>
           )}
-          <button type="button" className="rounded bg-teal-700 px-4 py-1.5 text-sm font-medium text-white" onClick={save}>
+          <button type="button" className="rounded bg-accent px-4 py-1.5 text-sm font-medium text-on-accent" onClick={save}>
             Save
           </button>
         </div>
-        <p className="mt-3 text-[11px] text-slate-500">
+        <p className="mt-3 text-[11px] text-muted">
           Assumes current pay continues. Depletion is personnel in this report only
           {shared ? ` · origin burn ${formatCurrency(
             result.states[0]?.allocations

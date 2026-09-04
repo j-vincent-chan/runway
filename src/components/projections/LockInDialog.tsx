@@ -118,16 +118,16 @@ export function LockInDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="lock-in-title"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-surface p-5 shadow-xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
-          <h2 id="lock-in-title" className="text-lg font-semibold text-[#0c2340]">
+          <h2 id="lock-in-title" className="text-lg font-semibold text-ink">
             Lock in {details.personName}&apos;s distribution change
           </h2>
           <button
             type="button"
-            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded p-1 text-muted hover:bg-inset hover:text-ink-2"
             aria-label="Close"
             onClick={onClose}
           >
@@ -137,7 +137,7 @@ export function LockInDialog({
 
         {result?.ok ? (
           <div className="mt-4 space-y-3">
-            <p className="text-sm text-slate-700">
+            <p className="text-sm text-ink-2">
               {result.mode === "revised"
                 ? "The request is updated — your analyst will see one current version, never both. "
                 : "The request is recorded and now tracks on the Status page. "}
@@ -145,18 +145,18 @@ export function LockInDialog({
               accident — use the lock on their row to unlock it.
             </p>
             {sendNowState === "sent" ? (
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-ink-2">
                 Sent — your analyst has been emailed this request directly.
               </p>
             ) : (
-              <p className="text-sm text-slate-700">
+              <p className="text-sm text-ink-2">
                 It goes out in the summary email {digestLabel}
                 {recipients && recipients.length > 0 ? ` to ${recipients.join(", ")}` : ""}. Until
                 then you can still unlock, correct, and lock in again.
               </p>
             )}
             {sendNowState === "failed" && (
-              <p className="text-sm text-amber-700">
+              <p className="text-sm text-caution">
                 The direct send didn&apos;t go through — the request stays queued for the summary,
                 or retry from the Status page.
               </p>
@@ -167,7 +167,7 @@ export function LockInDialog({
                   type="button"
                   disabled={sendNowState === "sending"}
                   onClick={() => void sendNow()}
-                  className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  className="rounded-lg border border-control px-3 py-2 text-sm font-medium text-ink-2 hover:bg-inset disabled:opacity-50"
                   title="Skip the morning summary and email your analyst this request immediately"
                 >
                   {sendNowState === "sending" ? "Sending…" : "Send now instead"}
@@ -175,14 +175,14 @@ export function LockInDialog({
               )}
               <Link
                 href="/status"
-                className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800"
+                className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
               >
                 View on Status page
               </Link>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-control px-3 py-2 text-sm font-medium text-ink-2 hover:bg-inset"
               >
                 Done
               </button>
@@ -190,7 +190,7 @@ export function LockInDialog({
           </div>
         ) : (
           <>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-ink-2">
               Locking in records this request on the Status page and locks{" "}
               {details.personName}&apos;s distribution against further edits until you unlock it.
               Your analyst gets one summary email {digestLabel} covering everything you&apos;ve
@@ -201,7 +201,7 @@ export function LockInDialog({
                 the one genuinely risky replace — it gets an explicit
                 acknowledgement, not a silent overwrite. */}
             {replacesInProgress && existing && (
-              <p className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+              <p className="mt-3 rounded-lg border border-caution bg-caution-soft p-3 text-sm text-caution">
                 <strong>{existing.statusChangedByEmail}</strong> marked this person&apos;s previous
                 request <strong>in progress</strong>
                 {formatIsoDateDisplay(existing.statusChangedAt)
@@ -212,7 +212,7 @@ export function LockInDialog({
               </p>
             )}
             {existing && existing.status === "pending" && (
-              <p className="mt-3 text-sm text-slate-600">
+              <p className="mt-3 text-sm text-ink-2">
                 {existing.emailSentAt
                   ? "This person already has a request with your analyst — locking in updates it, and the next summary will flag it as updated."
                   : "This person already has a request queued — locking in replaces it before anything is sent."}
@@ -220,27 +220,27 @@ export function LockInDialog({
             )}
 
             {hasChanges ? (
-              <ul className="mt-3 space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <ul className="mt-3 space-y-1 rounded-lg border border-rule bg-inset p-3">
                 {sentences.map((s) => (
-                  <li key={s} className="text-sm text-slate-800">
+                  <li key={s} className="text-sm text-ink">
                     {s}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+              <p className="mt-3 rounded-lg border border-rule bg-inset p-3 text-sm text-ink-2">
                 Your plan currently matches the projected distribution — there&apos;s nothing to
                 hand off. Set a distribution rule first.
               </p>
             )}
 
             <div
-              className="mt-3 overflow-x-auto rounded-lg border border-slate-200"
+              className="mt-3 overflow-x-auto rounded-lg border border-rule"
               // The exact image the analyst receives — not a re-styling of it.
               dangerouslySetInnerHTML={{ __html: preview.svg }}
             />
 
-            <p className="mt-3 text-sm text-slate-600">
+            <p className="mt-3 text-sm text-ink-2">
               {recipients === null
                 ? "Checking who will be notified…"
                 : recipients.length > 0
@@ -250,7 +250,7 @@ export function LockInDialog({
                     : "Your analysts with access will get the summary."}
             </p>
             {noRecipients && (
-              <p className="mt-1 text-sm text-amber-700">
+              <p className="mt-1 text-sm text-caution">
                 Add your analyst under{" "}
                 <Link href="/settings" className="font-medium underline">
                   Settings → Privacy &amp; sync
@@ -263,7 +263,7 @@ export function LockInDialog({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-lg border border-control px-3 py-2 text-sm font-medium text-ink-2 hover:bg-inset"
               >
                 Cancel
               </button>
@@ -271,7 +271,7 @@ export function LockInDialog({
                 type="button"
                 disabled={busy || !hasChanges || noRecipients || loadingExisting}
                 onClick={() => void confirm()}
-                className="rounded-lg bg-teal-700 px-3 py-2 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+                className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
               >
                 {busy
                   ? "Locking in…"
@@ -283,7 +283,7 @@ export function LockInDialog({
               </button>
             </div>
             {result && !result.ok && (
-              <p className="mt-2 text-sm text-red-600">{result.error}</p>
+              <p className="mt-2 text-sm text-critical">{result.error}</p>
             )}
           </>
         )}

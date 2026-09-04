@@ -18,43 +18,43 @@ export function CloudPrivacyPanel() {
   const metadataName = ((user?.user_metadata?.full_name as string | undefined) ?? "").trim();
 
   return (
-    <section className="rounded-xl border bg-white p-5 shadow-sm space-y-3">
-      <h3 className="font-semibold text-[#0c2340]">Privacy &amp; cloud sync</h3>
-      <p className="text-sm text-slate-600">
+    <section className="rounded-xl border bg-surface p-5 shadow-sm space-y-3">
+      <h3 className="font-semibold text-ink">Privacy &amp; cloud sync</h3>
+      <p className="text-sm text-ink-2">
         Payroll data stays in this browser by default. Cloud sync (when enabled) stores
         parsed planning data in a <strong>private, per-user</strong> cloud workspace —
         other accounts cannot see or overwrite your datasets.
       </p>
 
       {!configured && (
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        <p className="rounded-lg bg-inset px-3 py-2 text-sm text-ink-2">
           Cloud sync is not configured. Runway works fully in local-only mode.
         </p>
       )}
 
       {configured && (
         <>
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-ink-2">
             Status:{" "}
             {cloudSyncEnabled ? (
-              <span className="font-medium text-teal-800">Cloud sync on</span>
+              <span className="font-medium text-accent">Cloud sync on</span>
             ) : localOnly ? (
-              <span className="font-medium text-amber-800">Local-only (cloud paused)</span>
+              <span className="font-medium text-caution">Local-only (cloud paused)</span>
             ) : user ? (
-              <span className="font-medium text-slate-700">Signed in — enable sync below</span>
+              <span className="font-medium text-ink-2">Signed in — enable sync below</span>
             ) : (
-              <span className="font-medium text-slate-700">Signed out — local data only</span>
+              <span className="font-medium text-ink-2">Signed out — local data only</span>
             )}
           </p>
           {user ? (
             <SignedInAs email={user.email ?? ""} metadataName={metadataName} />
           ) : (
-            <Link href="/login" className="inline-block text-sm font-medium text-teal-700 hover:underline">
+            <Link href="/login" className="inline-block text-sm font-medium text-accent hover:underline">
               Sign in to enable private cloud sync
             </Link>
           )}
 
-          <label className="flex items-start gap-2 text-sm text-slate-700">
+          <label className="flex items-start gap-2 text-sm text-ink-2">
             <input
               type="checkbox"
               className="mt-1"
@@ -71,7 +71,7 @@ export function CloudPrivacyPanel() {
             <button
               type="button"
               onClick={() => void signOut()}
-              className="text-sm text-slate-600 hover:underline"
+              className="text-sm text-ink-2 hover:underline"
             >
               Sign out
             </button>
@@ -130,7 +130,7 @@ function SignedInAs({ email, metadataName }: { email: string; metadataName: stri
           type="button"
           disabled={busy}
           onClick={() => void save()}
-          className="text-sm font-medium text-teal-700 hover:underline disabled:opacity-50"
+          className="text-sm font-medium text-accent hover:underline disabled:opacity-50"
         >
           {busy ? "Saving…" : "Save"}
         </button>
@@ -140,7 +140,7 @@ function SignedInAs({ email, metadataName }: { email: string; metadataName: stri
             setName(metadataName);
             setEditing(false);
           }}
-          className="text-sm text-slate-500 hover:underline"
+          className="text-sm text-muted hover:underline"
         >
           Cancel
         </button>
@@ -149,12 +149,12 @@ function SignedInAs({ email, metadataName }: { email: string; metadataName: stri
   }
 
   return (
-    <p className="text-sm text-slate-600">
+    <p className="text-sm text-ink-2">
       Signed in as {metadataName ? `${metadataName} (${email})` : email}{" "}
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="text-sm font-medium text-teal-700 hover:underline"
+        className="text-sm font-medium text-accent hover:underline"
       >
         {metadataName ? "Edit name" : "Add your name"}
       </button>

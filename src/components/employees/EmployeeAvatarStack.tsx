@@ -18,7 +18,7 @@ export function EmployeeAvatarStack({
   className?: string;
 }) {
   if (employees.length === 0) {
-    return <span className="text-slate-400">—</span>;
+    return <span className="text-muted">—</span>;
   }
 
   const visible = employees.slice(0, MAX_VISIBLE);
@@ -50,13 +50,13 @@ export function EmployeeAvatarStack({
               name={emp.name}
               photoUrl={getEmployeePhotoUrlFor(settings, emp)}
               size="sm"
-              className="ring-2 ring-white"
+              className="ring-2 ring-surface"
             />
           </Link>
         ))}
         {overflow > 0 && (
           <span
-            className="-ml-2.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-[10px] font-semibold text-slate-600 ring-2 ring-white"
+            className="-ml-2.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-inset text-[10px] font-semibold text-ink-2 ring-2 ring-surface"
             title={employees
               .slice(MAX_VISIBLE)
               .map((e) => e.name)

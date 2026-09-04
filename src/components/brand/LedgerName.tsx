@@ -28,7 +28,7 @@ export function LedgerName({
   const styles = sizeClasses[size];
   return (
     <span className={cn("inline-flex items-baseline leading-none", className)}>
-      <span className={cn(styles.name, light ? "text-white" : "text-[#0c2340]")}>
+      <span className={cn(styles.name, light ? "text-white" : "text-ink")}>
         {PRODUCT_NAME}
       </span>
       {showAlpha && (
@@ -39,7 +39,7 @@ export function LedgerName({
           className={cn(
             "ml-1 font-mono font-medium leading-none",
             styles.alpha,
-            light ? "text-slate-400" : "text-muted"
+            light ? "text-muted" : "text-muted"
           )}
         >
           ALPHA

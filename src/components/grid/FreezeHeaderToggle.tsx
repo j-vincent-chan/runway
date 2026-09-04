@@ -17,8 +17,8 @@ export function FreezeHeaderToggle({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
         frozen
-          ? "bg-teal-50 text-teal-900 ring-1 ring-teal-200"
-          : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+          ? "bg-accent-soft text-accent ring-1 ring-accent"
+          : "bg-surface text-ink-2 ring-1 ring-rule hover:bg-inset"
       )}
       title={
         frozen

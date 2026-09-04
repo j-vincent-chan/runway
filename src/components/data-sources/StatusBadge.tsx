@@ -10,19 +10,19 @@ export function StatusBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        normalized === "success" && "bg-emerald-100 text-emerald-800",
-        normalized === "partial" && "bg-amber-100 text-amber-800",
-        normalized === "failed" && "bg-red-100 text-red-800",
-        normalized === "neutral" && "bg-slate-100 text-slate-700"
+        normalized === "success" && "bg-healthy-soft text-healthy",
+        normalized === "partial" && "bg-caution-soft text-caution",
+        normalized === "failed" && "bg-critical-soft text-critical",
+        normalized === "neutral" && "bg-inset text-ink-2"
       )}
     >
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          normalized === "success" && "bg-emerald-500",
-          normalized === "partial" && "bg-amber-500",
-          normalized === "failed" && "bg-red-500",
-          normalized === "neutral" && "bg-slate-400"
+          normalized === "success" && "bg-healthy",
+          normalized === "partial" && "bg-caution",
+          normalized === "failed" && "bg-critical",
+          normalized === "neutral" && "bg-muted"
         )}
       />
       {status === "success" ? "Success" : status === "partial" ? "Partial" : status === "failed" ? "Failed" : status}

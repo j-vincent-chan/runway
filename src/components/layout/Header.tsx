@@ -61,13 +61,13 @@ export function Header({
       : null;
 
   return (
-    <header className="shrink-0 border-b border-slate-200 bg-white px-6 py-4">
+    <header className="shrink-0 border-b border-rule bg-surface px-6 py-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-start gap-3">
           <div className={cn("mt-0.5 flex shrink-0 items-center", settings.sidebarHidden && "gap-1.5")}>
             <button
               type="button"
-              className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-[#0c2340]"
+              className="rounded-md p-1.5 text-muted hover:bg-inset hover:text-ink"
               aria-label={settings.sidebarHidden ? "Show navigation" : "Hide navigation"}
               title={settings.sidebarHidden ? "Show navigation" : "Hide navigation"}
               onClick={() => updateSettings({ sidebarHidden: !settings.sidebarHidden })}
@@ -93,30 +93,30 @@ export function Header({
               <h1
                 className={
                   ledgerTitle
-                    ? "text-3xl font-bold tracking-tight text-[#0c2340]"
-                    : "text-xl font-semibold text-[#0c2340]"
+                    ? "text-3xl font-bold tracking-tight text-ink"
+                    : "text-xl font-semibold text-ink"
                 }
               >
                 {title}
               </h1>
               {!ledgerTitle && (
                 <span title="Planning layer — not payroll system of record">
-                  <Info className="h-4 w-4 text-slate-400" />
+                  <Info className="h-4 w-4 text-muted" />
                 </span>
               )}
             </div>
-            {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+            {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
             {dashboardContextBar ? (
               dashboardContextBar
             ) : (
               showImportMeta && (provenance || snapshot) && (
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-muted">
                   {periodStatus && (
                     <>
                       {monthLabelLong(periodStatus.month)} payroll{" · "}
                       <span
                         className={
-                          periodStatus.closed ? undefined : "font-medium text-amber-700"
+                          periodStatus.closed ? undefined : "font-medium text-caution"
                         }
                       >
                         {periodStatus.closed ? "closed" : "in progress"}
@@ -125,7 +125,7 @@ export function Header({
                     </>
                   )}
                   Source:{" "}
-                  <span className="font-medium text-teal-800">
+                  <span className="font-medium text-accent">
                     {provenance ? provenance.sourceFileName : snapshot!.sourceFileName}
                   </span>
                   {(provenance?.importedAt ?? snapshot?.uploadedAt) && (
@@ -141,9 +141,9 @@ export function Header({
                     <>
                       {" · "}
                       {cloudSyncEnabled ? (
-                        <span className="text-teal-800">Cloud sync on</span>
+                        <span className="text-accent">Cloud sync on</span>
                       ) : (
-                        <span className="text-slate-500">Local only</span>
+                        <span className="text-muted">Local only</span>
                       )}
                     </>
                   )}
@@ -160,8 +160,8 @@ export function Header({
               className={cn(
                 "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-sm",
                 activeOwner.isSelf
-                  ? "border-slate-300 bg-white text-slate-700"
-                  : "border-teal-700 bg-teal-50 text-teal-900"
+                  ? "border-control bg-surface text-ink-2"
+                  : "border-accent bg-accent-soft text-accent"
               )}
               title={
                 activeOwner.isSelf
@@ -197,7 +197,7 @@ export function Header({
           {topAction && (
             <Link
               href={topAction.href}
-              className="rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-on-accent hover:bg-accent-hover"
             >
               {topAction.label}
             </Link>

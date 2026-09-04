@@ -16,7 +16,7 @@ function ToolbarSection({
 }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
         {label}
       </span>
       {children}
@@ -34,7 +34,7 @@ function SegmentedGroup({
   return (
     <div
       className={cn(
-        "inline-flex rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80",
+        "inline-flex rounded-lg bg-inset/90 p-0.5 ring-1 ring-rule/80",
         className
       )}
     >
@@ -59,8 +59,8 @@ function SegmentedOption({
       className={cn(
         "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
         active
-          ? "bg-[#0c2340] text-white shadow-sm"
-          : "text-slate-600 hover:bg-white hover:text-slate-900"
+          ? "bg-brand-ground text-white shadow-sm"
+          : "text-ink-2 hover:bg-surface hover:text-ink"
       )}
     >
       {children}
@@ -96,7 +96,7 @@ export function TimelineToolbar({
   onGroupFilterChange: (ids: string[]) => void;
 }) {
   return (
-    <div className="shrink-0 border-b border-slate-200 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
+    <div className="shrink-0 border-b border-rule bg-gradient-to-b from-slate-50 to-white px-4 py-3">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-wrap items-end gap-5">
           <ToolbarSection label="Display">
@@ -130,8 +130,8 @@ export function TimelineToolbar({
       </div>
 
       {(totalHiddenFunds > 0 || showHiddenFunds) && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-rule pt-3">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
             Funds
           </span>
           <button
@@ -140,8 +140,8 @@ export function TimelineToolbar({
             className={cn(
               "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
               showHiddenFunds
-                ? "bg-teal-50 text-teal-900 ring-1 ring-teal-200"
-                : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                ? "bg-accent-soft text-accent ring-1 ring-accent"
+                : "bg-surface text-ink-2 ring-1 ring-rule hover:bg-inset"
             )}
             title={
               showHiddenFunds
@@ -158,7 +158,7 @@ export function TimelineToolbar({
               ? "Hiding excluded funds"
               : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
           </button>
-          <span className="text-[11px] text-slate-500">
+          <span className="text-[11px] text-muted">
             Use the eye icon on a fund row to mark an account as not my account.
           </span>
         </div>

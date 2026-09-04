@@ -25,12 +25,12 @@ const RULES = [
 
 export function DataRulesCard() {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-semibold text-[#0c2340]">Data Rules</h3>
+    <section className="rounded-xl border border-rule bg-surface p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-ink">Data Rules</h3>
       <ul className="mt-3 space-y-3">
         {RULES.map(({ icon: Icon, text }) => (
-          <li key={text} className="flex gap-2.5 text-sm text-slate-600">
-            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-teal-700" />
+          <li key={text} className="flex gap-2.5 text-sm text-ink-2">
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
             <span>{text}</span>
           </li>
         ))}

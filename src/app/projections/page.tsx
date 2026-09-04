@@ -331,7 +331,7 @@ export default function ProjectionsPage() {
       <main className="p-4">
         <div className="flex flex-col gap-4">
           {(staleness.payrollStale || staleness.balancesStale) && (
-            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+            <p className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
               {staleness.payrollStale && (
                 <>
                   Payroll is through {staleness.lastPayrollMonth ?? "unknown"}; projecting{" "}
@@ -362,15 +362,15 @@ export default function ProjectionsPage() {
             </div>
           )}
 
-          <div className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="shrink-0 border-b border-slate-200 px-4 py-3">
+          <div className="min-w-0 rounded-xl border border-rule bg-surface shadow-sm">
+            <div className="shrink-0 border-b border-rule px-4 py-3">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="flex flex-wrap items-end gap-5">
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                       View
                     </span>
-                    <div className="inline-flex rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80">
+                    <div className="inline-flex rounded-lg bg-inset/90 p-0.5 ring-1 ring-rule/80">
                       {(
                         [
                           { id: "person" as const, label: "By person" },
@@ -384,8 +384,8 @@ export default function ProjectionsPage() {
                           className={cn(
                             "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                             tab === opt.id
-                              ? "bg-[#0c2340] text-white shadow-sm"
-                              : "text-slate-600 hover:bg-white hover:text-slate-900"
+                              ? "bg-brand-ground text-white shadow-sm"
+                              : "text-ink-2 hover:bg-surface hover:text-ink"
                           )}
                         >
                           {opt.label}
@@ -398,10 +398,10 @@ export default function ProjectionsPage() {
                     onChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
                   />
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                       Display
                     </span>
-                    <div className="inline-flex rounded-lg bg-slate-100/90 p-0.5 ring-1 ring-slate-200/80">
+                    <div className="inline-flex rounded-lg bg-inset/90 p-0.5 ring-1 ring-rule/80">
                       {(["percent", "dollars", "both"] as const).map((mode) => (
                         <button
                           key={mode}
@@ -409,8 +409,8 @@ export default function ProjectionsPage() {
                           className={cn(
                             "rounded-md px-2.5 py-1 text-xs font-medium",
                             displayMode === mode
-                              ? "bg-[#0c2340] text-white shadow-sm"
-                              : "text-slate-600 hover:bg-white"
+                              ? "bg-brand-ground text-white shadow-sm"
+                              : "text-ink-2 hover:bg-surface"
                           )}
                           onClick={() => updateSettings({ displayMode: mode })}
                         >
@@ -420,7 +420,7 @@ export default function ProjectionsPage() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                       Horizon
                     </span>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -439,8 +439,8 @@ export default function ProjectionsPage() {
                           className={cn(
                             "rounded-md px-2.5 py-1 text-xs font-medium",
                             (settings.projectionHorizon?.preset ?? "12") === preset
-                              ? "bg-teal-700 text-white shadow-sm"
-                              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                              ? "bg-accent text-on-accent shadow-sm"
+                              : "bg-surface text-ink-2 ring-1 ring-rule hover:bg-inset"
                           )}
                           onClick={() => setHorizon(preset, settings.projectionHorizon?.customEndMonth)}
                         >
@@ -455,7 +455,7 @@ export default function ProjectionsPage() {
                           onChange={(e) => setHorizon("custom", e.target.value)}
                         />
                       )}
-                      <span className="text-[11px] text-slate-500">{horizonMonths} months</span>
+                      <span className="text-[11px] text-muted">{horizonMonths} months</span>
                     </div>
                   </div>
                 </div>
@@ -464,7 +464,7 @@ export default function ProjectionsPage() {
                   onChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
                 />
               </div>
-              <div className="mt-3 border-t border-slate-100 pt-3">
+              <div className="mt-3 border-t border-rule pt-3">
                 <AddToPersonBar
                   employees={employees}
                   sources={result.sources}
@@ -479,8 +479,8 @@ export default function ProjectionsPage() {
               {/* Same block as TimelineToolbar's — one shared setting, so hiding
                   here is the same act as hiding on Timeline or Runway. */}
               {(totalHiddenFunds > 0 || showHiddenFunds) && (
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-rule pt-3">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">
                     Funds
                   </span>
                   <button
@@ -492,8 +492,8 @@ export default function ProjectionsPage() {
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
                       showHiddenFunds
-                        ? "bg-teal-50 text-teal-900 ring-1 ring-teal-200"
-                        : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
+                        ? "bg-accent-soft text-accent ring-1 ring-accent"
+                        : "bg-surface text-ink-2 ring-1 ring-rule hover:bg-inset"
                     )}
                     title={
                       showHiddenFunds
@@ -510,7 +510,7 @@ export default function ProjectionsPage() {
                       ? "Hiding excluded funds"
                       : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
                   </button>
-                  <span className="text-[11px] text-slate-500">
+                  <span className="text-[11px] text-muted">
                     Use the eye icon on a fund row to mark an account as not my account.
                   </span>
                 </div>
