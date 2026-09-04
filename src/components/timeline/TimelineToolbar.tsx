@@ -95,8 +95,11 @@ export function TimelineToolbar({
   groupFilter: string[];
   onGroupFilterChange: (ids: string[]) => void;
 }) {
+  // Flat --inset, matching .timeline-thead directly beneath it. Was a
+  // slate-50 → white gradient: it did not follow the theme, and the design
+  // system allows no gradients.
   return (
-    <div className="shrink-0 border-b border-rule bg-gradient-to-b from-slate-50 to-white px-4 py-3">
+    <div className="shrink-0 border-b border-rule bg-inset px-4 py-3">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-wrap items-end gap-5">
           <ToolbarSection label="Display">

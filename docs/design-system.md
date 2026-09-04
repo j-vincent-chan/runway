@@ -40,6 +40,26 @@ Dark
 --accent-soft #11313A · --caution-soft #312611 · --critical-soft #37201B · --healthy-soft #152A21
 ```
 
+Foregrounds on a fill, and the two grounds that do not flip:
+
+```
+--on-accent / -caution / -critical / -healthy
+                 #FFFFFF light · #0C111A dark   text or icons ON a saturated fill
+--accent-hover   #0D4A53 light · #83CDD6 dark   hover for an accent fill
+--control        #7C879F light · #5C6B85 dark   interactive boundaries, ≥3:1
+
+--brand-ground   #0C2340 light · #080D15 dark   the navy sign-in / sidebar ground
+--on-brand       #FFFFFF        (both themes)
+--on-brand-muted #94A3B8        (both themes)   metadata on that ground
+
+--linked         #6D28D9 light · #C4B5FD dark   shared account   ┐ the Runway
+--linked-soft    #F5F3FF light · #2A1F45 dark                    │ badge legend's
+--estimated      #0369A1 light · #7DD3FC dark   estimated end    │ categorical
+--estimated-soft #E0F2FE light · #0C2A3D dark                    ┘ pair
+
+--hatch / --shadow                              grid furniture
+```
+
 Rules:
 
 - `--caution`, `--critical`, `--healthy` mean state. Never decorative, never a brand accent.
@@ -49,7 +69,11 @@ Rules:
 - Teams get no color assignment. Color on a team means its runway state, nothing else.
 - Categorical color is permitted in exactly one place: the funding-exposure band. Cap at five named sources plus "other", ordered identically in every period.
 - **One sanctioned exception:** the Distributions/Projections grid's per-fund bar fills. There, color is data furniture — it distinguishes funds within one person's stacked monthly bars, where a label cannot fit. The palette (`FUNDING_COLORS`) holds lightness even across hues so no fund reads as emphasized, keeps dark ink text ≥4.5:1 on every fill, and must keep adjacent fills distinguishable from each other and the white grid ground. It never appears outside the grids.
-- Never define a color only inside a media query or theme block. Full light palette on bare `:root`; redefine tokens under `@media (prefers-color-scheme: dark)` guarded so an explicit light setting wins; redefine again for an explicit dark setting.
+- Never define a color only inside a media query or theme block. Full light palette on bare `:root`; redefine tokens under `@media (prefers-color-scheme: dark)` guarded so an explicit light setting wins; redefine again for an explicit dark setting. **Enforced by `src/lib/theme/tokens.test.ts`** — the two dark blocks are hand-duplicated and drift silently, which ships a theme that only half-applies.
+- **Never write a raw Tailwind palette class.** `text-slate-500`, `bg-white`, `border-slate-200` and their kin do not flip, so on a dark ground they produce light-on-light text — this is exactly how the theme broke for the first user who opened Runway in Safari with dark mode on. Every colour goes through a token.
+- **Never put a fixed white on a saturated fill.** `--accent` inverts between themes, so `bg-accent text-white` clears 5.9:1 in light and 1.9:1 in dark. Use the matching `--on-*` foreground.
+- `--brand-ground` is dark in **both** themes, so text on it uses `--on-brand` / `--on-brand-muted`, never `--ink` / `--muted`. The standard muted step sits at 3.0:1 there.
+- Declare `color-scheme` in every theme block. Without it the UA paints form controls in its own idea of the theme — Safari left `<input>` fills white while the inherited text colour went near-white.
 
 ## Type
 
