@@ -5,7 +5,14 @@ import { Upload } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 /** Shared min height for Data Sources page drop zones. */
-export const DATA_SOURCE_DROPZONE_MIN_H = "min-h-[11.5rem]";
+/**
+ * Floor for the three data-source cards' dropzones and their file lists.
+ * Sized above the tallest natural content (a three-line label plus a wrapped
+ * hint, ~250px at 1280 wide) so every card's dropzone binds to this height
+ * rather than to however its own label happens to wrap — at 11.5rem the floor
+ * never engaged and the cards ran 224–250px against each other.
+ */
+export const DATA_SOURCE_DROPZONE_MIN_H = "min-h-[14.5rem]";
 
 export function UploadDropzone({
   onFile,

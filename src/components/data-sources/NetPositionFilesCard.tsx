@@ -39,7 +39,7 @@ export function NetPositionFilesCard() {
             Optional
           </span>
         </div>
-        <p className="mt-2 text-sm text-ink-2">
+        <p className="mt-2 min-h-10 text-sm text-ink-2">
           Supplies every account balance Runway spends against — run it against your payroll accounts. Powers Runway, projections, and Account Balances trends.
         </p>
       </div>

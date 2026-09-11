@@ -41,7 +41,7 @@ export function PositionSalaryFilesCard() {
             Optional
           </span>
         </div>
-        <p className="mt-2 text-sm text-ink-2">
+        <p className="mt-2 min-h-10 text-sm text-ink-2">
           Official fiscal-year salary rates (X / Y / Z) and FTE. Overlays the roster so you can
           compare HR rate to payroll actuals. Does not replace monthly charges.
         </p>

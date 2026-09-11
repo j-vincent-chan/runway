@@ -48,9 +48,9 @@ export function PayrollReportCard() {
             Required
           </span>
         </div>
-        <p className="mt-2 text-sm text-ink-2">
+        <p className="mt-2 min-h-10 text-sm text-ink-2">
           Powers the personnel funding timeline, coverage gaps, account views, and salary + benefits
-          calculations. Upload multiple reports — overlapping months are replaced by newer files.
+          calculations. Upload multiple reports.
         </p>
       </div>
 
