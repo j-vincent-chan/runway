@@ -67,6 +67,15 @@ export function parseStatusFromWarnings(warnings: ParseWarning[]): ParseStatus {
   return "success";
 }
 
+/**
+ * Joins file names into one sentence-ready list — "A", "A and B",
+ * "A, B, and C" — so an uploader's confirmation can name every file it
+ * handled rather than count them.
+ */
+export function formatFileNameList(names: string[]): string {
+  return new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(names);
+}
+
 export function parseStatusLabel(status: string): string {
   if (status === "success") return "Success";
   if (status === "partial") return "Partial";

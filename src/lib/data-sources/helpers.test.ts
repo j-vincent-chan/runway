@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseStatusFromWarnings } from "./helpers";
+import { formatFileNameList, parseStatusFromWarnings } from "./helpers";
 import type { ParseWarning } from "@/types";
 
 const w = (severity: ParseWarning["severity"]): ParseWarning => ({
@@ -23,5 +23,19 @@ describe("parseStatusFromWarnings", () => {
 
   it("is failed on any error, even beside warnings", () => {
     expect(parseStatusFromWarnings([w("warning"), w("error"), w("info")])).toBe("failed");
+  });
+});
+
+describe("formatFileNameList", () => {
+  it("returns a single name as is", () => {
+    expect(formatFileNameList(["a.xlsx"])).toBe("a.xlsx");
+  });
+
+  it("joins two names with and", () => {
+    expect(formatFileNameList(["a.xlsx", "b.xlsx"])).toBe("a.xlsx and b.xlsx");
+  });
+
+  it("uses a serial comma for three or more", () => {
+    expect(formatFileNameList(["a.xlsx", "b.xlsx", "c.xlsx"])).toBe("a.xlsx, b.xlsx, and c.xlsx");
   });
 });
