@@ -173,9 +173,14 @@ export function RunwayEmployeeSection({
       </div>
 
       {open && accounts.length > 0 && (
-        <div className="overflow-x-auto border-t">
+        /* Opaque ground: the card's deficit tint stops at the person header,
+           so a healthy account never sits on a critical colour, and every
+           row composites its own tint over the same white the pinned cell
+           does — the two used to diverge because the row was translucent
+           over pink while the pinned cell had to be opaque for scroll. */
+        <div className="overflow-x-auto border-t bg-surface">
           <table className="min-w-full text-left text-sm">
-            <thead className="border-b border-rule bg-inset/90 text-xs font-medium text-ink-2">
+            <thead className="border-b border-rule bg-inset text-xs font-medium text-ink-2">
               <tr>
                 <th className="w-14 px-2 py-2.5" />
                 <th className="min-w-[11.5rem] px-3 py-2.5 text-left font-medium">Chartstring</th>
@@ -199,6 +204,29 @@ export function RunwayEmployeeSection({
                   !acct.isHidden && !acct.isAssumedOk && isRunwayDeficit(acct.monthsRunway);
                 const root = chartstringFundDeptProject(acct.chartstring) ?? acct.chartstring;
                 const isDeepLinked = Boolean(highlightAccount && root === highlightAccount);
+                /**
+                 * The row's state tint, computed once and painted on both the
+                 * <tr> and the pinned Runway cell so the two can never show
+                 * different colours for one row. Precedence: hidden, then
+                 * not-my-account, then deficit, then the quieter linked /
+                 * manual-balance hints.
+                 */
+                const rowTint = cn(
+                  acct.isHidden && "bg-inset/80",
+                  acct.isAssumedOk && !acct.isHidden && "bg-inset/50",
+                  isDeficit && "bg-critical-soft/80",
+                  !isDeficit &&
+                    !acct.isAssumedOk &&
+                    !acct.isHidden &&
+                    isLinked &&
+                    "bg-linked-soft/50",
+                  !isDeficit &&
+                    !acct.isAssumedOk &&
+                    !acct.isHidden &&
+                    !isLinked &&
+                    isManualBalance &&
+                    "bg-accent-soft/30"
+                );
 
                 return (
                 <tr
@@ -208,22 +236,8 @@ export function RunwayEmployeeSection({
                     "border-t align-middle",
                     isDeepLinked && DEEP_LINK_HIGHLIGHT,
                     hasDeficit ? "border-critical" : "border-rule",
-                    acct.isHidden && "bg-inset/80",
-                    acct.isAssumedOk &&
-                      !acct.isHidden &&
-                      "border-l-2 border-l-slate-300 bg-inset/50",
-                    isDeficit && "bg-critical-soft/80",
-                    !isDeficit &&
-                      !acct.isAssumedOk &&
-                      !acct.isHidden &&
-                      isLinked &&
-                      "bg-linked-soft/50",
-                    !isDeficit &&
-                      !acct.isAssumedOk &&
-                      !acct.isHidden &&
-                      !isLinked &&
-                      isManualBalance &&
-                      "bg-accent-soft/30"
+                    acct.isAssumedOk && !acct.isHidden && "border-l-2 border-l-rule-strong",
+                    rowTint
                   )}
                 >
                   <td className="px-2 py-2.5">
@@ -344,33 +358,31 @@ export function RunwayEmployeeSection({
                       onReset={() => onBurnReset(acct.fundingSourceId)}
                     />
                   </td>
-                  <td
-                    className={cn(
-                      "sticky right-0 border-l border-rule px-4 py-2.5",
-                      // Sticky needs an opaque ground; translucent row tints
-                      // would let scrolled columns bleed through the bars.
-                      isDeficit ? "bg-critical-soft" : acct.isHidden ? "bg-inset" : "bg-surface",
-                      acct.isHidden && "opacity-60"
-                    )}
-                  >
-                    <div className="flex justify-end">
-                      {acct.isAssumedOk && !acct.isHidden ? (
-                        acct.balanceSource === "estimated" && acct.monthsRunway !== null ? (
+                  <td className="sticky right-0 border-l border-rule bg-surface p-0">
+                    {/* Sticky needs an opaque ground or scrolled columns bleed
+                        through the bars, so the cell is solid --surface and the
+                        row's translucent tint is painted on top — the same
+                        tint over the same white as the rest of the row. */}
+                    <div className={cn("px-4 py-2.5", rowTint)}>
+                      <div className={cn("flex justify-end", acct.isHidden && "opacity-60")}>
+                        {acct.isAssumedOk && !acct.isHidden ? (
+                          acct.balanceSource === "estimated" && acct.monthsRunway !== null ? (
+                            <RunwayBar
+                              months={acct.monthsRunway}
+                              showLabel
+                              showScale={false}
+                            />
+                          ) : (
+                            <span className="text-[11px] text-muted">Set fund end date</span>
+                          )
+                        ) : (
                           <RunwayBar
-                            months={acct.monthsRunway}
-                            showLabel
+                            months={acct.isHidden ? null : acct.monthsRunway}
+                            showLabel={!acct.isHidden}
                             showScale={false}
                           />
-                        ) : (
-                          <span className="text-[11px] text-muted">Set fund end date</span>
-                        )
-                      ) : (
-                        <RunwayBar
-                          months={acct.isHidden ? null : acct.monthsRunway}
-                          showLabel={!acct.isHidden}
-                          showScale={false}
-                        />
-                      )}
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
