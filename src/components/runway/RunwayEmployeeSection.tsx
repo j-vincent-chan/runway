@@ -74,9 +74,14 @@ export function RunwayEmployeeSection({
       ));
 
   return (
+    /* overflow-hidden clips the opaque table block to the card's rounded
+       corners — without it the square white/pink fill pokes past the curve
+       at the bottom. Same recipe as the Account Balances list block. The
+       pinned Runway column is unaffected: its scroll container is the
+       overflow-x-auto wrapper inside, not this section. */
     <section
       className={cn(
-        "rounded-xl border shadow-sm",
+        "overflow-hidden rounded-xl border shadow-sm",
         hasDeficit ? "border-critical bg-critical-soft/80" : "border-rule bg-surface"
       )}
     >
