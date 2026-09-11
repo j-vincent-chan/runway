@@ -50,6 +50,12 @@ const MONTH_COL_MIN_WIDTH = 52;
 // width and the project number beside it still fits.
 const LABEL_COL_WIDTH = 360;
 const APPT_COL_WIDTH = 48;
+/**
+ * Height of one fund row's allocation bar, and therefore of the row. The gap
+ * between people is defined in this same unit so it is exactly one row tall
+ * and cannot drift from it.
+ */
+const ROW_H = "h-8";
 
 function groupMonthsByYear(months: string[]): { year: string; months: string[] }[] {
   const groups: { year: string; months: string[] }[] = [];
@@ -95,7 +101,7 @@ function MergedAllocationBar({
   if (!hasPercentEffort(pct) && !editing) {
     return (
       <div
-        className="h-8 w-full cursor-pointer bg-surface hover:bg-inset"
+        className={cn(ROW_H, "w-full cursor-pointer bg-surface hover:bg-inset")}
         title={tooltip}
         onDoubleClick={() => {
           setEditing(true);
@@ -115,7 +121,7 @@ function MergedAllocationBar({
   return (
     <div
       title={tooltip}
-      className="relative h-8 w-full"
+      className={cn("relative w-full", ROW_H)}
       onDoubleClick={() => {
         if (!editing) {
           setVal(String(pct));
@@ -429,11 +435,12 @@ function EmployeeRows({
 
   return (
     <>
-      {/* Whitespace then a hairline separates one person's rows from the
-          next; a table can't margin a row, so the gap is an empty one. */}
+      {/* One full row of whitespace, then a hairline, separates one person's
+          rows from the next; a table can't margin a row, so the gap is an
+          empty one, sized in ROW_H so it matches the fund rows around it. */}
       {spacedAbove && (
         <tr aria-hidden>
-          <td colSpan={2 + months.length} className="h-4 p-0" />
+          <td colSpan={2 + months.length} className={cn(ROW_H, "p-0")} />
         </tr>
       )}
       {/* Light inset band with a hairline, not the old navy block — the same
