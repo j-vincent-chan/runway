@@ -4,10 +4,8 @@ import { useCallback, useState } from "react";
 import { FileSpreadsheet, Info, Trash2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { StatusBadge } from "@/components/data-sources/StatusBadge";
-import {
-  DATA_SOURCE_DROPZONE_MIN_H,
-  UploadDropzone,
-} from "@/components/upload/UploadDropzone";
+import { DATA_SOURCE_DROPZONE_MIN_H } from "@/components/upload/UploadDropzone";
+import { StagedUploader } from "@/components/upload/StagedUploader";
 import { getLatestPositionSalaryImportId } from "@/lib/data-sources/helpers";
 import { formatCurrency } from "@/lib/utils/parse";
 import type { ParseWarning } from "@/types";
@@ -15,17 +13,14 @@ import type { ParseWarning } from "@/types";
 export function PositionSalaryFilesCard() {
   const { positionSalaryImports, importPositionSalaryFiles, removePositionSalaryImport } =
     useApp();
-  const [uploading, setUploading] = useState(false);
   const [warnings, setWarnings] = useState<ParseWarning[]>([]);
   const latestId = getLatestPositionSalaryImportId(positionSalaryImports);
 
-  const onFiles = useCallback(
-    async (files: FileList | null) => {
-      if (!files?.length) return;
-      setUploading(true);
-      const { warnings: w } = await importPositionSalaryFiles(Array.from(files));
-      setWarnings(w);
-      setUploading(false);
+  const onUpload = useCallback(
+    async (files: File[]) => {
+      const result = await importPositionSalaryFiles(files);
+      setWarnings(result.warnings);
+      return result;
     },
     [importPositionSalaryFiles]
   );
@@ -48,15 +43,10 @@ export function PositionSalaryFilesCard() {
       </div>
 
       <div className="grid gap-5 p-5 lg:grid-cols-2 lg:items-stretch">
-        <UploadDropzone
-          multiple
-          size="dataSource"
-          className="w-full"
-          disabled={uploading}
+        <StagedUploader
           label="Drop Employee and Position Salary Reports here"
           hint="or click to browse · .xlsx, .xls"
-          accept=".xlsx,.xls"
-          onFiles={(files) => void onFiles(files)}
+          onUpload={onUpload}
         />
 
         <div className={DATA_SOURCE_DROPZONE_MIN_H}>
