@@ -362,8 +362,13 @@ export function RunwayEmployeeSection({
                     {/* Sticky needs an opaque ground or scrolled columns bleed
                         through the bars, so the cell is solid --surface and the
                         row's translucent tint is painted on top — the same
-                        tint over the same white as the rest of the row. */}
-                    <div className={cn("px-4 py-2.5", rowTint)}>
+                        tint over the same white as the rest of the row. The
+                        tint is an overlay filling the cell, not a class on the
+                        padded content: a block child never grows to a table
+                        cell's height, so when the account column runs two
+                        lines the tint stopped short and left white bands. */}
+                    <div className={cn("absolute inset-0", rowTint)} aria-hidden />
+                    <div className="relative px-4 py-2.5">
                       <div className={cn("flex justify-end", acct.isHidden && "opacity-60")}>
                         {acct.isAssumedOk && !acct.isHidden ? (
                           acct.balanceSource === "estimated" && acct.monthsRunway !== null ? (
