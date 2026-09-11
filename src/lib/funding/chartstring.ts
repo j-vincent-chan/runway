@@ -101,3 +101,37 @@ export function findAccountTitleForChartstring(
   const title = match?.row.projectTitle?.trim();
   return title || undefined;
 }
+
+/** The four chartfield segments a UCSF chartstring carries, in source casing. */
+export interface ChartstringSegments {
+  fund: string;
+  dept: string;
+  project: string;
+  activity: string;
+}
+
+const EMPTY_SEGMENTS: ChartstringSegments = { fund: "", dept: "", project: "", activity: "" };
+
+/**
+ * Split a chartstring into Fund / Dept ID / Project Number / Activity Code.
+ *
+ * Casing is preserved (`144880A`, not the lowercase lookup form) because these
+ * values are typed back into other UCSF systems. Fewer than three segments is
+ * not a chartstring — a label-only source such as "Percent effort other" —
+ * and yields four blanks rather than a fund of "Percent effort other". Account
+ * Balances keys stop at fund-dept-project, so activity is blank for them.
+ */
+export function splitChartstring(chart: string): ChartstringSegments {
+  const parts = chart
+    .trim()
+    .split("-")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length < 3) return EMPTY_SEGMENTS;
+  return {
+    fund: parts[0]!,
+    dept: parts[1]!,
+    project: parts[2]!,
+    activity: parts[3] ?? "",
+  };
+}
