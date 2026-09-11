@@ -319,7 +319,7 @@ export function TimelineGrid() {
             </tr>
           </thead>
           <tbody>
-            {planningEmployees.map((emp) => {
+            {planningEmployees.map((emp, index) => {
               const isCollapsed = collapsed.has(emp.id);
               const revealHidden =
                 showHiddenFunds || revealHiddenForEmployees.has(emp.id);
@@ -328,6 +328,7 @@ export function TimelineGrid() {
                 <EmployeeRows
                   key={emp.id}
                   emp={emp}
+                  spacedAbove={index > 0}
                   sources={sources}
                   months={months}
                   snapshot={snapshot}
@@ -368,6 +369,7 @@ export function TimelineGrid() {
 
 function EmployeeRows({
   emp,
+  spacedAbove,
   sources,
   months,
   snapshot,
@@ -390,6 +392,8 @@ function EmployeeRows({
 }: {
   toggleNotMyAccount: (chartstring: string) => void;
   emp: Employee;
+  /** Every employee after the first gets a gap above so groups read apart. */
+  spacedAbove: boolean;
   sources: FundingSource[];
   months: string[];
   snapshot: PayrollReportSnapshot;
@@ -425,6 +429,13 @@ function EmployeeRows({
 
   return (
     <>
+      {/* Whitespace then a hairline separates one person's rows from the
+          next; a table can't margin a row, so the gap is an empty one. */}
+      {spacedAbove && (
+        <tr aria-hidden>
+          <td colSpan={2 + months.length} className="h-4 p-0" />
+        </tr>
+      )}
       {/* Light inset band with a hairline, not the old navy block — the same
           heavy device the Dashboard dropped in its first review pass. */}
       <tr className="border-t border-rule-strong bg-inset text-ink">
