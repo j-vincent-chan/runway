@@ -14,21 +14,25 @@ import { AccountGroupFilter } from "@/components/net-position/AccountGroupFilter
 import { getAccountGroupMeta, getAccountGroups } from "@/lib/net-position/accountGroup";
 import { useApp } from "@/context/AppContext";
 import {
+  accountBalanceDisplayName,
   buildAccountBalanceView,
   filterAccountBalanceItemsByGroup,
-  fundingSourcesForAccountKey,
   getEmployeesOnAccountKey,
   normalizeAccountBalanceKey,
-  resolveAccountBalanceAlias,
   sectionAccountBalanceItemsByGroup,
-  syntheticFundingSourceForAccount,
   type AccountBalanceViewItem,
 } from "@/lib/net-position/accountBalancesView";
+import {
+  buildChartstringCsv,
+  chartstringCsvFilename,
+  type ChartstringCsvEntry,
+} from "@/lib/export/chartstringCsv";
+import { downloadTextFile } from "@/lib/export/downloadTextFile";
+import { DownloadCsvButton } from "@/components/export/DownloadCsvButton";
 import {
   netPositionPeriodLabel,
   type NetPositionAccountSeries,
 } from "@/lib/net-position/buildAccountSeries";
-import { getAliasEntry } from "@/lib/funding/sourceKey";
 import { formatCurrency, formatCurrencyBalance } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
 import type { AccountBalanceSortKey } from "@/types";
@@ -268,26 +272,18 @@ function AccountCard({
     updateFundingSourceAlias,
   } = useApp();
 
-  const matchingSources = useMemo(
-    () => fundingSourcesForAccountKey(item.accountKey, fundingSources),
-    [item.accountKey, fundingSources]
+  const {
+    source: primarySource,
+    customAlias,
+    accountTitle,
+  } = useMemo(
+    () => accountBalanceDisplayName(item, fundingSources, settings, accountTitlesByChartstring),
+    [item, fundingSources, settings, accountTitlesByChartstring]
   );
-  const primarySource = matchingSources[0] ?? syntheticFundingSourceForAccount(item);
   const employees = useMemo(
     () => getEmployeesOnAccountKey(item.accountKey, fundingSources, snapshot, allocations),
     [item.accountKey, fundingSources, snapshot, allocations]
   );
-
-  const aliasEntry = matchingSources[0]
-    ? getAliasEntry(settings.fundingSourceAliases, matchingSources[0])
-    : undefined;
-  const customAlias =
-    aliasEntry?.alias ??
-    resolveAccountBalanceAlias(settings.fundingSourceAliases, item.accountKey);
-  const accountTitle =
-    (primarySource.accountString
-      ? accountTitlesByChartstring.get(primarySource.accountString)
-      : undefined) ?? item.projectDescription;
 
   return (
     /* One row in the section's shared bordered block — an account is a row in
@@ -413,6 +409,8 @@ export default function AccountBalancesPage() {
     settings,
     hiddenAccountKeys,
     updateSettings,
+    fundingSources,
+    accountTitlesByChartstring,
   } = useApp();
   const [query, setQuery] = useState("");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -484,6 +482,28 @@ export default function AccountBalancesPage() {
   const sections = useMemo(
     () => sectionAccountBalanceItemsByGroup(filtered, settings),
     [filtered, settings]
+  );
+
+  /**
+   * The rows on screen, for the CSV: the group-sectioned, filtered, sorted,
+   * hidden-aware list in display order. No Person column — this page is not
+   * grouped by person — and Activity Code is blank by construction, since
+   * balance keys stop at fund-dept-project.
+   */
+  const csvEntries = useMemo(
+    (): ChartstringCsvEntry[] =>
+      sections.flatMap((section) =>
+        section.items.map((item) => ({
+          account: accountBalanceDisplayName(
+            item,
+            fundingSources,
+            settings,
+            accountTitlesByChartstring
+          ).name,
+          chartstring: item.displayKey || item.accountKey,
+        }))
+      ),
+    [sections, fundingSources, settings, accountTitlesByChartstring]
   );
 
   const totalEnding = useMemo(
@@ -652,6 +672,15 @@ export default function AccountBalancesPage() {
                         : `Show ${hiddenCount} hidden account${hiddenCount === 1 ? "" : "s"}`}
                     </button>
                   )}
+                  <DownloadCsvButton
+                    rowCount={csvEntries.length}
+                    onClick={() =>
+                      downloadTextFile(
+                        chartstringCsvFilename("account-balances"),
+                        buildChartstringCsv(csvEntries, { withPerson: false })
+                      )
+                    }
+                  />
                   <input
                     type="search"
                     value={query}

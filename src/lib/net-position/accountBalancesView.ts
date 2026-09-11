@@ -17,6 +17,8 @@ import {
 } from "@/lib/net-position/buildAccountSeries";
 import { getEmployeesOnFundingSource } from "@/lib/funding/accountEmployees";
 import { getAccountGroups } from "@/lib/net-position/accountGroup";
+import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { resolveAliasBase } from "@/lib/funding/alias";
 
 /** Canonical Account Balances identity: fund-dept-project, lowercase. */
 export function normalizeAccountBalanceKey(key: string): string {
@@ -288,5 +290,33 @@ export function syntheticFundingSourceForAccount(
     fund: item.fund || undefined,
     projectId: item.project || undefined,
     color: "#00778b",
+  };
+}
+
+/**
+ * What an Account Balances row calls its account: the payroll source that
+ * charges to it (or a stand-in built from the balance row), the PI's alias
+ * if one is saved under either key, else the report's project title. The
+ * row's AliasEditor and the CSV both read this, so they cannot disagree.
+ */
+export function accountBalanceDisplayName(
+  item: AccountBalanceViewItem,
+  fundingSources: FundingSource[],
+  settings: Pick<AppSettings, "fundingSourceAliases">,
+  accountTitlesByChartstring: Map<string, string>
+): { source: FundingSource; customAlias?: string; accountTitle?: string; name: string } {
+  const matching = fundingSourcesForAccountKey(item.accountKey, fundingSources);
+  const source = matching[0] ?? syntheticFundingSourceForAccount(item);
+  const customAlias =
+    (matching[0] ? getAliasEntry(settings.fundingSourceAliases, matching[0])?.alias : undefined) ??
+    resolveAccountBalanceAlias(settings.fundingSourceAliases, item.accountKey);
+  const accountTitle =
+    (source.accountString ? accountTitlesByChartstring.get(source.accountString) : undefined) ??
+    item.projectDescription;
+  return {
+    source,
+    customAlias,
+    accountTitle,
+    name: resolveAliasBase(source, customAlias, accountTitle),
   };
 }
