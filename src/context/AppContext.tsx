@@ -7,6 +7,8 @@ import type {
   PersonnelType,
   AppSettings,
   FundingSourceTypeDef,
+  ImportFileResult,
+  ImportFilesResult,
   MonthlyAllocation,
   OrgStructure,
   ParseWarning,
@@ -129,7 +131,7 @@ interface AppContextValue {
   loading: boolean;
   dataMigrated: boolean;
   hasData: boolean;
-  importPayrollFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  importPayrollFiles: (files: File[]) => Promise<ImportFilesResult>;
   resetToImported: () => void;
   updateAllocation: (
     employeeId: string,
@@ -180,9 +182,9 @@ interface AppContextValue {
   accountBalances: Map<string, AccountBalance>;
   /** Explicit hides + accounts hidden on Runway for everyone, minus explicit reveals. */
   hiddenAccountKeys: string[];
-  importNetPositionFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  importNetPositionFiles: (files: File[]) => Promise<ImportFilesResult>;
   removeNetPositionImport: (id: string) => void;
-  importPositionSalaryFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
+  importPositionSalaryFiles: (files: File[]) => Promise<ImportFilesResult>;
   removePositionSalaryImport: (id: string) => void;
   removePayrollImport: (id: string) => void;
   upsertPersonnelGroupDef: (group: PersonnelGroupDef) => void;
@@ -593,8 +595,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * looked at the last file of a batch) while its warnings still surface.
    */
   const importPayrollFiles = useCallback(
-    async (files: File[]): Promise<{ warnings: ParseWarning[] }> => {
+    async (files: File[]): Promise<ImportFilesResult> => {
       const warnings: ParseWarning[] = [];
+      const fileResults: ImportFileResult[] = [];
       const incomingImports: PayrollReportImport[] = [];
       let merged = snapshot;
       const overwritten = new Set<string>();
@@ -605,6 +608,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const wb = await readWorkbook(file);
           const { snapshot: incoming, preview } = parsePayrollFundingWorkbook(wb, file.name);
           warnings.push(...preview.warnings);
+          fileResults.push({ fileName: file.name, status: preview.parseStatus });
           if (preview.parseStatus === "failed") continue;
           incomingImports.push(payrollImportFromSnapshot(incoming));
           const merge = mergePayrollSnapshots(merged, incoming);
@@ -612,6 +616,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (merge.isMerge) isMerge = true;
           merged = merge.snapshot;
         } catch (err) {
+          fileResults.push({ fileName: file.name, status: "failed" });
           warnings.push({
             id: generateId(),
             severity: "error",
@@ -621,7 +626,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (!merged || incomingImports.length === 0) {
-        return { warnings };
+        return { warnings, files: fileResults };
       }
       const next = merged;
 
@@ -647,7 +652,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setPayrollImports((prev) => [...prev, ...incomingImports]);
 
-      return { warnings };
+      return { warnings, files: fileResults };
     },
     [snapshot]
   );
@@ -1175,68 +1180,82 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, workingPlan]
   );
 
-  const importNetPositionFiles = useCallback(async (files: File[]) => {
-    const warnings: ParseWarning[] = [];
-    const imports: NetPositionReportImport[] = [];
+  const importNetPositionFiles = useCallback(
+    async (files: File[]): Promise<ImportFilesResult> => {
+      const warnings: ParseWarning[] = [];
+      const fileResults: ImportFileResult[] = [];
+      const imports: NetPositionReportImport[] = [];
 
-    for (const file of files) {
-      try {
-        const result = await parseNetPositionFile(file);
-        imports.push({ ...result.import, parseStatus: parseStatusFromWarnings(result.warnings) });
-        warnings.push(...result.warnings);
-      } catch (err) {
-        warnings.push({
-          id: generateId(),
-          severity: "error",
-          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
-        });
+      for (const file of files) {
+        try {
+          const result = await parseNetPositionFile(file);
+          const status = parseStatusFromWarnings(result.warnings);
+          imports.push({ ...result.import, parseStatus: status });
+          fileResults.push({ fileName: file.name, status });
+          warnings.push(...result.warnings);
+        } catch (err) {
+          fileResults.push({ fileName: file.name, status: "failed" });
+          warnings.push({
+            id: generateId(),
+            severity: "error",
+            message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+          });
+        }
       }
-    }
 
-    if (imports.length > 0) {
-      setNetPositionImports((prev) => [...prev, ...imports]);
-    }
+      if (imports.length > 0) {
+        setNetPositionImports((prev) => [...prev, ...imports]);
+      }
 
-    return { warnings };
-  }, []);
+      return { warnings, files: fileResults };
+    },
+    []
+  );
 
   const removeNetPositionImport = useCallback((id: string) => {
     setNetPositionImports((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  const importPositionSalaryFiles = useCallback(async (files: File[]) => {
-    const warnings: ParseWarning[] = [];
-    const imports: PositionSalaryReportImport[] = [];
+  const importPositionSalaryFiles = useCallback(
+    async (files: File[]): Promise<ImportFilesResult> => {
+      const warnings: ParseWarning[] = [];
+      const fileResults: ImportFileResult[] = [];
+      const imports: PositionSalaryReportImport[] = [];
 
-    for (const file of files) {
-      try {
-        const result = await parsePositionSalaryFile(file);
-        imports.push({ ...result.import, parseStatus: parseStatusFromWarnings(result.warnings) });
-        warnings.push(...result.warnings);
-      } catch (err) {
-        warnings.push({
-          id: generateId(),
-          severity: "error",
-          message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+      for (const file of files) {
+        try {
+          const result = await parsePositionSalaryFile(file);
+          const status = parseStatusFromWarnings(result.warnings);
+          imports.push({ ...result.import, parseStatus: status });
+          fileResults.push({ fileName: file.name, status });
+          warnings.push(...result.warnings);
+        } catch (err) {
+          fileResults.push({ fileName: file.name, status: "failed" });
+          warnings.push({
+            id: generateId(),
+            severity: "error",
+            message: `${file.name}: ${err instanceof Error ? err.message : "Parse failed"}`,
+          });
+        }
+      }
+
+      if (imports.length > 0) {
+        setPositionSalaryImports((prev) => {
+          let next = [...prev];
+          for (const incoming of imports) {
+            if (incoming.fiscalYear) {
+              next = next.filter((p) => p.fiscalYear !== incoming.fiscalYear);
+            }
+            next.push(incoming);
+          }
+          return next;
         });
       }
-    }
 
-    if (imports.length > 0) {
-      setPositionSalaryImports((prev) => {
-        let next = [...prev];
-        for (const incoming of imports) {
-          if (incoming.fiscalYear) {
-            next = next.filter((p) => p.fiscalYear !== incoming.fiscalYear);
-          }
-          next.push(incoming);
-        }
-        return next;
-      });
-    }
-
-    return { warnings };
-  }, []);
+      return { warnings, files: fileResults };
+    },
+    []
+  );
 
   const removePositionSalaryImport = useCallback((id: string) => {
     setPositionSalaryImports((prev) => prev.filter((p) => p.id !== id));

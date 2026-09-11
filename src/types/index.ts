@@ -75,6 +75,18 @@ export interface ParseWarning {
   rawValue?: string;
 }
 
+/** How one uploaded file fared, so an uploader can name what landed. */
+export interface ImportFileResult {
+  fileName: string;
+  status: ParseStatus;
+}
+
+/** What every file-import method on AppContext resolves to. */
+export interface ImportFilesResult {
+  warnings: ParseWarning[];
+  files: ImportFileResult[];
+}
+
 export interface Employee {
   id: string;
   name: string;
