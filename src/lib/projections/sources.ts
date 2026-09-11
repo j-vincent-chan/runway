@@ -1,9 +1,11 @@
 import type {
   AppSettings,
+  Employee,
   FundingSource,
   PayrollReportSnapshot,
   PlannedFundingSource,
 } from "@/types";
+import type { ProjectionResult } from "@/lib/projections/simulate";
 import { fundingSourceKey, getAliasEntry } from "@/lib/funding/sourceKey";
 import { normalizeChartstring } from "@/lib/funding/chartstring";
 import { resolveDisplayAlias } from "@/lib/funding/alias";
@@ -77,4 +79,54 @@ export function projectionSourceLabel(
     ? accountTitlesByChartstring?.get(fs.accountString)
     : undefined;
   return resolveDisplayAlias(fs, custom, accountTitle);
+}
+
+/**
+ * Every chartstring a person's Projections row lists: each account the
+ * projection charges them to in any month of the horizon, plus any account
+ * one of their rules names (a rule can point at an account that has no
+ * effort yet). By Person renders from this and the CSV exports from it, so
+ * the file cannot list a different set than the screen.
+ */
+export function chartstringKeysForPerson(
+  result: ProjectionResult,
+  settings: AppSettings,
+  emp: Employee,
+  personKey: string
+): Set<string> {
+  const keys = new Set<string>();
+  for (const state of result.states) {
+    for (const a of state.allocations) {
+      if (a.employeeId === emp.id) keys.add(a.chartstringKey);
+    }
+  }
+  for (const rule of settings.projectionRules ?? []) {
+    if (rule.personKey === personKey && rule.chartstringKey) keys.add(rule.chartstringKey);
+  }
+  return keys;
+}
+
+/**
+ * The people an account's By Account block lists: everyone the projection
+ * charges to it in any month of the horizon, in first-appearance order.
+ */
+export function contributorsForSource(
+  result: ProjectionResult,
+  chartstringKey: string,
+  employees: Employee[]
+): Employee[] {
+  const empById = new Map(employees.map((e) => [e.id, e]));
+  const contributors: Employee[] = [];
+  const seen = new Set<string>();
+  for (const state of result.states) {
+    for (const a of state.allocations) {
+      if (a.chartstringKey !== chartstringKey || seen.has(a.employeeId)) continue;
+      const emp = empById.get(a.employeeId);
+      if (emp) {
+        seen.add(emp.id);
+        contributors.push(emp);
+      }
+    }
+  }
+  return contributors;
 }

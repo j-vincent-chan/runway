@@ -16,7 +16,11 @@ import type { AppSettings, Employee, FundingSource } from "@/types";
 import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
-import { chartstringKeyForFundingSource, projectionSourceLabel } from "@/lib/projections/sources";
+import {
+  chartstringKeyForFundingSource,
+  chartstringKeysForPerson,
+  projectionSourceLabel,
+} from "@/lib/projections/sources";
 import { ruleChipLabel, rulesForPair } from "@/lib/projections/rules";
 import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatPercent } from "@/lib/utils/parse";
@@ -122,15 +126,7 @@ export function ByPersonView({
         <tbody>
           {employees.map((emp) => {
             const personKey = employeePersonKey(emp);
-            const keys = new Set<string>();
-            for (const state of result.states) {
-              for (const a of state.allocations) {
-                if (a.employeeId === emp.id) keys.add(a.chartstringKey);
-              }
-            }
-            for (const rule of settings.projectionRules ?? []) {
-              if (rule.personKey === personKey && rule.chartstringKey) keys.add(rule.chartstringKey);
-            }
+            const keys = chartstringKeysForPerson(result, settings, emp, personKey);
             const sources = result.sources.filter((s) =>
               keys.has(chartstringKeyForFundingSource(s))
             );

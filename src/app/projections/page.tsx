@@ -15,7 +15,19 @@ import {
   unmatchedPlannedSources,
   projectionSourceLabel,
   chartstringKeyForFundingSource,
+  chartstringKeysForPerson,
+  contributorsForSource,
 } from "@/lib/projections/sources";
+import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { resolveAliasBase } from "@/lib/funding/alias";
+import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import {
+  buildChartstringCsv,
+  chartstringCsvFilename,
+  type ChartstringCsvEntry,
+} from "@/lib/export/chartstringCsv";
+import { downloadTextFile } from "@/lib/export/downloadTextFile";
+import { DownloadCsvButton } from "@/components/export/DownloadCsvButton";
 import { upsertRule } from "@/lib/projections/rules";
 import { applyChartstringRemoval, checkChartstringRemoval } from "@/lib/projections/removal";
 import {
@@ -129,6 +141,50 @@ export default function ProjectionsPage() {
   }, [settings, snapshot]);
 
   const horizonMonths = result?.months.length ?? 0;
+
+  /**
+   * The person × account pairs on screen, in the active tab's order, for the
+   * CSV. Both tabs draw their rows from the same two helpers, so the file
+   * lists exactly the pairs the grid does — hidden pairs included only when
+   * the tab has them revealed.
+   */
+  const csvEntries = useMemo((): ChartstringCsvEntry[] => {
+    if (!snapshot || !result) return [];
+    const entry = (emp: Employee, fs: FundingSource): ChartstringCsvEntry => ({
+      person: emp.name,
+      account: resolveAliasBase(
+        fs,
+        getAliasEntry(settings.fundingSourceAliases, fs)?.alias,
+        fs.accountString ? accountTitlesByChartstring.get(fs.accountString) : undefined
+      ),
+      chartstring: fs.accountString ?? fs.rawName,
+    });
+    if (tab === "person") {
+      return employees.flatMap((emp) => {
+        const keys = chartstringKeysForPerson(result, settings, emp, employeePersonKey(emp));
+        const reveal = showHiddenFunds || revealHidden.has(emp.id);
+        return result.sources
+          .filter((fs) => keys.has(chartstringKeyForFundingSource(fs)))
+          .filter((fs) => reveal || !isEmployeeFundHidden(settings, emp.id, fs.id))
+          .map((fs) => entry(emp, fs));
+      });
+    }
+    return result.sources.flatMap((fs) => {
+      const reveal = showHiddenFunds || revealHidden.has(fs.id);
+      return contributorsForSource(result, chartstringKeyForFundingSource(fs), employees)
+        .filter((emp) => reveal || !isEmployeeFundHidden(settings, emp.id, fs.id))
+        .map((emp) => entry(emp, fs));
+    });
+  }, [
+    snapshot,
+    result,
+    employees,
+    settings,
+    accountTitlesByChartstring,
+    tab,
+    showHiddenFunds,
+    revealHidden,
+  ]);
 
   function setHorizon(preset: ProjectionHorizonPreset, customEndMonth?: string) {
     updateSettings({ projectionHorizon: { preset, customEndMonth } });
@@ -459,10 +515,21 @@ export default function ProjectionsPage() {
                     </div>
                   </div>
                 </div>
-                <FreezeHeaderToggle
-                  frozen={settings.freezeGridHeader !== false}
-                  onChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <DownloadCsvButton
+                    rowCount={csvEntries.length}
+                    onClick={() =>
+                      downloadTextFile(
+                        chartstringCsvFilename("projections"),
+                        buildChartstringCsv(csvEntries, { withPerson: true })
+                      )
+                    }
+                  />
+                  <FreezeHeaderToggle
+                    frozen={settings.freezeGridHeader !== false}
+                    onChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
+                  />
+                </div>
               </div>
               <div className="mt-3 border-t border-rule pt-3">
                 <AddToPersonBar

@@ -7,7 +7,11 @@ import { employeePersonKey } from "@/lib/employees/stableKey";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
-import { chartstringKeyForFundingSource, projectionSourceLabel } from "@/lib/projections/sources";
+import {
+  chartstringKeyForFundingSource,
+  contributorsForSource,
+  projectionSourceLabel,
+} from "@/lib/projections/sources";
 import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatCurrency } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
@@ -71,7 +75,6 @@ export function ByAccountView({
   const tableMinWidth =
     PROJECTION_LABEL_COL + PROJECTION_SCOPE_COL + months.length * PROJECTION_MONTH_COL_MIN;
   const display = displayMode ?? "percent";
-  const empById = new Map(employees.map((e) => [e.id, e]));
 
   return (
     <FreezeableGrid freeze={settings.freezeGridHeader !== false}>
@@ -99,18 +102,7 @@ export function ByAccountView({
             const root = rootOf(key);
             const remainingSeries = result.states.map((s) => s.remainingByRoot[root] ?? 0);
             const isPlanned = plannedSourceIds.has(fs.id);
-            const contributors: Employee[] = [];
-            const seen = new Set<string>();
-            for (const state of result.states) {
-              for (const a of state.allocations) {
-                if (a.chartstringKey !== key || seen.has(a.employeeId)) continue;
-                const emp = empById.get(a.employeeId);
-                if (emp) {
-                  seen.add(emp.id);
-                  contributors.push(emp);
-                }
-              }
-            }
+            const contributors = contributorsForSource(result, key, employees);
             const isCollapsed = collapsed.has(fs.id);
             const alias = projectionSourceLabel(fs, settings, accountTitlesByChartstring);
             const barColors = colorsForEmployeeVisibleSources(
