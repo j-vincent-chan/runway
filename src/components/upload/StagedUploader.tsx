@@ -30,10 +30,13 @@ export function StagedUploader({
   const [outcome, setOutcome] = useState<{ uploaded: string[]; failed: string[] } | null>(null);
 
   const stage = useCallback((incoming: FileList) => {
+    // Copy now: a FileList is live, and the dropzone resets its input right
+    // after this returns, which would empty it before the updater runs.
+    const files = Array.from(incoming);
     setOutcome(null);
     setStaged((prev) => {
       const next = [...prev];
-      for (const file of Array.from(incoming)) {
+      for (const file of files) {
         if (!next.some((f) => sameFile(f, file))) next.push(file);
       }
       return next;
