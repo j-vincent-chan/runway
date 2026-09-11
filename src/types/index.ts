@@ -226,6 +226,13 @@ export interface NetPositionReportImport {
   periodEnd?: string;
   sheetName: string;
   rows: NetPositionAccountRow[];
+  /**
+   * Outcome of the parse, so the card can show it beside the file. Optional
+   * because imports persisted before it existed carry none; those all parsed
+   * without throwing (a throw is never added), so a missing value reads as
+   * success.
+   */
+  parseStatus?: ParseStatus;
 }
 
 /** One row from Employee and Position Salary Report (a job/appointment). */
@@ -271,6 +278,8 @@ export interface PositionSalaryReportImport {
   fiscalYear?: string;
   sheetName: string;
   people: PositionSalaryPerson[];
+  /** See NetPositionReportImport.parseStatus. */
+  parseStatus?: ParseStatus;
 }
 
 /** One uploaded Payroll Funding Report (several fold into one snapshot). */

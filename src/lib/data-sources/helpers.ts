@@ -1,4 +1,10 @@
-import type { NetPositionReportImport, PositionSalaryReportImport, PayrollReportSnapshot } from "@/types";
+import type {
+  NetPositionReportImport,
+  ParseStatus,
+  ParseWarning,
+  PositionSalaryReportImport,
+  PayrollReportSnapshot,
+} from "@/types";
 import { formatMonthDisplay } from "@/lib/utils/parse";
 
 export function formatMonthRange(snapshot: PayrollReportSnapshot): string {
@@ -48,6 +54,17 @@ export function dataFreshnessLabel(uploadedAt: string): { label: string; tone: "
   if (days <= 14) return { label: "Up to date", tone: "good" };
   if (days <= 60) return { label: "Recent import", tone: "neutral" };
   return { label: "Consider refreshing", tone: "neutral" };
+}
+
+/**
+ * The single rule for grading a parse by its warnings — the same one the
+ * payroll parser applies to its own output, so every uploader's badge means
+ * the same thing.
+ */
+export function parseStatusFromWarnings(warnings: ParseWarning[]): ParseStatus {
+  if (warnings.some((w) => w.severity === "error")) return "failed";
+  if (warnings.some((w) => w.severity === "warning")) return "partial";
+  return "success";
 }
 
 export function parseStatusLabel(status: string): string {

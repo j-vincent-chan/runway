@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { FileSpreadsheet, Info, Trash2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
+import { StatusBadge } from "@/components/data-sources/StatusBadge";
 import {
   DATA_SOURCE_DROPZONE_MIN_H,
   UploadDropzone,
@@ -98,6 +99,7 @@ export function PositionSalaryFilesCard() {
                             Latest
                           </span>
                         )}
+                        <StatusBadge status={imp.parseStatus ?? "success"} />
                         <button
                           type="button"
                           className="rounded p-1 text-muted hover:bg-critical-soft hover:text-critical"

@@ -118,6 +118,7 @@ import {
   setActiveWorkspaceOverride,
 } from "@/lib/supabase/activeWorkspace";
 import { useWorkspace } from "@/context/WorkspaceContext";
+import { parseStatusFromWarnings } from "@/lib/data-sources/helpers";
 
 interface AppContextValue {
   snapshot: PayrollReportSnapshot | null;
@@ -1181,7 +1182,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     for (const file of files) {
       try {
         const result = await parseNetPositionFile(file);
-        imports.push(result.import);
+        imports.push({ ...result.import, parseStatus: parseStatusFromWarnings(result.warnings) });
         warnings.push(...result.warnings);
       } catch (err) {
         warnings.push({
@@ -1210,7 +1211,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     for (const file of files) {
       try {
         const result = await parsePositionSalaryFile(file);
-        imports.push(result.import);
+        imports.push({ ...result.import, parseStatus: parseStatusFromWarnings(result.warnings) });
         warnings.push(...result.warnings);
       } catch (err) {
         warnings.push({
