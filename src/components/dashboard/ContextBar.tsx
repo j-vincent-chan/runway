@@ -58,7 +58,7 @@ export function ContextBar({
         <select
           value={horizonMonths}
           onChange={(e) => onHorizonChange(Number(e.target.value))}
-          className="type-mono min-h-11 rounded-md border border-rule bg-surface px-2 text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="type-mono min-h-11 rounded-md border border-control bg-surface px-2 text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {HORIZON_OPTIONS.map((months) => (
             <option key={months} value={months}>

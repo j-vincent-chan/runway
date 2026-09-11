@@ -509,7 +509,7 @@ function EmployeeTableRow({
             type="date"
             value={getEmployeeEndDate(settings, emp.id) ?? ""}
             onChange={(e) => onEndDateChange(e.target.value || null)}
-            className="w-full min-w-[7rem] rounded border border-rule px-1.5 py-0.5 text-xs text-ink"
+            className="w-full min-w-[7rem] rounded border border-control px-1.5 py-0.5 text-xs text-ink"
             title="Employment end date"
           />
         </td>

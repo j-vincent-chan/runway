@@ -196,27 +196,33 @@ body {
 
 /*
  * Form controls default to the theme rather than to the UA's idea of it.
- * Utility classes outrank these (0,1,0 over 0,0,1), so an explicitly styled
- * control is untouched; this only catches the ones carrying no color classes,
- * which is precisely how the sign-up form's inputs went unreadable.
+ * This lives in the base layer so utility classes outrank it — an explicitly
+ * styled control is untouched and this only catches the ones carrying no
+ * color classes, which is precisely how the sign-up form's inputs went
+ * unreadable. Unlayered, it would beat every utility regardless of
+ * specificity, which is how the header's workspace picker kept a surface
+ * fill through `bg-transparent`.
  */
-input,
-textarea,
-select {
-  background-color: var(--surface);
-  color: var(--ink);
-  /*
-   * --control, not --rule-strong: an input's fill matches the card it sits on,
-   * so the border is the only thing that delineates the control and has to
-   * clear 3:1 on its own. --rule-strong managed 1.75:1 against a dark card.
-   */
-  border-color: var(--control);
-}
+@layer base {
+  input,
+  textarea,
+  select {
+    background-color: var(--surface);
+    color: var(--ink);
+    /*
+     * --control, not --rule-strong: an input's fill matches the card it sits
+     * on, so the border is the only thing that delineates the control and has
+     * to clear 3:1 on its own. --rule-strong managed 1.75:1 against a dark
+     * card.
+     */
+    border-color: var(--control);
+  }
 
-input::placeholder,
-textarea::placeholder {
-  color: var(--muted);
-  opacity: 1;
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+    opacity: 1;
+  }
 }
 
 /*

@@ -44,7 +44,7 @@ export function AssumedOkFundingCell({
         <label className="shrink-0 text-[10px] font-medium text-muted">Fund ends</label>
         <input
           type="date"
-          className="min-w-0 flex-1 rounded border border-rule px-1.5 py-1 text-[11px] text-ink"
+          className="min-w-0 flex-1 rounded border border-control px-1.5 py-1 text-[11px] text-ink"
           value={pendingEmpty ? "" : (endDate ?? "")}
           onChange={(e) => {
             const next = e.target.value;

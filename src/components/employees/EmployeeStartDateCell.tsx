@@ -50,7 +50,7 @@ export function EmployeeStartDateCell({
         type="date"
         value={startDate ?? ""}
         onChange={(e) => onStartDateChange(e.target.value || null)}
-        className="w-full rounded border border-rule px-1.5 py-0.5 text-xs text-ink"
+        className="w-full rounded border border-control px-1.5 py-0.5 text-xs text-ink"
         title="Employment start date"
       />
       <div className="flex flex-wrap items-center gap-1">

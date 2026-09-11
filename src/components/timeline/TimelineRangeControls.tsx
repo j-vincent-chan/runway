@@ -61,7 +61,7 @@ export function TimelineRangeControls({
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
       <input
         type="month"
-        className="rounded-md border border-rule bg-surface px-2 py-1 text-xs text-ink shadow-sm"
+        className="rounded-md border border-control bg-surface px-2 py-1 text-xs text-ink shadow-sm"
         min={minMonth}
         max={maxMonth}
         value={range.start}
@@ -71,7 +71,7 @@ export function TimelineRangeControls({
       <span className="text-muted">–</span>
       <input
         type="month"
-        className="rounded-md border border-rule bg-surface px-2 py-1 text-xs text-ink shadow-sm"
+        className="rounded-md border border-control bg-surface px-2 py-1 text-xs text-ink shadow-sm"
         min={minMonth}
         max={maxMonth}
         value={range.end}

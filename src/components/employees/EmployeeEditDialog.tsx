@@ -147,7 +147,7 @@ export function EmployeeEditDialog({
           id="employee-photo-url"
           type="text"
           autoComplete="off"
-          className="w-full rounded-lg border border-rule px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-control px-3 py-2 text-sm"
           placeholder="https://…"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

@@ -18,7 +18,7 @@ export function AccountBalanceSort({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as AccountBalanceSortKey)}
-        className="rounded-lg border border-rule bg-surface py-1.5 pl-2 pr-7 text-xs font-medium text-ink shadow-sm hover:border-control focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="rounded-lg border border-control bg-surface py-1.5 pl-2 pr-7 text-xs font-medium text-ink shadow-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
       >
         {ACCOUNT_BALANCE_SORT_OPTIONS.map((o) => (
           <option key={o.value} value={o.value}>
