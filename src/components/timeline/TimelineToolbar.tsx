@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { TimelineRangeControls } from "@/components/timeline/TimelineRangeControls";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
+import { DownloadCsvButton } from "@/components/export/DownloadCsvButton";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import type { MonthRange } from "@/lib/timeline/range";
 
@@ -81,6 +82,8 @@ export function TimelineToolbar({
   onFreezeHeaderChange,
   groupFilter,
   onGroupFilterChange,
+  csvRowCount,
+  onDownloadCsv,
 }: {
   display: "percent" | "dollars" | "both";
   onDisplayChange: (d: "percent" | "dollars" | "both") => void;
@@ -94,6 +97,9 @@ export function TimelineToolbar({
   onFreezeHeaderChange: (v: boolean) => void;
   groupFilter: string[];
   onGroupFilterChange: (ids: string[]) => void;
+  /** Rows the CSV would hold — what the grid is showing right now. */
+  csvRowCount: number;
+  onDownloadCsv: () => void;
 }) {
   // Flat --inset, matching .timeline-thead directly beneath it. Was a
   // slate-50 → white gradient: it did not follow the theme, and the design
@@ -128,6 +134,7 @@ export function TimelineToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <DownloadCsvButton rowCount={csvRowCount} onClick={onDownloadCsv} />
           <FreezeHeaderToggle frozen={freezeHeader} onChange={onFreezeHeaderChange} />
         </div>
       </div>

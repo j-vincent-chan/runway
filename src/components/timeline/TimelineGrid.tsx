@@ -35,6 +35,13 @@ import {
 } from "@/lib/timeline/range";
 import { getTimelineFundingSources } from "@/lib/funding/employeeSources";
 import { getAliasEntry } from "@/lib/funding/sourceKey";
+import { resolveAliasBase } from "@/lib/funding/alias";
+import {
+  buildChartstringCsv,
+  chartstringCsvFilename,
+  type ChartstringCsvEntry,
+} from "@/lib/export/chartstringCsv";
+import { downloadTextFile } from "@/lib/export/downloadTextFile";
 import { colorsForEmployeeVisibleSources } from "@/lib/timeline/visibleBarColors";
 import { filterEmployeesForPlanning, getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import {
@@ -246,6 +253,29 @@ export function TimelineGrid() {
 
   const totalHiddenFunds = countAllHiddenFunds(settings);
 
+  /**
+   * The rows on screen, for the CSV: the same employee list and the same
+   * per-employee source call the grid renders from, so the month range,
+   * team filter and hidden-fund reveal state all carry into the file. A
+   * collapsed person still exports — collapse is a reading aid, the person
+   * is on the page. Account is the displayed name without its project
+   * suffix, since the project number gets its own column.
+   */
+  const csvEntries: ChartstringCsvEntry[] = planningEmployees.flatMap((emp) =>
+    sourcesForEmployee(
+      emp.id,
+      showHiddenFunds || revealHiddenForEmployees.has(emp.id)
+    ).map((fs) => ({
+      person: emp.name,
+      account: resolveAliasBase(
+        fs,
+        getAliasEntry(settings.fundingSourceAliases, fs)?.alias,
+        fs.accountString ? accountTitlesByChartstring.get(fs.accountString) : undefined
+      ),
+      chartstring: fs.accountString ?? fs.rawName,
+    }))
+  );
+
   return (
     <div className="min-w-0 flex-1 rounded-xl border border-rule bg-surface shadow-sm">
       <TimelineToolbar
@@ -264,6 +294,13 @@ export function TimelineGrid() {
         onFreezeHeaderChange={(freezeGridHeader) => updateSettings({ freezeGridHeader })}
         groupFilter={settings.personnelGroupFilter ?? []}
         onGroupFilterChange={(personnelGroupFilter) => updateSettings({ personnelGroupFilter })}
+        csvRowCount={csvEntries.length}
+        onDownloadCsv={() =>
+          downloadTextFile(
+            chartstringCsvFilename("distributions"),
+            buildChartstringCsv(csvEntries, { withPerson: true })
+          )
+        }
       />
 
       <FreezeableGrid freeze={settings.freezeGridHeader !== false}>
