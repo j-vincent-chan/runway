@@ -20,6 +20,15 @@ import {
 import { cn } from "@/lib/utils/cn";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { stripProjectFromAlias } from "@/lib/funding/alias";
+import { splitChartstring } from "@/lib/funding/chartstring";
+import {
+  buildChartstringCsv,
+  chartstringCsvFilename,
+  type ChartstringCsvEntry,
+} from "@/lib/export/chartstringCsv";
+import { downloadTextFile } from "@/lib/export/downloadTextFile";
+import { DownloadCsvButton } from "@/components/export/DownloadCsvButton";
 import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
 import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
 
@@ -151,6 +160,27 @@ export default function RunwayPage() {
     });
   }, [summaries, query]);
 
+  /**
+   * The rows on screen, for the CSV — visibleSummaries already carries the
+   * team filter, the search box, the reveal state and the held order.
+   * Account is the row's own label with the project number taken off, since
+   * the project gets its own column.
+   */
+  const csvEntries = useMemo(
+    (): ChartstringCsvEntry[] =>
+      visibleSummaries.flatMap((s) =>
+        s.accounts.map((acct) => ({
+          person: s.employee.name,
+          account: stripProjectFromAlias(
+            acct.displayName,
+            splitChartstring(acct.chartstring).project || undefined
+          ),
+          chartstring: acct.chartstring,
+        }))
+      ),
+    [visibleSummaries]
+  );
+
   /** True once the held order no longer matches what the sort would produce. */
   const orderIsHeld = useMemo(
     () =>
@@ -211,26 +241,37 @@ export default function RunwayPage() {
                     </button>
                   )}
                 </div>
-                {totalHiddenFunds > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowHiddenFunds((v) => !v);
-                      if (showHiddenFunds) setRevealHiddenForEmployees(new Set());
-                    }}
-                    className={cn(
-                      "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
-                      showHiddenFunds
-                        ? "border-accent bg-accent-soft text-accent"
-                        : "border-rule bg-surface text-ink-2 hover:bg-inset"
-                    )}
-                  >
-                    {showHiddenFunds ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                    {showHiddenFunds
-                      ? "Collapse hidden funds"
-                      : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
-                  </button>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <DownloadCsvButton
+                    rowCount={csvEntries.length}
+                    onClick={() =>
+                      downloadTextFile(
+                        chartstringCsvFilename("runway"),
+                        buildChartstringCsv(csvEntries, { withPerson: true })
+                      )
+                    }
+                  />
+                  {totalHiddenFunds > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowHiddenFunds((v) => !v);
+                        if (showHiddenFunds) setRevealHiddenForEmployees(new Set());
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium",
+                        showHiddenFunds
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-rule bg-surface text-ink-2 hover:bg-inset"
+                      )}
+                    >
+                      {showHiddenFunds ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {showHiddenFunds
+                        ? "Collapse hidden funds"
+                        : `Show ${totalHiddenFunds} hidden fund${totalHiddenFunds === 1 ? "" : "s"}`}
+                    </button>
+                  )}
+                </div>
               </div>
               {visibleSummaries.length === 0 && query.trim() !== "" && (
                 <p className="py-6 text-center text-sm text-muted">
