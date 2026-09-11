@@ -1,49 +1,37 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import Link from "next/link";
 import { FileSpreadsheet, Info, Trash2 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import {
   DATA_SOURCE_DROPZONE_MIN_H,
   UploadDropzone,
 } from "@/components/upload/UploadDropzone";
-import { PayrollImportPreview } from "@/components/data-sources/PayrollImportPreview";
 import { StatusBadge } from "@/components/data-sources/StatusBadge";
 import { formatMonthRange } from "@/lib/data-sources/helpers";
 import type { ParseWarning } from "@/types";
 
 export function PayrollReportCard() {
-  const {
-    snapshot,
-    payrollImports,
-    pendingPreview,
-    pendingSnapshot,
-    pendingMergeInfo,
-    parsePayrollFiles,
-    confirmImport,
-    cancelImport,
-    removePayrollImport,
-  } = useApp();
+  const { payrollImports, importPayrollFiles, removePayrollImport } = useApp();
   const [uploading, setUploading] = useState(false);
   const [uploadWarnings, setUploadWarnings] = useState<ParseWarning[]>([]);
-  const [showParsedPreview, setShowParsedPreview] = useState(false);
 
+  // Applies on drop, like the Net Position and Position Salary cards: the
+  // file lands in the Uploaded list below and the user stays on this page.
   const onFiles = useCallback(
     async (files: FileList | null) => {
       if (!files?.length) return;
       setUploading(true);
       try {
-        const { warnings } = await parsePayrollFiles(Array.from(files));
+        const { warnings } = await importPayrollFiles(Array.from(files));
         setUploadWarnings(warnings);
       } finally {
         setUploading(false);
       }
     },
-    [parsePayrollFiles]
+    [importPayrollFiles]
   );
 
-  const loaded = !!snapshot && !pendingPreview;
   const latestId =
     payrollImports.length > 0
       ? [...payrollImports].sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))[0]?.id
@@ -78,13 +66,11 @@ export function PayrollReportCard() {
         />
 
         <div className={DATA_SOURCE_DROPZONE_MIN_H}>
-          {payrollImports.length === 0 && !pendingPreview ? (
+          {payrollImports.length === 0 ? (
             <div
               className={`flex h-full ${DATA_SOURCE_DROPZONE_MIN_H} items-center justify-center rounded-lg border border-dashed border-rule bg-inset/30 p-4 text-center text-sm text-muted`}
             >
-              {pendingPreview
-                ? "Confirm the preview below to load this report into Runway."
-                : "No payroll reports uploaded yet."}
+              No payroll reports uploaded yet.
             </div>
           ) : (
             <div>
@@ -134,32 +120,6 @@ export function PayrollReportCard() {
                   );
                 })}
               </ul>
-              {loaded && (
-                <div className="mt-3 flex flex-wrap gap-2 border-t border-rule pt-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowParsedPreview((v) => !v)}
-                    className="rounded-lg border border-control bg-surface px-3 py-1.5 text-sm font-medium text-ink-2 hover:bg-inset"
-                  >
-                    {showParsedPreview ? "Hide parsed data" : "View Parsed Data"}
-                  </button>
-                  <Link
-                    href="/timeline"
-                    className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
-                  >
-                    View Distributions
-                  </Link>
-                </div>
-              )}
-              {showParsedPreview && snapshot && (
-                <div className="mt-3 rounded-lg border border-rule bg-surface p-3 text-sm">
-                  <p className="font-medium text-ink">Merged dataset</p>
-                  <p className="mt-1 text-ink-2">
-                    {snapshot.monthlyAllocations.length} allocations · {snapshot.monthlyCosts.length}{" "}
-                    cost rows · {formatMonthRange(snapshot)}
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -181,17 +141,6 @@ export function PayrollReportCard() {
         </ul>
       )}
 
-      {pendingPreview && pendingSnapshot && (
-        <div className="border-t border-rule px-5 pb-5">
-          <PayrollImportPreview
-            preview={pendingPreview}
-            snapshot={pendingSnapshot}
-            mergeInfo={pendingMergeInfo}
-            onCancel={cancelImport}
-            onConfirm={confirmImport}
-          />
-        </div>
-      )}
     </section>
   );
 }

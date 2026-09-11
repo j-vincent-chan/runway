@@ -14,7 +14,6 @@ import { Header } from "@/components/layout/Header";
 export default function DataSourcesPage() {
   const {
     snapshot,
-    pendingPreview,
     payrollImports,
     netPositionImports,
     positionSalaryImports,
@@ -24,7 +23,6 @@ export default function DataSourcesPage() {
   const hasPayroll = !!snapshot && snapshot.parseStatus !== "failed";
   const hasStoredData =
     !!snapshot ||
-    !!pendingPreview ||
     payrollImports.length > 0 ||
     netPositionImports.length > 0 ||
     positionSalaryImports.length > 0;
@@ -53,7 +51,7 @@ export default function DataSourcesPage() {
       />
       <main className="flex-1 overflow-auto bg-inset/60 p-6">
         <div className="mx-auto max-w-7xl space-y-6">
-          {snapshot && !pendingPreview && <ActiveDatasetBanner snapshot={snapshot} />}
+          {snapshot && <ActiveDatasetBanner snapshot={snapshot} />}
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
             <div className="space-y-6">
@@ -68,7 +66,6 @@ export default function DataSourcesPage() {
                 netPositionImports={netPositionImports}
                 positionSalaryImports={positionSalaryImports}
                 payrollImportCount={payrollImports.length}
-                pendingWarningCount={pendingPreview?.warnings.length ?? 0}
               />
               <WhatThisPowersCard
                 hasPayroll={hasPayroll}

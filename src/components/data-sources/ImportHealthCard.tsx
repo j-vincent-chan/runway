@@ -16,17 +16,13 @@ export function ImportHealthCard({
   netPositionImports = [],
   positionSalaryImports = [],
   payrollImportCount = 0,
-  pendingWarningCount = 0,
 }: {
   snapshot: PayrollReportSnapshot | null;
   netPositionImports?: NetPositionReportImport[];
   positionSalaryImports?: PositionSalaryReportImport[];
   payrollImportCount?: number;
-  pendingWarningCount?: number;
 }) {
-  const warnings = snapshot
-    ? countParseWarnings(snapshot) + pendingWarningCount
-    : pendingWarningCount;
+  const warnings = snapshot ? countParseWarnings(snapshot) : 0;
   const freshness = snapshot
     ? dataFreshnessLabel(snapshot.uploadedAt)
     : { label: "No payroll data", tone: "neutral" as const };

@@ -9,7 +9,6 @@ import type {
   FundingSourceTypeDef,
   MonthlyAllocation,
   OrgStructure,
-  ParsePreview,
   ParseWarning,
   PayrollReportImport,
   PayrollReportSnapshot,
@@ -127,15 +126,9 @@ interface AppContextValue {
   settings: AppSettings;
   scenarios: Scenario[];
   loading: boolean;
-  pendingPreview: ParsePreview | null;
-  pendingSnapshot: PayrollReportSnapshot | null;
-  pendingMergeInfo: { overwrittenMonths: string[]; preservedMonths: string[]; isMerge: boolean } | null;
   dataMigrated: boolean;
   hasData: boolean;
-  parsePayrollFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
-  parseFile: (file: File) => Promise<{ warnings: ParseWarning[] }>;
-  confirmImport: () => void;
-  cancelImport: () => void;
+  importPayrollFiles: (files: File[]) => Promise<{ warnings: ParseWarning[] }>;
   resetToImported: () => void;
   updateAllocation: (
     employeeId: string,
@@ -254,18 +247,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [pendingPreview, setPendingPreview] = useState<ParsePreview | null>(null);
-  const [pendingSnapshot, setPendingSnapshot] = useState<PayrollReportSnapshot | null>(null);
-  const [pendingMergeInfo, setPendingMergeInfo] = useState<{
-    overwrittenMonths: string[];
-    preservedMonths: string[];
-    isMerge: boolean;
-  } | null>(null);
   const [dataMigrated, setDataMigrated] = useState(false);
   const [payrollImports, setPayrollImports] = useState<PayrollReportImport[]>([]);
   const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
   const [positionSalaryImports, setPositionSalaryImports] = useState<PositionSalaryReportImport[]>([]);
-  const [pendingPayrollImports, setPendingPayrollImports] = useState<PayrollReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
   const { activeOwner, needsWorkspacePick } = useWorkspace();
@@ -594,26 +579,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, settings.fundingSourceAliases, accountTitlesByChartstring]
   );
 
-  const parsePayrollFiles = useCallback(
+  /**
+   * Parse and apply in one step, the same shape as importNetPositionFiles and
+   * importPositionSalaryFiles. This used to be a two-stage flow — parse into
+   * pending state, then a Confirm button applied it and pushed to
+   * Distributions — which made the payroll card the only uploader that did not
+   * simply land the file in its Uploaded list.
+   *
+   * A failed parse does not throw; it yields an empty snapshot beside its
+   * error warnings. The preview's Confirm button used to be disabled for that
+   * case, so here such a file is skipped per-file (the old gate only ever
+   * looked at the last file of a batch) while its warnings still surface.
+   */
+  const importPayrollFiles = useCallback(
     async (files: File[]): Promise<{ warnings: ParseWarning[] }> => {
       const warnings: ParseWarning[] = [];
       const incomingImports: PayrollReportImport[] = [];
       let merged = snapshot;
       const overwritten = new Set<string>();
       let isMerge = false;
-      let lastPreview: ParsePreview | null = null;
 
       for (const file of files) {
         try {
           const wb = await readWorkbook(file);
           const { snapshot: incoming, preview } = parsePayrollFundingWorkbook(wb, file.name);
           warnings.push(...preview.warnings);
+          if (preview.parseStatus === "failed") continue;
           incomingImports.push(payrollImportFromSnapshot(incoming));
           const merge = mergePayrollSnapshots(merged, incoming);
           merge.overwrittenMonths.forEach((m) => overwritten.add(m));
           if (merge.isMerge) isMerge = true;
           merged = merge.snapshot;
-          lastPreview = preview;
         } catch (err) {
           warnings.push({
             id: generateId(),
@@ -626,83 +622,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!merged || incomingImports.length === 0) {
         return { warnings };
       }
+      const next = merged;
 
-      const existingMonths = new Set<string>();
-      if (snapshot) {
-        snapshot.monthlyAllocations.forEach((a) => existingMonths.add(a.month));
-        snapshot.monthlyCosts.forEach((c) => existingMonths.add(c.month));
-      }
-      const preservedMonths = [...existingMonths].filter((m) => !overwritten.has(m)).sort();
+      setSettings((prev) => ({
+        ...prev,
+        fundingSourceAliases: migrateAliasKeys(prev.fundingSourceAliases, next.fundingSources),
+        fundingSourceCategories: migrateCategoryKeys(
+          prev.fundingSourceCategories,
+          next.fundingSources
+        ),
+        employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, next.employees),
+      }));
 
-      setPendingPayrollImports(incomingImports);
-      setPendingSnapshot(merged);
-      setPendingMergeInfo({
-        overwrittenMonths: [...overwritten].sort(),
-        preservedMonths,
-        isMerge,
-      });
-      setPendingPreview(lastPreview);
+      setSnapshot(refreshFundingSourceColors(next));
+
+      setWorkingPlan((prev) => ({
+        snapshotId: next.id,
+        allocations: isMerge
+          ? mergeWorkingPlanAllocations(prev?.allocations, next, overwritten)
+          : next.monthlyAllocations.map((a) => ({ ...a })),
+        updatedAt: new Date().toISOString(),
+      }));
+
+      setPayrollImports((prev) => [...prev, ...incomingImports]);
 
       return { warnings };
     },
     [snapshot]
   );
-
-  const parseFile = useCallback(
-    (file: File) => parsePayrollFiles([file]),
-    [parsePayrollFiles]
-  );
-
-  const confirmImport = useCallback(() => {
-    if (!pendingSnapshot) return;
-
-    const overwriteMonths = new Set(pendingMergeInfo?.overwrittenMonths ?? []);
-
-    setSettings((prev) => ({
-      ...prev,
-      fundingSourceAliases: migrateAliasKeys(
-        prev.fundingSourceAliases,
-        pendingSnapshot.fundingSources
-      ),
-      fundingSourceCategories: migrateCategoryKeys(
-        prev.fundingSourceCategories,
-        pendingSnapshot.fundingSources
-      ),
-      employeeProfiles: rematchEmployeeProfiles(
-        prev.employeeProfiles,
-        pendingSnapshot.employees
-      ),
-    }));
-
-    setSnapshot(refreshFundingSourceColors(pendingSnapshot));
-
-    setWorkingPlan((prev) => {
-      const mergedAllocs = pendingMergeInfo?.isMerge
-        ? mergeWorkingPlanAllocations(prev?.allocations, pendingSnapshot, overwriteMonths)
-        : pendingSnapshot.monthlyAllocations.map((a) => ({ ...a }));
-
-      return {
-        snapshotId: pendingSnapshot.id,
-        allocations: mergedAllocs,
-        updatedAt: new Date().toISOString(),
-      };
-    });
-
-    if (pendingPayrollImports.length > 0) {
-      setPayrollImports((prev) => [...prev, ...pendingPayrollImports]);
-    }
-    setPendingPayrollImports([]);
-    setPendingSnapshot(null);
-    setPendingPreview(null);
-    setPendingMergeInfo(null);
-  }, [pendingSnapshot, pendingMergeInfo, pendingPayrollImports]);
-
-  const cancelImport = useCallback(() => {
-    setPendingSnapshot(null);
-    setPendingPreview(null);
-    setPendingMergeInfo(null);
-    setPendingPayrollImports([]);
-  }, []);
 
   const resetToImported = useCallback(() => {
     if (!snapshot) return;
@@ -1532,10 +1479,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWorkingPlan(null);
     setScenarios([]);
     setPayrollImports([]);
-    setPendingPayrollImports([]);
-    setPendingPreview(null);
-    setPendingSnapshot(null);
-    setPendingMergeInfo(null);
     setDataMigrated(false);
   }, [netPositionImports, positionSalaryImports, actingAsDelegate]);
 
@@ -1546,15 +1489,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     settings,
     scenarios,
     loading,
-    pendingPreview,
-    pendingSnapshot,
-    pendingMergeInfo,
     dataMigrated,
     hasData: !!snapshot && snapshot.parseStatus !== "failed",
-    parsePayrollFiles,
-    parseFile,
-    confirmImport,
-    cancelImport,
+    importPayrollFiles,
     resetToImported,
     updateAllocation,
     updateSettings,
