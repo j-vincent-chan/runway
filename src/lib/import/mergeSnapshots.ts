@@ -93,6 +93,15 @@ function remapCosts(
   }));
 }
 
+function laterReportDate(a: string | undefined, b: string | undefined): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isNaN(ta) || Number.isNaN(tb)) return a >= b ? a : b;
+  return ta >= tb ? a : b;
+}
+
 function recomputeMonthRange(months: string[]): { start: string; end: string } {
   const sorted = [...months].sort();
   return { start: sorted[0] ?? "", end: sorted[sorted.length - 1] ?? "" };
@@ -205,7 +214,10 @@ export function mergePayrollSnapshots(
     id: existing.id,
     sourceFileName: incoming.sourceFileName,
     uploadedAt: new Date().toISOString(),
-    reportDate: incoming.reportDate ?? existing.reportDate,
+    // The fold's run date is the later of the two, whatever the upload
+    // order — a month closed by a newer report stays closed when an older
+    // one is backfilled after it.
+    reportDate: laterReportDate(incoming.reportDate, existing.reportDate),
     sheetName: incoming.sheetName,
     parserVersion: incoming.parserVersion,
     parseStatus,

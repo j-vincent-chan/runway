@@ -33,6 +33,7 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
     netPositionImports,
     payrollImports,
     hiddenAccountKeys,
+    reconciliation,
   } = useApp();
 
   const trend = useMemo(
@@ -206,6 +207,9 @@ export function DashboardContent({ horizonMonths }: { horizonMonths: number }) {
         monthlyProjected={trend.monthlyProjected}
         planningMonth={trend.planningMonth}
         activeRuleCount={settings.projectionRules?.length ?? 0}
+        plannedHireNames={reconciliation.rows
+          .filter((r) => r.status !== "linked")
+          .map((r) => r.plan.displayName)}
       />
       <PersonnelByGroupSection
         groupBreakdown={trend.groupBreakdown}

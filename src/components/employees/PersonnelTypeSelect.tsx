@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils/cn";
  * the short one, so a team read as "Projects" in one place and
  * "PM & clinical coord." in the other.
  */
-function PersonnelTypePill({
+export function PersonnelTypePill({
   type,
   className,
 }: {

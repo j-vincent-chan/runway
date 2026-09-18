@@ -1,10 +1,13 @@
 import type {
   AppSettings,
   PayrollReportSnapshot,
+  ProjectionRule,
   WorkingPlan,
 } from "@/types";
 import { getAllocations } from "@/lib/calculations";
 import { fundingSourceKey } from "@/lib/funding/sourceKey";
+import { isPlanDerivedRule } from "@/lib/reconciliation/links";
+import { plannedHireById, plannedHireIdFromKey } from "@/lib/reconciliation/plans";
 
 /**
  * Removing a chartstring from a person's Projections list is a per-person
@@ -36,6 +39,16 @@ export type ChartstringRemovalCheck =
       allocationCount: number;
       /** Sorted unique yyyy-MM months from the origin month forward. */
       months: string[];
+    }
+  | {
+      /**
+       * The effort comes from a linked plan's rule, which belongs to the plan
+       * (it keeps its original assumptions). Removing it here would delete
+       * nothing and say nothing; the honest answer names the plan.
+       */
+      removable: false;
+      reason: "linkedPlan";
+      planName: string;
     };
 
 export function checkChartstringRemoval(input: {
@@ -51,6 +64,12 @@ export function checkChartstringRemoval(input: {
    * recomputed here.
    */
   originMonth: string;
+  /**
+   * The rules the projection actually applied (`result.rules`): a linked
+   * plan's rules resolved onto this person. Without them a plan-derived
+   * pairing looks like it has no rule at all.
+   */
+  resolvedRules?: ProjectionRule[];
 }): ChartstringRemovalCheck {
   const { snapshot, workingPlan, settings, employeeId, personKey, chartstringKey, originMonth } =
     input;
@@ -87,6 +106,20 @@ export function checkChartstringRemoval(input: {
   const ruleIdsToDelete = rules
     .filter((r) => r.personKey === personKey && r.chartstringKey === chartstringKey)
     .map((r) => r.id);
+  if (ruleIdsToDelete.length === 0) {
+    const fromPlan = (input.resolvedRules ?? []).find(
+      (r) =>
+        r.personKey === personKey &&
+        r.chartstringKey === chartstringKey &&
+        isPlanDerivedRule(settings, r)
+    );
+    if (fromPlan) {
+      const stored = rules.find((r) => r.id === fromPlan.id);
+      const planId = stored ? plannedHireIdFromKey(stored.personKey) : null;
+      const plan = planId ? plannedHireById(settings.plannedHires, planId) : undefined;
+      return { removable: false, reason: "linkedPlan", planName: plan?.displayName ?? "a linked plan" };
+    }
+  }
   const remainderRuleIdsToRepair = rules
     .filter(
       (r) =>

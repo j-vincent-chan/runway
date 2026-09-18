@@ -7,6 +7,7 @@ import type {
 import type { AccountBalance } from "@/lib/funding/accountBalances";
 import { simulateProjections } from "@/lib/projections/simulate";
 import { formatMonthLabel } from "@/lib/projections/horizon";
+import { activeLinks, canonicalizeLinks, resolvePersonKey } from "@/lib/reconciliation/links";
 
 /**
  * A Lock In captures one person's requested distribution change as data that
@@ -56,14 +57,14 @@ export function buildChangeSummary(input: {
 }): ChangeRequestDetails {
   const { snapshot, workingPlan, settings, balances, employeeId, personKey, now } = input;
 
-  const personRules = (settings.projectionRules ?? []).filter(
-    (r) => r.personKey === personKey
-  );
+  // A linked plan's rules are stored under `planned:{id}` but belong to this
+  // person once resolved, so the handoff carries the plan-derived change too.
+  const links = canonicalizeLinks(activeLinks(settings), snapshot.employees);
+  const owns = (r: ProjectionRule) => resolvePersonKey(r.personKey, links) === personKey;
+  const personRules = (settings.projectionRules ?? []).filter(owns);
   const withoutPerson: AppSettings = {
     ...settings,
-    projectionRules: (settings.projectionRules ?? []).filter(
-      (r) => r.personKey !== personKey
-    ),
+    projectionRules: (settings.projectionRules ?? []).filter((r) => !owns(r)),
   };
 
   const after = simulateProjections({ snapshot, workingPlan, settings, balances, now });

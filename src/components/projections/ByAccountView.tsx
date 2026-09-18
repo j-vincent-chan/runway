@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Eye, EyeOff, Landmark, Lock } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
-import { employeePersonKey } from "@/lib/employees/stableKey";
+import {
+  isPlannedPersonKey,
+  personKeyForEmployee,
+  plannedAvatarName,
+} from "@/lib/reconciliation/plans";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import { chartstringFundDeptProject, normalizeChartstring } from "@/lib/funding/chartstring";
@@ -328,7 +332,7 @@ function AccountBlock({
       {!isCollapsed &&
         visibleContributors.map((emp) => {
           const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
-          const locked = lockedPersonKeys.has(employeePersonKey(emp));
+          const locked = lockedPersonKeys.has(personKeyForEmployee(emp));
           /**
            * Grouped by projected-ness and by whether the account still has
            * money, so a merged run never straddles the zero crossing.
@@ -405,11 +409,19 @@ function AccountBlock({
                     onClick={() => onEdit(emp, fs)}
                   >
                     <EmployeeAvatar
-                      name={emp.name}
-                      photoUrl={getEmployeePhotoUrlFor(settings, emp)}
+                      name={isPlannedPersonKey(emp.id) ? plannedAvatarName(emp.name) : emp.name}
+                      photoUrl={isPlannedPersonKey(emp.id) ? undefined : getEmployeePhotoUrlFor(settings, emp)}
                       size="xs"
+                      className={cn(
+                        isPlannedPersonKey(emp.id) && "outline outline-1 outline-dotted outline-control"
+                      )}
                     />
                     <span className="truncate">{emp.name}</span>
+                    {isPlannedPersonKey(emp.id) && (
+                      <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-accent">
+                        PLANNED
+                      </span>
+                    )}
                     {locked && <Lock className="h-3 w-3 shrink-0 text-caution" aria-hidden />}
                   </button>
                 </div>
@@ -450,6 +462,7 @@ function AccountBlock({
                       dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
                       dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
                       readOnly={locked}
+                      planned={isPlannedPersonKey(emp.id)}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

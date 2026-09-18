@@ -39,11 +39,14 @@ export function PersonnelCostTrendCharts({
   monthlyProjected,
   planningMonth,
   activeRuleCount,
+  plannedHireNames = [],
 }: {
   monthly: PersonnelCostTrendPoint[];
   monthlyProjected: PersonnelCostTrendPoint[];
   planningMonth: string;
   activeRuleCount: number;
+  /** Unlinked planned hires the projection counts — named, so the sentence says what it includes. */
+  plannedHireNames?: string[];
 }) {
   const history = monthly.slice(-HISTORY_WINDOW_MONTHS);
   const combined = [...history, ...monthlyProjected];
@@ -73,10 +76,15 @@ export function PersonnelCostTrendCharts({
       ? `${monthlyProjected.length}-mo projected`
       : null;
 
+  const plannedClause =
+    plannedHireNames.length === 0
+      ? ""
+      : ` They include your planned ${plannedHireNames.length === 1 ? "hire" : "hires"} ${listNames(plannedHireNames)}, at planned rates.`;
   const assumptionSentence =
-    activeRuleCount === 0
+    (activeRuleCount === 0
       ? "Projected months assume current pay continues flat, with no active projection rules."
-      : `Projected months assume current pay continues flat, adjusted by ${activeRuleCount} active projection ${activeRuleCount === 1 ? "rule" : "rules"}.`;
+      : `Projected months assume current pay continues flat, adjusted by ${activeRuleCount} active projection ${activeRuleCount === 1 ? "rule" : "rules"}.`) +
+    plannedClause;
 
   return (
     <section aria-label="Personnel cost">
@@ -178,4 +186,10 @@ export function PersonnelCostTrendCharts({
       )}
     </section>
   );
+}
+
+function listNames(names: string[]): string {
+  if (names.length === 1) return names[0]!;
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
 }

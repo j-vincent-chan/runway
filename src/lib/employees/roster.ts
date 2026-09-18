@@ -48,7 +48,8 @@ export function filterEmployeesForPlanning(
   );
 }
 
-export type EmployeesPageView = "active" | "alumni";
+/** "planned" lists planned hires, which are not employees — the page renders them from settings. */
+export type EmployeesPageView = "active" | "alumni" | "planned";
 
 export function filterEmployeesForEmployeesPage(
   employees: Employee[],
@@ -56,6 +57,7 @@ export function filterEmployeesForEmployeesPage(
   view: EmployeesPageView,
   showHidden: boolean
 ): Employee[] {
+  if (view === "planned") return [];
   return employees
     .filter((emp) => {
       const alumni = isEmployeeAlumni(settings, emp.id);

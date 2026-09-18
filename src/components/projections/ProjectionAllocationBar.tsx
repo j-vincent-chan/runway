@@ -16,6 +16,7 @@ export function ProjectionAllocationBar({
   dryStart = false,
   dryMonthLabel,
   readOnly = false,
+  planned = false,
   onClick,
 }: {
   percentEffort: number;
@@ -32,6 +33,8 @@ export function ProjectionAllocationBar({
   dryMonthLabel?: string;
   /** The person's distribution is locked in — the cell shows but never edits. */
   readOnly?: boolean;
+  /** A planned hire's cell: no payroll behind it, so hatched and dotted even at origin. */
+  planned?: boolean;
   onClick?: () => void;
 }) {
   const rangeLabel =
@@ -44,7 +47,9 @@ export function ProjectionAllocationBar({
     unfunded
       ? ` · Account projected dry${dryMonthLabel ? ` from ${dryMonthLabel}` : ""} — this effort has no balance behind it`
       : ""
-  }${readOnly ? " · Locked in — unlock this person's distribution to edit" : ""}`;
+  }${readOnly ? " · Locked in — unlock this person's distribution to edit" : ""}${
+    planned ? " · Planned hire — no payroll behind this yet" : ""
+  }`;
   const isReversal = percentEffort < 0;
   /**
    * Unfunded months fade further back than merely-projected ones. The account
@@ -54,7 +59,7 @@ export function ProjectionAllocationBar({
    */
   const fill = unfunded
     ? lightenProjectionFill(color, 0.72)
-    : projected
+    : projected || planned
       ? lightenProjectionFill(color)
       : color;
 
@@ -94,13 +99,14 @@ export function ProjectionAllocationBar({
         "allocation-bar allocation-bar-flat flex h-8 w-full items-center justify-center text-center text-[10px] font-medium",
         readOnly && "cursor-default",
         display === "both" && "px-0.5 leading-tight",
-        projected ? "text-ink-2" : "text-ink",
+        projected || planned ? "text-ink-2" : "text-ink",
         // Muted against the faded fill, so the figure stays readable without
         // competing with the mark that says it is unfunded.
         unfunded && "text-muted",
         isReversal && "allocation-bar--reversal",
         unfunded && "allocation-bar--unfunded",
-        dryStart && "allocation-bar--dry-start"
+        dryStart && "allocation-bar--dry-start",
+        planned && "pattern-future-flat allocation-bar--planned"
       )}
       style={{ backgroundColor: fill }}
     >

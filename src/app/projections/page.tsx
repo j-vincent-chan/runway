@@ -59,8 +59,13 @@ import { Eye, EyeOff } from "lucide-react";
 import { FreezeHeaderToggle } from "@/components/grid/FreezeHeaderToggle";
 import { PersonnelGroupFilter } from "@/components/employees/PersonnelGroupFilter";
 import { employeePersonKey } from "@/lib/employees/stableKey";
+import { activeLinks, canonicalizeLinks, resolvePersonKey } from "@/lib/reconciliation/links";
+import { personKeyForEmployee, plannedPersonKey } from "@/lib/reconciliation/plans";
+import { doubleCountLines, type PlannedHireRow } from "@/lib/reconciliation/view";
+import { formatCurrency } from "@/lib/utils/parse";
 import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
 import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
+import { useReconciliationDialogs } from "@/context/ReconciliationDialogs";
 import type {
   Employee,
   FundingSource,
@@ -82,10 +87,13 @@ export default function ProjectionsPage() {
     toggleHiddenEmployeeFund,
     toggleNotMyAccount,
     updateFundingSourceAlias,
+    reconciliation,
+    dismissMatch,
   } = useApp();
 
   const { configured, user, cloudSyncEnabled } = useAuth();
   const { activeOwner } = useWorkspace();
+  const { openLinkDialog, openUnlinkDialog } = useReconciliationDialogs();
   const [tab, setTab] = useState<"person" | "account">("person");
   const [editing, setEditing] = useState<{ employee: Employee; source: FundingSource } | null>(
     null
@@ -96,6 +104,12 @@ export default function ProjectionsPage() {
     request: ChangeRequestRecord;
   } | null>(null);
   const lockedKeys = useMemo(() => lockedPersonKeys(settings), [settings]);
+  // A rule keyed to a linked plan belongs to the person it resolves to, so
+  // the lock (and the refusal's name) follow the resolved key.
+  const links = useMemo(
+    () => canonicalizeLinks(activeLinks(settings), snapshot?.employees ?? []),
+    [settings, snapshot]
+  );
   // The Dashboard's "Reassign" rows land here with the person preselected.
   const deepLinkedPerson = useDeepLinkTarget("person", DEEP_LINK_PARAM.person);
   // A handoff needs both parties: the request row and email are cloud-side.
@@ -140,6 +154,34 @@ export default function ProjectionsPage() {
     return new Set(unmatchedPlannedSources(settings, snapshot).map((p) => p.id));
   }, [settings, snapshot]);
 
+  /**
+   * Unlinked planned hires, after the roster: the same team filter (on the
+   * plan's team), sorted by start month. The engine already simulated them.
+   */
+  const plannedEntities = useMemo(() => {
+    if (!result) return [];
+    const rowsByKey = new Map(reconciliation.rows.map((r) => [r.personKey, r]));
+    const filter = settings.personnelGroupFilter ?? [];
+    const selected = new Set(filter);
+    return result.plannedEntities
+      .filter((entity) => {
+        if (filter.length === 0) return true;
+        const teamId = rowsByKey.get(entity.id)?.plan.teamId;
+        return teamId ? selected.has(teamId) : selected.has("unassigned");
+      })
+      .sort((a, b) =>
+        (rowsByKey.get(a.id)?.plan.startMonth ?? "").localeCompare(
+          rowsByKey.get(b.id)?.plan.startMonth ?? ""
+        )
+      );
+  }, [result, reconciliation.rows, settings.personnelGroupFilter]);
+
+  /** One banner per unresolved plan: a suggested match, or an expected hire the report lacks. */
+  const unresolvedRows = useMemo(
+    () => reconciliation.rows.filter((r) => r.status === "suggested" || r.status === "expected"),
+    [reconciliation.rows]
+  );
+
   const horizonMonths = result?.months.length ?? 0;
 
   /**
@@ -159,9 +201,14 @@ export default function ProjectionsPage() {
       ),
       chartstring: fs.accountString ?? fs.rawName,
     });
+    // Planned rows are on the grid, so they are in the file — named as planned.
+    const people = [
+      ...employees,
+      ...plannedEntities.map((e) => ({ ...e, name: `${e.name} (planned)` })),
+    ];
     if (tab === "person") {
-      return employees.flatMap((emp) => {
-        const keys = chartstringKeysForPerson(result, settings, emp, employeePersonKey(emp));
+      return people.flatMap((emp) => {
+        const keys = chartstringKeysForPerson(result, settings, emp, personKeyForEmployee(emp));
         const reveal = showHiddenFunds || revealHidden.has(emp.id);
         return result.sources
           .filter((fs) => keys.has(chartstringKeyForFundingSource(fs)))
@@ -171,7 +218,7 @@ export default function ProjectionsPage() {
     }
     return result.sources.flatMap((fs) => {
       const reveal = showHiddenFunds || revealHidden.has(fs.id);
-      return contributorsForSource(result, chartstringKeyForFundingSource(fs), employees)
+      return contributorsForSource(result, chartstringKeyForFundingSource(fs), people)
         .filter((emp) => reveal || !isEmployeeFundHidden(settings, emp.id, fs.id))
         .map((emp) => entry(emp, fs));
     });
@@ -179,6 +226,7 @@ export default function ProjectionsPage() {
     snapshot,
     result,
     employees,
+    plannedEntities,
     settings,
     accountTitlesByChartstring,
     tab,
@@ -196,8 +244,9 @@ export default function ProjectionsPage() {
    * button is the affordance, this is the guarantee.
    */
   function saveRule(rule: ProjectionRule) {
-    if (isDistributionLocked(settings, rule.personKey)) {
-      window.alert(lockedEditMessage(nameForPersonKey(rule.personKey)));
+    const owner = resolvePersonKey(rule.personKey, links);
+    if (isDistributionLocked(settings, owner)) {
+      window.alert(lockedEditMessage(nameForPersonKey(owner)));
       return;
     }
     updateSettings({
@@ -207,8 +256,9 @@ export default function ProjectionsPage() {
 
   function removeRule(id: string) {
     const rule = (settings.projectionRules ?? []).find((r) => r.id === id);
-    if (rule && isDistributionLocked(settings, rule.personKey)) {
-      window.alert(lockedEditMessage(nameForPersonKey(rule.personKey)));
+    const owner = rule ? resolvePersonKey(rule.personKey, links) : null;
+    if (owner && isDistributionLocked(settings, owner)) {
+      window.alert(lockedEditMessage(nameForPersonKey(owner)));
       return;
     }
     updateSettings({
@@ -218,7 +268,11 @@ export default function ProjectionsPage() {
 
   /** The lock stores personKeys; refusals still have to name a person. */
   function nameForPersonKey(personKey: string): string {
-    return employees.find((e) => employeePersonKey(e) === personKey)?.name ?? "This person";
+    return (
+      employees.find((e) => employeePersonKey(e) === personKey)?.name ??
+      (settings.plannedHires ?? []).find((p) => plannedPersonKey(p.id) === personKey)?.displayName ??
+      "This person"
+    );
   }
 
   /**
@@ -299,7 +353,7 @@ export default function ProjectionsPage() {
    */
   function removeChartstring(employee: Employee, source: FundingSource) {
     if (!snapshot || !result) return;
-    if (isDistributionLocked(settings, employeePersonKey(employee))) {
+    if (isDistributionLocked(settings, personKeyForEmployee(employee))) {
       window.alert(lockedEditMessage(employee.name));
       return;
     }
@@ -310,10 +364,19 @@ export default function ProjectionsPage() {
       workingPlan,
       settings,
       employeeId: employee.id,
-      personKey: employeePersonKey(employee),
+      personKey: personKeyForEmployee(employee),
       chartstringKey,
       originMonth: result.originMonth,
+      resolvedRules: result.rules,
     });
+    if (!check.removable && check.reason === "linkedPlan") {
+      window.alert(
+        `${label} can't be removed from ${employee.name}'s list here.\n\n` +
+          `This effort comes from the linked ${check.planName} plan, which keeps its original assumptions. ` +
+          `To change it for ${employee.name}, open the distribution rule and set the effort yourself — a rule you save replaces the plan's for this person — or unlink the plan.`
+      );
+      return;
+    }
     if (!check.removable) {
       const first = check.months[0]!;
       const last = check.months[check.months.length - 1]!;
@@ -382,10 +445,48 @@ export default function ProjectionsPage() {
       <Header
         ledgerTitle
         title="Projections"
-        subtitle="Planning estimates from the current mix · assumes pay stays flat · personnel in this report only"
+        subtitle={
+          plannedEntities.length > 0
+            ? "Planning estimates from the current mix · assumes pay stays flat · personnel in this report, plus your planned hires"
+            : "Planning estimates from the current mix · assumes pay stays flat · personnel in this report only"
+        }
       />
       <main className="p-4">
         <div className="flex flex-col gap-4">
+          {unresolvedRows.map((row) => (
+            <PlannedHireBanner
+              key={row.plan.id}
+              row={row}
+              reportMonth={reconciliation.reportMonth}
+              lines={
+                row.suggestedEmployee
+                  ? doubleCountLines({
+                      row,
+                      employee: row.suggestedEmployee,
+                      result,
+                      settings,
+                      accountTitlesByChartstring,
+                    })
+                  : []
+              }
+              onNotAMatch={
+                row.suggestion
+                  ? () => dismissMatch(row.plan.id, row.suggestion!.employeePersonKey)
+                  : undefined
+              }
+              onReview={
+                row.suggestion
+                  ? () =>
+                      openLinkDialog({
+                        plannedHireId: row.plan.id,
+                        employeePersonKey: row.suggestion!.employeePersonKey,
+                        mode: "suggested",
+                      })
+                  : undefined
+              }
+              onLinkManually={() => openLinkDialog({ plannedHireId: row.plan.id, mode: "manual" })}
+            />
+          ))}
           {(staleness.payrollStale || staleness.balancesStale) && (
             <p className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
               {staleness.payrollStale && (
@@ -534,6 +635,7 @@ export default function ProjectionsPage() {
               <div className="mt-3 border-t border-rule pt-3">
                 <AddToPersonBar
                   employees={employees}
+                  plannedEntities={plannedEntities}
                   sources={result.sources}
                   settings={settings}
                   accountTitlesByChartstring={accountTitlesByChartstring}
@@ -604,10 +706,19 @@ export default function ProjectionsPage() {
                 lockedPersonKeys={lockedKeys}
                 highlightPersonKey={deepLinkedPerson}
                 lockInReady={lockInReady}
+                plannedEntities={plannedEntities}
+                reconciliation={reconciliation}
+                onReviewMatch={(plannedHireId, employeePersonKey) =>
+                  openLinkDialog({ plannedHireId, employeePersonKey, mode: "suggested" })
+                }
+                onUnlinkPlan={(linkId) => openUnlinkDialog(linkId)}
+                onLinkPlanManually={(plannedHireId) =>
+                  openLinkDialog({ plannedHireId, mode: "manual" })
+                }
               />
             ) : (
               <ByAccountView
-                employees={employees}
+                employees={[...employees, ...plannedEntities]}
                 settings={settings}
                 result={result}
                 plannedSourceIds={plannedSourceIds}
@@ -682,5 +793,90 @@ export default function ProjectionsPage() {
         />
       )}
     </>
+  );
+}
+
+/**
+ * One unresolved plan, above the grid in the staleness banner's style. A
+ * suggested match names both people and the dollars that may be one person
+ * counted twice; an expected hire the report lacks says what the forecast
+ * keeps doing. Review match and Link to existing employee… open the link
+ * dialog; Not a match is remembered on re-upload.
+ */
+function PlannedHireBanner({
+  row,
+  reportMonth,
+  lines,
+  onNotAMatch,
+  onReview,
+  onLinkManually,
+}: {
+  row: PlannedHireRow;
+  reportMonth: string | null;
+  lines: string[];
+  onNotAMatch?: () => void;
+  onReview?: () => void;
+  onLinkManually?: () => void;
+}) {
+  const reportLabel = reportMonth ? formatMonthLabel(reportMonth) : "latest";
+  const split = row.accounts.map((a) => `${a.percent}% ${a.label}`).join(" · ") || "no account yet";
+  if (row.status === "suggested" && row.suggestedEmployee) {
+    return (
+      <div className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
+        <p className="font-medium">
+          {row.suggestedEmployee.name} (new in the {reportLabel} report) may be your planned{" "}
+          {row.plan.displayName}.
+        </p>
+        <p className="mt-1">
+          Until you confirm or dismiss the match, both rows count
+          {lines.length > 0 ? `: ${lines.join("; ")}` : ""} — possibly one person counted twice.
+          Nothing is excluded and these totals are not reconciled.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {onReview && (
+            <button
+              type="button"
+              className="rounded bg-accent px-2.5 py-1 text-xs font-medium text-on-accent hover:bg-accent-hover"
+              onClick={onReview}
+            >
+              Review match
+            </button>
+          )}
+          {onNotAMatch && (
+            <button
+              type="button"
+              className="rounded border border-caution px-2.5 py-1 text-xs font-medium text-caution hover:bg-caution/10"
+              onClick={onNotAMatch}
+            >
+              Not a match
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border border-caution bg-caution-soft px-3 py-2 text-xs text-caution">
+      <p className="font-medium">
+        {row.plan.displayName} was planned to start {formatMonthLabel(row.plan.startMonth)}, but no
+        new employee in the {reportLabel} report matches.
+      </p>
+      <p className="mt-1">
+        The forecast keeps the planned ~{formatCurrency(row.monthlyComp)}/mo on {split}. If this
+        person is on the report under another name or title, link them; otherwise move the start
+        month on Employees → Planned.
+      </p>
+      {onLinkManually && (
+        <div className="mt-2">
+          <button
+            type="button"
+            className="rounded border border-caution px-2.5 py-1 text-xs font-medium text-caution hover:bg-caution/10"
+            onClick={onLinkManually}
+          >
+            Link to existing employee…
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

@@ -391,6 +391,17 @@ body {
   box-shadow: inset 2px 0 0 0 var(--critical);
 }
 
+/*
+ * A planned hire's cells on the Projections grid: the projected convention
+ * (the component lightens the fill and adds .pattern-future-flat) plus a
+ * dotted stroke. Nothing measured anchors these months, so they must read as
+ * a plan even at origin, in greyscale, and beside a real person's cells.
+ */
+.allocation-bar--planned {
+  outline: 1px dotted var(--control);
+  outline-offset: -1px;
+}
+
 .pattern-future-flat {
   background-image: repeating-linear-gradient(
     -45deg,

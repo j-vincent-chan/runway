@@ -12,10 +12,14 @@ import type {
   MonthlyAllocation,
   OrgStructure,
   ParseWarning,
+  PayrollFoldOutcome,
   PayrollReportImport,
   PayrollReportSnapshot,
   PersonnelGroupDef,
+  PlannedHire,
+  ProjectionRule,
   NetPositionReportImport,
+  ReconciliationChoice,
   Scenario,
   WorkingPlan,
   PositionSalaryReportImport,
@@ -62,7 +66,12 @@ import {
   pruneEmployeeFromSettings,
   removeEmployeeFromSnapshot,
 } from "@/lib/employees/roster";
-import { employeePersonKey, rematchEmployeeProfiles, resolveEmployeeProfile } from "@/lib/employees/stableKey";
+import {
+  employeePersonKey,
+  employeePersonKeys,
+  rematchEmployeeProfiles,
+  resolveEmployeeProfile,
+} from "@/lib/employees/stableKey";
 import {
   OFFER_LETTER_MAX_BYTES,
   parseOfferLetterFile,
@@ -121,6 +130,29 @@ import {
 } from "@/lib/supabase/activeWorkspace";
 import { useWorkspace } from "@/context/WorkspaceContext";
 import { parseStatusFromWarnings } from "@/lib/data-sources/helpers";
+import { getAllMonths } from "@/lib/calculations";
+import { getEmployeePersonnelType } from "@/lib/employees/personnelType";
+import { getEmployeeStartDate } from "@/lib/employees/profile";
+import { appendEvents, LOCAL_ACTOR } from "@/lib/reconciliation/events";
+import { rateAtLinkEvent, rateSwitchEventsForImport } from "@/lib/reconciliation/forecastRate";
+import { activeLinksForPerson, effectiveLinks, findEmployeeByPersonKey } from "@/lib/reconciliation/links";
+import { firstChargedMonth } from "@/lib/reconciliation/closure";
+import {
+  addPlannedHire as addPlannedHireToSettings,
+  applyDismissal,
+  applyLink,
+  applyUnlink,
+  removePlannedHire as removePlannedHireFromSettings,
+  setPinPlannedRate as setPinPlannedRateInSettings,
+  updatePlannedHire as updatePlannedHireInSettings,
+  type LinkInput,
+} from "@/lib/reconciliation/mutations";
+import { plannedHireById } from "@/lib/reconciliation/plans";
+import {
+  buildReconciliationView,
+  describeFoldOutcome,
+  type ReconciliationView,
+} from "@/lib/reconciliation/view";
 
 interface AppContextValue {
   snapshot: PayrollReportSnapshot | null;
@@ -206,6 +238,28 @@ interface AppContextValue {
     monthlyBurn: number
   ) => void;
   clearRunwayBurnOverride: (employeeId: string, fundingSourceId: string) => void;
+  /** Derived, never stored: every plan's status, suggested matches, who is new in the latest report. */
+  reconciliation: ReconciliationView;
+  /** The email every planned-personnel event records; "local" when signed out. */
+  actingEmail: string;
+  addPlannedHire: (plan: PlannedHire, rules: ProjectionRule[]) => void;
+  updatePlannedHire: (
+    id: string,
+    patch: Partial<Omit<PlannedHire, "id" | "createdAt" | "createdBy">>
+  ) => void;
+  /** Refused while the plan is linked. */
+  removePlannedHire: (id: string) => { ok: boolean; reason?: string };
+  linkPlannedHire: (input: {
+    plannedHireId: string;
+    employeePersonKey: string;
+    basis: "suggested" | "manual";
+    signals: string[];
+    choice: Pick<ReconciliationChoice, "forecastRate" | "pinPlannedRate" | "distribution">;
+  }) => { ok: boolean; reason?: string };
+  /** Refused while the person's distribution is locked in. */
+  unlinkPlannedHire: (linkId: string) => { ok: boolean; reason?: string };
+  dismissMatch: (plannedHireId: string, employeePersonKey: string) => void;
+  setPinPlannedRate: (linkId: string, pinned: boolean) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -257,6 +311,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
   const { activeOwner, needsWorkspacePick } = useWorkspace();
+  // Every planned-personnel event names who acted — the delegate when a
+  // delegate acts, never the workspace owner by default.
+  const actingEmail = user?.email ?? LOCAL_ACTOR;
   /**
    * True while an analyst is inside a delegated PI workspace. Delegate mode
    * is cloud-only: no local IndexedDB read/write, so the PI's payroll data
@@ -570,6 +627,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, workingPlan]
   );
 
+  /**
+   * Derived, never stored. Computed once here so Employees, Projections and
+   * Upload read the same suggestions, statuses and "new in this report" set.
+   */
+  const reconciliation = useMemo(
+    () =>
+      buildReconciliationView({
+        snapshot: snapshotForUi,
+        payrollImports,
+        settings,
+        accountTitlesByChartstring,
+      }),
+    [snapshotForUi, payrollImports, settings, accountTitlesByChartstring]
+  );
+
   const fundingSources = useMemo(
     () =>
       snapshot
@@ -630,15 +702,79 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const next = merged;
 
-      setSettings((prev) => ({
-        ...prev,
-        fundingSourceAliases: migrateAliasKeys(prev.fundingSourceAliases, next.fundingSources),
+      /**
+       * The automatic rate switch (owner decision 1) and the upload's own
+       * outcome line are both read off the folded report here, once, with
+       * the FY rates overlaid the way every page sees them. Events are
+       * computed from the settings this handler closed over and appended
+       * inside the updater, so a second render of the updater cannot add
+       * them twice.
+       */
+      const overlaid = overlayPositionSalaryOnSnapshot(next, positionSalaryImports) ?? next;
+      const migratedSettings: AppSettings = {
+        ...settings,
+        fundingSourceAliases: migrateAliasKeys(settings.fundingSourceAliases, next.fundingSources),
         fundingSourceCategories: migrateCategoryKeys(
-          prev.fundingSourceCategories,
+          settings.fundingSourceCategories,
           next.fundingSources
         ),
-        employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, next.employees),
-      }));
+        employeeProfiles: rematchEmployeeProfiles(settings.employeeProfiles, next.employees),
+      };
+      const reportFile = incomingImports[incomingImports.length - 1]?.sourceFileName ?? "";
+      const rateEvents = rateSwitchEventsForImport({
+        snapshot: overlaid,
+        settings: migratedSettings,
+        by: actingEmail,
+        reportFile,
+      });
+      const settingsAfter = appendEvents(migratedSettings, rateEvents);
+      const importsAfter = [...payrollImports, ...incomingImports];
+      const viewBefore = buildReconciliationView({
+        snapshot: snapshotForUi,
+        payrollImports,
+        settings,
+        accountTitlesByChartstring,
+      });
+      const viewAfter = buildReconciliationView({
+        snapshot: overlaid,
+        payrollImports: importsAfter,
+        settings: settingsAfter,
+        accountTitlesByChartstring,
+      });
+      // "New employees" here is the diff against the fold before this upload
+      // — a re-upload of the same file adds nobody — which is a different
+      // question from the view's "new in this report" (who the latest report
+      // shows that no earlier report did). A first upload has no earlier
+      // fold to diff, so it carries no outcome line beyond "Uploaded".
+      const keysBefore = new Set(snapshot ? snapshot.employees.flatMap(employeePersonKeys) : []);
+      const fold: PayrollFoldOutcome | undefined =
+        isMerge && snapshot
+          ? describeFoldOutcome({
+              before: viewBefore,
+              after: viewAfter,
+              replacedMonths: [...overwritten].sort(),
+              preservedMonths: getAllMonths(next).filter((m) => !overwritten.has(m)),
+              newEmployees: overlaid.employees.filter(
+                (e) => !employeePersonKeys(e).some((k) => keysBefore.has(k))
+              ),
+              eventsAdded: rateEvents.length,
+            })
+          : undefined;
+
+      setSettings((prev) =>
+        appendEvents(
+          {
+            ...prev,
+            fundingSourceAliases: migrateAliasKeys(prev.fundingSourceAliases, next.fundingSources),
+            fundingSourceCategories: migrateCategoryKeys(
+              prev.fundingSourceCategories,
+              next.fundingSources
+            ),
+            employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, next.employees),
+          },
+          rateEvents
+        )
+      );
 
       setSnapshot(refreshFundingSourceColors(next));
 
@@ -652,9 +788,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setPayrollImports((prev) => [...prev, ...incomingImports]);
 
-      return { warnings, files: fileResults };
+      return { warnings, files: fileResults, fold };
     },
-    [snapshot]
+    [
+      snapshot,
+      snapshotForUi,
+      settings,
+      payrollImports,
+      positionSalaryImports,
+      accountTitlesByChartstring,
+      actingEmail,
+    ]
   );
 
   const resetToImported = useCallback(() => {
@@ -1079,19 +1223,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...prev, orgStructure: structure }));
   }, []);
 
-  const deleteEmployee = useCallback((employeeId: string) => {
-    setSnapshot((prev) => (prev ? removeEmployeeFromSnapshot(prev, employeeId) : prev));
-    setWorkingPlan((prev) =>
-      prev
-        ? {
-            ...prev,
-            allocations: prev.allocations.filter((a) => a.employeeId !== employeeId),
-            updatedAt: new Date().toISOString(),
-          }
-        : prev
-    );
-    setSettings((prev) => pruneEmployeeFromSettings(prev, employeeId));
-  }, []);
+  /**
+   * Deleting a person reverses any plan linked to them first — with the
+   * same unlink event a manual reversal writes — so the plan returns to
+   * Projections as its own row rather than pointing at nobody.
+   */
+  const deleteEmployee = useCallback(
+    (employeeId: string) => {
+      const emp = snapshot?.employees.find((e) => e.id === employeeId);
+      const links = emp
+        ? activeLinksForPerson(effectiveLinks(settings, snapshot?.employees ?? []), employeePersonKey(emp))
+        : [];
+      setSnapshot((prev) => (prev ? removeEmployeeFromSnapshot(prev, employeeId) : prev));
+      setWorkingPlan((prev) =>
+        prev
+          ? {
+              ...prev,
+              allocations: prev.allocations.filter((a) => a.employeeId !== employeeId),
+              updatedAt: new Date().toISOString(),
+            }
+          : prev
+      );
+      setSettings((prev) => {
+        let next = prev;
+        for (const link of links) {
+          const result = applyUnlink(next, link.id, actingEmail, emp?.name ?? "This person");
+          if (result.ok) next = result.settings;
+        }
+        return pruneEmployeeFromSettings(next, employeeId);
+      });
+    },
+    [snapshot, settings, actingEmail]
+  );
 
   const updateFundingSourceAlias = useCallback(
     (fundingSourceId: string, aliasBase: string) => {
@@ -1458,6 +1621,166 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const addPlannedHire = useCallback(
+    (plan: PlannedHire, rules: ProjectionRule[]) => {
+      setSettings((prev) => addPlannedHireToSettings(prev, plan, rules, actingEmail));
+    },
+    [actingEmail]
+  );
+
+  const updatePlannedHire = useCallback(
+    (id: string, patch: Partial<Omit<PlannedHire, "id" | "createdAt" | "createdBy">>) => {
+      setSettings((prev) => updatePlannedHireInSettings(prev, id, patch));
+    },
+    []
+  );
+
+  const removePlannedHire = useCallback(
+    (id: string) => {
+      // Checked against the settings this closure sees so the refusal can be
+      // returned; the updater re-runs the same pure transform.
+      const check = removePlannedHireFromSettings(settings, id, actingEmail);
+      if (!check.ok) return { ok: false, reason: check.reason };
+      setSettings((prev) => removePlannedHireFromSettings(prev, id, actingEmail).settings);
+      return { ok: true };
+    },
+    [settings, actingEmail]
+  );
+
+  /**
+   * Confirm a link: identity row + finance choice + event, then copy the
+   * plan's team, start and scope onto the person only where blank — through
+   * the same setters the roster uses, so the cloud roster row follows. What
+   * was copied rides on the link so Unlink can remove exactly that.
+   */
+  const linkPlannedHire = useCallback(
+    (input: {
+      plannedHireId: string;
+      employeePersonKey: string;
+      basis: "suggested" | "manual";
+      signals: string[];
+      choice: Pick<ReconciliationChoice, "forecastRate" | "pinPlannedRate" | "distribution">;
+    }) => {
+      const plan = plannedHireById(settings.plannedHires, input.plannedHireId);
+      const emp = snapshotForUi
+        ? findEmployeeByPersonKey(snapshotForUi.employees, input.employeePersonKey)
+        : undefined;
+      if (!plan) return { ok: false, reason: "This plan no longer exists." };
+      if (!emp) return { ok: false, reason: "That person is not on the current payroll report." };
+      // A start date before payroll's first posted month would zero the
+      // months the person was actually paid, so the plan's start is copied
+      // only when payroll does not already say otherwise.
+      const firstPosted = snapshotForUi ? firstChargedMonth(snapshotForUi, emp.id) : null;
+      const copied = {
+        team: Boolean(plan.teamId && !getEmployeePersonnelType(settings, emp.id)),
+        startDate:
+          !getEmployeeStartDate(settings, emp.id, emp) &&
+          (firstPosted === null || firstPosted >= plan.startMonth),
+        scope:
+          plan.appointmentPercent > 0 &&
+          plan.appointmentPercent !== emp.appointmentPercent &&
+          settings.employeePlanningScope?.[emp.id] === undefined,
+      };
+      const linkInput: LinkInput = {
+        ...input,
+        employeeName: emp.name,
+        copied,
+        by: actingEmail,
+        originMonth: getProjectionOriginMonth(),
+      };
+      const check = applyLink(settings, linkInput);
+      if (!check.ok) return { ok: false, reason: check.reason };
+      setSettings((prev) => {
+        const linked = applyLink(prev, linkInput);
+        if (!linked.ok) return prev;
+        // A closed full month may already exist: then the closed-month rate
+        // is in force from the first forecast month and the link's rate row
+        // says so, so no later import can record a switch that never happened.
+        const atLink = snapshotForUi
+          ? rateAtLinkEvent({
+              plan,
+              employee: emp,
+              snapshot: snapshotForUi,
+              linkId: linked.link.id,
+              choice: linked.choice,
+              by: actingEmail,
+            })
+          : null;
+        return atLink ? appendEvents(linked.settings, [atLink]) : linked.settings;
+      });
+      if (copied.team && plan.teamId) setEmployeePersonnelType(emp.id, plan.teamId);
+      if (copied.startDate) setEmployeeStartDate(emp.id, `${plan.startMonth}-01`);
+      if (copied.scope) setEmployeePlanningScope(emp.id, plan.appointmentPercent);
+      return { ok: true };
+    },
+    [
+      settings,
+      snapshotForUi,
+      actingEmail,
+      setEmployeePersonnelType,
+      setEmployeeStartDate,
+      setEmployeePlanningScope,
+    ]
+  );
+
+  const unlinkPlannedHire = useCallback(
+    (linkId: string) => {
+      const link = (settings.personLinks ?? []).find((l) => l.id === linkId && !l.reversedAt);
+      const plan = link ? plannedHireById(settings.plannedHires, link.plannedHireId) : undefined;
+      const emp =
+        link && snapshotForUi
+          ? findEmployeeByPersonKey(snapshotForUi.employees, link.employeePersonKey)
+          : undefined;
+      const employeeName = emp?.name ?? link?.employeePersonKey ?? "This person";
+      const check = applyUnlink(settings, linkId, actingEmail, employeeName);
+      if (!check.ok) return { ok: false, reason: check.reason };
+      setSettings((prev) => applyUnlink(prev, linkId, actingEmail, employeeName).settings);
+      // Remove only what Confirm copied, and only while it still says what
+      // the plan said — anything the PI typed since stays.
+      if (emp && plan && link?.copied) {
+        if (link.copied.team && getEmployeePersonnelType(settings, emp.id) === plan.teamId) {
+          setEmployeePersonnelType(emp.id, null);
+        }
+        if (
+          link.copied.startDate &&
+          getEmployeeStartDate(settings, emp.id, emp) === `${plan.startMonth}-01`
+        ) {
+          setEmployeeStartDate(emp.id, null);
+        }
+        if (
+          link.copied.scope &&
+          settings.employeePlanningScope?.[emp.id] === plan.appointmentPercent
+        ) {
+          setEmployeePlanningScope(emp.id, null);
+        }
+      }
+      return { ok: true };
+    },
+    [
+      settings,
+      snapshotForUi,
+      actingEmail,
+      setEmployeePersonnelType,
+      setEmployeeStartDate,
+      setEmployeePlanningScope,
+    ]
+  );
+
+  const dismissMatch = useCallback(
+    (plannedHireId: string, personKey: string) => {
+      const emp = snapshotForUi
+        ? findEmployeeByPersonKey(snapshotForUi.employees, personKey)
+        : undefined;
+      const name = emp?.name ?? personKey;
+      setSettings((prev) => applyDismissal(prev, plannedHireId, personKey, name, actingEmail));
+    },
+    [snapshotForUi, actingEmail]
+  );
+
+  const setPinPlannedRate = useCallback((linkId: string, pinned: boolean) => {
+    setSettings((prev) => setPinPlannedRateInSettings(prev, linkId, pinned));
+  }, []);
+
   const clearAll = useCallback(() => {
     setSettings((prev) => {
       /**
@@ -1560,6 +1883,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRunwayBalanceOverride,
     setRunwayBurnOverride,
     clearRunwayBurnOverride,
+    reconciliation,
+    actingEmail,
+    addPlannedHire,
+    updatePlannedHire,
+    removePlannedHire,
+    linkPlannedHire,
+    unlinkPlannedHire,
+    dismissMatch,
+    setPinPlannedRate,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

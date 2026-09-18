@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { projectionSourceLabel } from "@/lib/projections/sources";
-import { employeePersonKey } from "@/lib/employees/stableKey";
+import { isPlannedPersonKey, personKeyForEmployee } from "@/lib/reconciliation/plans";
 import { generateId } from "@/lib/utils/parse";
 import type {
   AppSettings,
@@ -30,16 +31,20 @@ export function AddToPersonBar({
   onAddPlanned,
   onSaveRule,
   originMonth,
+  plannedEntities = [],
 }: {
   employees: Employee[];
   sources: FundingSource[];
+  /** Unlinked planned hires — a rule can be put on a plan the same way. */
+  plannedEntities?: Employee[];
   settings: AppSettings;
   accountTitlesByChartstring: Map<string, string>;
   onAddPlanned: (planned: PlannedFundingSource) => void;
   onSaveRule: (rule: ProjectionRule) => void;
   originMonth: string;
 }) {
-  const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? "");
+  const people = [...employees, ...plannedEntities];
+  const [employeeId, setEmployeeId] = useState(people[0]?.id ?? "");
   const [sourceId, setSourceId] = useState(sources[0]?.id ?? "");
   const [pct, setPct] = useState("100");
   const [newAlias, setNewAlias] = useState("");
@@ -53,9 +58,9 @@ export function AddToPersonBar({
           value={employeeId}
           onChange={(e) => setEmployeeId(e.target.value)}
         >
-          {employees.map((e) => (
+          {people.map((e) => (
             <option key={e.id} value={e.id}>
-              {e.name}
+              {isPlannedPersonKey(e.id) ? `${e.name} · planned` : e.name}
             </option>
           ))}
         </select>
@@ -87,12 +92,12 @@ export function AddToPersonBar({
         type="button"
         className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-on-accent"
         onClick={() => {
-          const emp = employees.find((e) => e.id === employeeId);
+          const emp = people.find((e) => e.id === employeeId);
           const fs = sources.find((s) => s.id === sourceId);
           if (!emp || !fs) return;
           onSaveRule({
             id: generateId(),
-            personKey: employeePersonKey(emp),
+            personKey: personKeyForEmployee(emp),
             chartstringKey: chartstringKey(fs),
             trigger: {
               type: "setEffort",
@@ -132,6 +137,14 @@ export function AddToPersonBar({
       >
         Add chartstring
       </button>
+      <span className="text-muted">|</span>
+      <Link
+        href="/employees?view=planned&add=1"
+        className="rounded border px-3 py-1.5 text-xs font-medium text-ink-2 hover:bg-inset"
+        title="Plan a hire before payroll knows them — opens Employees → Planned with the form ready"
+      >
+        Add planned hire…
+      </Link>
     </div>
   );
 }

@@ -33,6 +33,14 @@ import {
   PersonnelTypeSelect,
 } from "@/components/employees/PersonnelTypeSelect";
 import { getEmployeePersonnelType } from "@/lib/employees/personnelType";
+import { employeePersonKey } from "@/lib/employees/stableKey";
+import { formatMonthLabel } from "@/lib/projections/horizon";
+import { projectionFundingSources } from "@/lib/projections/sources";
+import type { PlannedHireRow } from "@/lib/reconciliation/view";
+import { PlannedHireForm } from "@/components/employees/PlannedHireForm";
+import { PlannedHiresTable } from "@/components/employees/PlannedHiresTable";
+import { Plus } from "lucide-react";
+import { useReconciliationDialogs } from "@/context/ReconciliationDialogs";
 import {
   getEmployeeEndDate,
   getEmployeeProfile,
@@ -86,9 +94,23 @@ function EmployeesPageContent() {
     setEmployeeHidden,
     setEmployeeAlumni,
     deleteEmployee,
+    accountTitlesByChartstring,
+    reconciliation,
+    actingEmail,
+    addPlannedHire,
+    updatePlannedHire,
+    removePlannedHire,
   } = useApp();
+  const { openLinkDialog, openUnlinkDialog } = useReconciliationDialogs();
 
-  const [view, setView] = useState<EmployeesPageView>("active");
+  // Projections' "Add planned hire…" lands here on a fresh mount with the
+  // Planned view and the form already open — read once from the URL.
+  const [view, setView] = useState<EmployeesPageView>(() =>
+    searchParams.get("view") === "planned" ? "planned" : "active"
+  );
+  const [showAddPlanned, setShowAddPlanned] = useState(
+    () => searchParams.get("view") === "planned" && searchParams.get("add") === "1"
+  );
   const [query, setQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
@@ -118,6 +140,41 @@ function EmployeesPageContent() {
 
   const hiddenCount = countHiddenEmployees(settings);
   const alumniCount = countAlumniEmployees(settings);
+
+  const plannedRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const rows = [...reconciliation.rows].sort((a, b) =>
+      a.plan.startMonth.localeCompare(b.plan.startMonth)
+    );
+    if (!q) return rows;
+    return rows.filter(
+      (r) =>
+        r.plan.displayName.toLowerCase().includes(q) ||
+        (r.plan.role ?? "").toLowerCase().includes(q) ||
+        (r.linkedEmployee?.name ?? "").toLowerCase().includes(q)
+    );
+  }, [reconciliation.rows, query]);
+
+  const plannedSources = useMemo(
+    () => (snapshot ? projectionFundingSources(snapshot, settings) : []),
+    [snapshot, settings]
+  );
+
+  function removePlan(row: PlannedHireRow) {
+    if (
+      !window.confirm(
+        `Remove ${row.plan.displayName} from planned hires?\n\nIts distribution rules are deleted. Imported payroll is never affected.`
+      )
+    ) {
+      return;
+    }
+    const result = removePlannedHire(row.plan.id);
+    if (!result.ok) window.alert(result.reason);
+  }
+
+  function unlinkPlan(row: PlannedHireRow) {
+    if (row.link) openUnlinkDialog(row.link.id);
+  }
 
   const activeCount = snapshot
     ? snapshot.employees.filter((e) => !isEmployeeAlumni(settings, e.id)).length
@@ -188,6 +245,16 @@ function EmployeesPageContent() {
                   onClick={() => setView("alumni")}
                 >
                   Alumni ({alumniCount})
+                </button>
+                <button
+                  type="button"
+                  className={cn(
+                    "rounded-md px-3 py-1.5 font-medium",
+                    view === "planned" ? "bg-brand-ground text-white" : "text-ink-2 hover:bg-inset"
+                  )}
+                  onClick={() => setView("planned")}
+                >
+                  Planned ({reconciliation.unlinkedCount})
                 </button>
               </div>
               {view === "active" && hiddenCount > 0 && (
@@ -273,6 +340,29 @@ function EmployeesPageContent() {
               {ocrSyncMessage && (
                 <span className="text-xs text-ink-2">{ocrSyncMessage}</span>
               )}
+              {view === "planned" && (
+                <button
+                  type="button"
+                  className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-on-accent hover:bg-accent-hover"
+                  onClick={() => setShowAddPlanned(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add planned hire
+                </button>
+              )}
+              {view === "planned" && showAddPlanned && (
+                <PlannedHireForm
+                  sources={plannedSources}
+                  settings={settings}
+                  accountTitlesByChartstring={accountTitlesByChartstring}
+                  createdBy={actingEmail}
+                  onAdd={(plan, rules) => {
+                    addPlannedHire(plan, rules);
+                    setShowAddPlanned(false);
+                  }}
+                  onCancel={() => setShowAddPlanned(false)}
+                />
+              )}
             </>
           )}
         </div>
@@ -281,6 +371,22 @@ function EmployeesPageContent() {
           <EmployeesStructurePanel />
         ) : !hasData || !snapshot ? (
           <EmptyState />
+        ) : view === "planned" ? (
+          <PlannedHiresTable
+            rows={plannedRows}
+            settings={settings}
+            onStartMonthChange={(id, month) => updatePlannedHire(id, { startMonth: month })}
+            onRemove={removePlan}
+            onUnlink={unlinkPlan}
+            onReview={(row) =>
+              openLinkDialog({
+                plannedHireId: row.plan.id,
+                employeePersonKey: row.suggestion?.employeePersonKey,
+                mode: "suggested",
+              })
+            }
+            onLinkManually={(row) => openLinkDialog({ plannedHireId: row.plan.id, mode: "manual" })}
+          />
         ) : (
           <div className="overflow-x-auto rounded-xl border bg-surface shadow-sm">
               <table className="min-w-full text-left text-sm">
@@ -326,6 +432,15 @@ function EmployeesPageContent() {
                         isAlumniView={view === "alumni"}
                         isHidden={isEmployeeHidden(settings, emp.id)}
                         photoUrl={getEmployeePhotoUrlFor(settings, emp)}
+                        newInReportLabel={
+                          reconciliation.reportMonth &&
+                          reconciliation.newInReportKeys.has(employeePersonKey(emp))
+                            ? `New in ${formatMonthLabel(reconciliation.reportMonth)}`
+                            : undefined
+                        }
+                        linkedPlanNames={(reconciliation.linksByPersonKey.get(employeePersonKey(emp)) ?? []).map(
+                          (r) => r.plan.displayName
+                        )}
                         onEdit={() => {
                           requestAnimationFrame(() => setEditingEmployeeId(emp.id));
                         }}
@@ -391,6 +506,8 @@ function EmployeeTableRow({
   isAlumniView,
   isHidden,
   photoUrl,
+  newInReportLabel,
+  linkedPlanNames = [],
   onEdit,
   onHide,
   onUnhide,
@@ -412,6 +529,10 @@ function EmployeeTableRow({
   isAlumniView: boolean;
   isHidden: boolean;
   photoUrl?: string;
+  /** "New in Sep 2026" — first posted pay in the latest report. */
+  newInReportLabel?: string;
+  /** Planned hires this person fills. */
+  linkedPlanNames?: string[];
   onEdit: () => void;
   onHide: () => void;
   onUnhide: () => void;
@@ -484,6 +605,19 @@ function EmployeeTableRow({
             {isAlumniView && (
               <span className="ml-1.5 text-[10px] font-normal text-linked">Alumni</span>
             )}
+            {newInReportLabel && (
+              <span className="ml-1.5 rounded-full bg-estimated-soft px-1.5 py-0.5 text-[10px] font-medium text-estimated">
+                {newInReportLabel}
+              </span>
+            )}
+            {linkedPlanNames.map((name) => (
+              <span
+                key={name}
+                className="ml-1.5 rounded-full bg-healthy-soft px-1.5 py-0.5 text-[10px] font-medium text-healthy"
+              >
+                Linked · {name}
+              </span>
+            ))}
           </div>
         </div>
       </td>

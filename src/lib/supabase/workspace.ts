@@ -32,6 +32,7 @@ export type CloudWorkspacePayload = {
   snapshot: PayrollReportSnapshot | null;
   workingPlan: WorkingPlan | null;
   scenarios: Scenario[];
+  /** Whole AppSettings, planned-personnel records included (see StoredAppState). */
   settings: AppSettings;
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];

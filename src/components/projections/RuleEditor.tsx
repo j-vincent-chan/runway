@@ -11,9 +11,9 @@ import type {
   RemainderAction,
 } from "@/types";
 import { generateId } from "@/lib/utils/parse";
-import { employeePersonKey } from "@/lib/employees/stableKey";
+import { personKeyForEmployee, plannedHireById, plannedHireIdFromKey } from "@/lib/reconciliation/plans";
+import { isPlanDerivedRule } from "@/lib/reconciliation/links";
 import { chartstringKeyForFundingSource, makePlannedChartstringKey, nextPlannedColor, projectionSourceLabel } from "@/lib/projections/sources";
-import { rulesForPair } from "@/lib/projections/rules";
 import { formatMonthLabel } from "@/lib/projections/horizon";
 import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatCurrency } from "@/lib/utils/parse";
@@ -41,9 +41,24 @@ export function RuleEditor({
   onAddPlanned: (planned: PlannedFundingSource) => void;
   onClose: () => void;
 }) {
-  const personKey = employeePersonKey(employee);
+  const personKey = personKeyForEmployee(employee);
   const chartstringKey = chartstringKeyForFundingSource(source);
-  const existing = rulesForPair(settings, personKey, chartstringKey)[0];
+  /**
+   * The rule the projection applied to this cell — the person's own, or a
+   * linked plan's resolved onto them. A plan's rule belongs to the plan: the
+   * editor shows it, but saving writes a rule of the person's own (which then
+   * wins), and it is never deleted from here.
+   */
+  const existing = result.rules.find(
+    (r) => r.personKey === personKey && r.chartstringKey === chartstringKey
+  );
+  const fromPlan = Boolean(existing && isPlanDerivedRule(settings, existing));
+  const planName = (() => {
+    if (!existing || !fromPlan) return null;
+    const stored = (settings.projectionRules ?? []).find((r) => r.id === existing.id);
+    const planId = stored ? plannedHireIdFromKey(stored.personKey) : null;
+    return planId ? plannedHireById(settings.plannedHires, planId)?.displayName ?? null : null;
+  })();
 
   const [mode, setMode] = useState<
     "continue" | "onDate" | "dollarCap" | "fundsDepleted" | "setEffort"
@@ -104,7 +119,9 @@ export function RuleEditor({
 
   function save() {
     if (mode === "continue") {
-      if (existing) onRemove(existing.id);
+      // A plan's rule is not the person's to delete; without a rule of their
+      // own the plan's keeps applying, which is what "continue" means here.
+      if (existing && !fromPlan) onRemove(existing.id);
       onClose();
       return;
     }
@@ -121,7 +138,7 @@ export function RuleEditor({
       trigger = { type: "setEffort", fromMonth: setFrom, percentEffort: Number(setPct) || 0 };
     }
     onSave({
-      id: existing?.id ?? generateId(),
+      id: existing && !fromPlan ? existing.id : generateId(),
       personKey,
       chartstringKey,
       trigger,
@@ -340,8 +357,15 @@ export function RuleEditor({
           Apply from origin even if imported payroll still shows a different mix
         </label>
 
+        {fromPlan && (
+          <p className="mt-4 rounded-lg border border-rule bg-inset px-3 py-2 text-xs text-ink-2">
+            This rule comes from the linked {planName ?? "planned hire"} plan and stays with it. A
+            rule you save here replaces it for {employee.name}; unlink the plan to remove it.
+          </p>
+        )}
+
         <div className="mt-5 flex justify-end gap-2">
-          {existing && (
+          {existing && !fromPlan && (
             <button
               type="button"
               className="rounded border px-3 py-1.5 text-sm text-critical"

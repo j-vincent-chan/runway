@@ -11,9 +11,12 @@ import {
   Trash2,
   SendHorizontal,
   Lock,
+  Link as LinkIcon,
+  Unlink,
 } from "lucide-react";
 import type { AppSettings, Employee, FundingSource } from "@/types";
-import { employeePersonKey } from "@/lib/employees/stableKey";
+import { personKeyForEmployee, plannedAvatarName } from "@/lib/reconciliation/plans";
+import type { PlannedHireRow, ReconciliationView } from "@/lib/reconciliation/view";
 import { getEmployeePhotoUrlFor } from "@/lib/employees/roster";
 import { EmployeeAvatar } from "@/components/employees/EmployeeAvatar";
 import {
@@ -21,7 +24,7 @@ import {
   chartstringKeysForPerson,
   projectionSourceLabel,
 } from "@/lib/projections/sources";
-import { ruleChipLabel, rulesForPair } from "@/lib/projections/rules";
+import { ruleChipLabel } from "@/lib/projections/rules";
 import type { ProjectionResult } from "@/lib/projections/simulate";
 import { formatPercent } from "@/lib/utils/parse";
 import { cn } from "@/lib/utils/cn";
@@ -65,10 +68,25 @@ export function ByPersonView({
   lockedPersonKeys,
   highlightPersonKey,
   lockInReady,
+  plannedEntities = [],
+  reconciliation,
+  onReviewMatch,
+  onUnlinkPlan,
+  onLinkPlanManually,
 }: {
   employees: Employee[];
   settings: AppSettings;
   result: ProjectionResult;
+  /** Unlinked planned hires, rendered after the roster in this order. */
+  plannedEntities?: Employee[];
+  /** Statuses and counterparts for chips on both kinds of row. */
+  reconciliation?: ReconciliationView;
+  /** Review a suggested match — opens the link dialog on that pair. */
+  onReviewMatch?: (plannedHireId: string, employeePersonKey: string) => void;
+  /** Reverse a link from the LINKED chip. */
+  onUnlinkPlan?: (linkId: string) => void;
+  /** Link a planned hire to a person the heuristics missed. */
+  onLinkPlanManually?: (plannedHireId: string) => void;
   displayMode: AppSettings["displayMode"];
   accountTitlesByChartstring?: Map<string, string>;
   onEdit: (employee: Employee, source: FundingSource) => void;
@@ -102,6 +120,48 @@ export function ByPersonView({
     if (!fs) return key;
     return projectionSourceLabel(fs, settings, accountTitlesByChartstring);
   };
+  const rowsByKey = new Map((reconciliation?.rows ?? []).map((r) => [r.personKey, r]));
+  const plansById = new Map((reconciliation?.rows ?? []).map((r) => [r.plan.id, r.plan]));
+  const reportMonthLabel = reconciliation?.reportMonth
+    ? formatMonthLabel(reconciliation.reportMonth)
+    : null;
+
+  /** Chips beside a payroll person's name — each names its plan, never a count. */
+  const chipsFor = (personKey: string): RowChip[] => {
+    if (!reconciliation) return [];
+    const chips: RowChip[] = [];
+    if (reportMonthLabel && reconciliation.newInReportKeys.has(personKey)) {
+      chips.push({ id: "new", tone: "estimated", label: `NEW IN ${reportMonthLabel.toUpperCase()}` });
+    }
+    for (const s of reconciliation.suggestionsByPersonKey.get(personKey) ?? []) {
+      const plan = plansById.get(s.plannedHireId);
+      if (!plan) continue;
+      chips.push({
+        id: `suggest:${plan.id}`,
+        tone: "caution",
+        label: `Possible match: ${plan.displayName}`,
+        action: onReviewMatch
+          ? { kind: "review", label: "Review", onClick: () => onReviewMatch(plan.id, personKey) }
+          : undefined,
+      });
+    }
+    for (const row of reconciliation.linksByPersonKey.get(personKey) ?? []) {
+      chips.push({
+        id: `link:${row.link?.id ?? row.plan.id}`,
+        tone: "healthy",
+        label: `LINKED · ${row.plan.displayName.toUpperCase()}`,
+        action:
+          onUnlinkPlan && row.link
+            ? {
+                kind: "unlink",
+                label: `Unlink ${row.plan.displayName}`,
+                onClick: () => onUnlinkPlan(row.link!.id),
+              }
+            : undefined,
+      });
+    }
+    return chips;
+  };
 
   return (
     <FreezeableGrid freeze={settings.freezeGridHeader !== false}>
@@ -124,19 +184,24 @@ export function ByPersonView({
           originMonth={result.originMonth}
         />
         <tbody>
-          {employees.map((emp) => {
-            const personKey = employeePersonKey(emp);
+          {[...employees, ...plannedEntities].map((emp) => {
+            const personKey = personKeyForEmployee(emp);
             const keys = chartstringKeysForPerson(result, settings, emp, personKey);
             const sources = result.sources.filter((s) =>
               keys.has(chartstringKeyForFundingSource(s))
             );
             const isCollapsed = collapsed.has(emp.id);
+            const planned = rowsByKey.get(personKey);
             return (
               <EmployeeBlock
                 key={emp.id}
                 emp={emp}
                 personKey={personKey}
                 sources={sources}
+                planned={planned}
+                chips={planned ? [] : chipsFor(personKey)}
+                onReviewMatch={onReviewMatch}
+                onLinkPlanManually={onLinkPlanManually}
                 settings={settings}
                 result={result}
                 display={display}
@@ -172,10 +237,91 @@ export function ByPersonView({
   );
 }
 
+type RowChip = {
+  /** Stable React key — two plans can share a display name. */
+  id: string;
+  tone: "estimated" | "caution" | "healthy";
+  label: string;
+  /** A control beside the chip: Review (accent button) or Unlink (icon). */
+  action?: { kind: "review" | "unlink"; label: string; onClick: () => void };
+};
+
+const CHIP_TONE: Record<RowChip["tone"], string> = {
+  estimated: "bg-estimated-soft text-estimated",
+  caution: "bg-caution-soft text-caution",
+  healthy: "bg-healthy-soft text-healthy",
+};
+
+function HeaderChip({ chip }: { chip: RowChip }) {
+  return (
+    <>
+      <span
+        className={cn(
+          "shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wide",
+          CHIP_TONE[chip.tone]
+        )}
+        title={chip.label}
+      >
+        {chip.label}
+      </span>
+      {chip.action?.kind === "review" && (
+        <button
+          type="button"
+          className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-[9px] font-semibold text-on-accent hover:bg-accent-hover"
+          title="Review this match — plan and imported person side by side"
+          onClick={(e) => {
+            e.stopPropagation();
+            chip.action!.onClick();
+          }}
+        >
+          {chip.action.label}
+        </button>
+      )}
+      {chip.action?.kind === "unlink" && (
+        <button
+          type="button"
+          className="shrink-0 rounded bg-rule/80 p-1 hover:bg-rule-strong/80"
+          title={chip.action.label}
+          aria-label={chip.action.label}
+          onClick={(e) => {
+            e.stopPropagation();
+            chip.action!.onClick();
+          }}
+        >
+          <Unlink className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+    </>
+  );
+}
+
+/** What a planned row shows after its PLANNED badge: a status chip, else its start month. */
+function plannedHeaderChip(row: PlannedHireRow): RowChip | null {
+  if (row.status === "expected") {
+    return {
+      id: `expected:${row.plan.id}`,
+      tone: "caution",
+      label: `EXPECTED ${formatMonthLabel(row.plan.startMonth).toUpperCase()} · NOT IN REPORT`,
+    };
+  }
+  if (row.status === "suggested" && row.suggestedEmployee) {
+    return {
+      id: `suggest:${row.plan.id}`,
+      tone: "caution",
+      label: `Possible match: ${row.suggestedEmployee.name}`,
+    };
+  }
+  return null;
+}
+
 function EmployeeBlock({
   emp,
   personKey,
   sources,
+  planned,
+  chips = [],
+  onReviewMatch,
+  onLinkPlanManually,
   settings,
   result,
   display,
@@ -199,6 +345,11 @@ function EmployeeBlock({
   emp: Employee;
   personKey: string;
   sources: FundingSource[];
+  /** Set when this row is an unlinked planned hire rather than a payroll person. */
+  planned?: PlannedHireRow;
+  chips?: RowChip[];
+  onReviewMatch?: (plannedHireId: string, employeePersonKey: string) => void;
+  onLinkPlanManually?: (plannedHireId: string) => void;
   settings: AppSettings;
   result: ProjectionResult;
   display: "percent" | "dollars" | "both";
@@ -262,22 +413,78 @@ function EmployeeBlock({
               <ChevronDown className="h-3 w-3 shrink-0" />
             )}
             <EmployeeAvatar
-              name={emp.name}
-              photoUrl={getEmployeePhotoUrlFor(settings, emp)}
+              name={planned ? plannedAvatarName(emp.name) : emp.name}
+              photoUrl={planned ? undefined : getEmployeePhotoUrlFor(settings, emp)}
               size="xs"
-              className="ring-control"
+              className={cn(
+                "ring-control",
+                planned && "outline outline-1 outline-dotted outline-control"
+              )}
             />
             {/* The ID used to sit in its own shrink-0 span, permanently
                 spending ~55px of the fixed-width label column and pushing
                 the truncation point on the name earlier — on most rows the
                 name is what needs the room, the ID is reference material.
-                It now rides in the same tooltip as the name. */}
+                It now rides in the same tooltip as the name. flex-1 min-w-0
+                so the chips that follow never push the name out of the
+                column. */}
             <span
-              className="truncate"
-              title={emp.employeeId ? `${emp.name} · ${emp.employeeId}` : emp.name}
+              className="min-w-0 flex-1 truncate"
+              title={
+                planned
+                  ? `${emp.name} · planned hire`
+                  : emp.employeeId
+                    ? `${emp.name} · ${emp.employeeId}`
+                    : emp.name
+              }
             >
               {emp.name.toUpperCase()}
             </span>
+            {planned && (
+              <span className="shrink-0 rounded bg-accent-soft px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-accent">
+                PLANNED
+              </span>
+            )}
+            {planned &&
+              (() => {
+                const chip = plannedHeaderChip(planned);
+                const withAction: RowChip | null =
+                  chip && planned.status === "suggested" && planned.suggestion && onReviewMatch
+                    ? {
+                        ...chip,
+                        action: {
+                          kind: "review",
+                          label: "Review",
+                          onClick: () =>
+                            onReviewMatch(planned.plan.id, planned.suggestion!.employeePersonKey),
+                        },
+                      }
+                    : chip;
+                return withAction ? (
+                  <HeaderChip chip={withAction} />
+                ) : (
+                  <span className="shrink-0 font-mono text-[10px] font-normal text-muted">
+                    Starts {formatMonthLabel(planned.plan.startMonth)}
+                  </span>
+                );
+              })()}
+            {planned && onLinkPlanManually && (
+              <button
+                type="button"
+                className="ml-auto shrink-0 rounded bg-rule/80 p-1 hover:bg-rule-strong/80"
+                title={`Link ${planned.plan.displayName} to an existing employee`}
+                aria-label={`Link ${planned.plan.displayName} to an existing employee`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onLinkPlanManually(planned.plan.id);
+                }}
+              >
+                <LinkIcon className="h-3 w-3" aria-hidden />
+              </button>
+            )}
+            {chips.map((chip) => (
+              <HeaderChip key={chip.id} chip={chip} />
+            ))}
             {/* Only a person whose plan differs from today's distribution has
                 anything to hand off, so the button follows the rules — except
                 once locked, when it must stay reachable to unlock. Icon-only:
@@ -285,8 +492,8 @@ function EmployeeBlock({
                 cost in the row, wider than the ID span it sat next to. The
                 icon plus color already carries the two states; the full
                 sentence survives as the tooltip and the aria-label. */}
-            {(locked ||
-              (settings.projectionRules ?? []).some((r) => r.personKey === personKey)) && (
+            {!planned &&
+              (locked || result.rules.some((r) => r.personKey === personKey)) && (
               <button
                 type="button"
                 // Unlocking is never gated: a locked person must always be
@@ -348,7 +555,12 @@ function EmployeeBlock({
             minWidth: PROJECTION_SCOPE_COL,
           }}
         >
-          {result.states[0]?.coverageByEmployee[emp.id]?.expectedPercent.toFixed(0) ?? "—"}%
+          {(() => {
+            const expected =
+              result.states[0]?.coverageByEmployee[emp.id]?.expectedPercent ??
+              (planned ? planned.plan.appointmentPercent : undefined);
+            return expected === undefined ? "—" : `${expected.toFixed(0)}%`;
+          })()}
         </td>
         {months.map((m) => {
           const c = result.states.find((s) => s.month === m)?.coverageByEmployee[emp.id];
@@ -402,9 +614,12 @@ function EmployeeBlock({
            */
           const dryIndex = depletionMonthIndexForRoot(result, depletionRootOf(key));
           const dryMonth = dryIndex === null ? null : months[dryIndex] ?? null;
-          const chips = rulesForPair(settings, personKey, key).map((r) =>
-            ruleChipLabel(r, aliasFor)
-          );
+          // The rules the projection applied to this pair — a linked plan's
+          // rule resolved onto the person shows here as the rule driving the
+          // cell, which storage alone would not reveal.
+          const chips = result.rules
+            .filter((r) => r.personKey === personKey && r.chartstringKey === key)
+            .map((r) => ruleChipLabel(r, aliasFor));
           /**
            * Group by projected-ness *and* by whether the account still has
            * money, so a merged run never straddles the month the balance hits
@@ -449,25 +664,30 @@ function EmployeeBlock({
                     the distribution rule (a control Timeline has no equivalent
                     of), and the rename input last. */}
                 <div className="flex items-center gap-1 overflow-hidden whitespace-nowrap">
-                  <button
-                    type="button"
-                    className={cn(
-                      "shrink-0 rounded p-0.5 hover:bg-inset",
-                      hidden ? "text-muted" : "text-muted hover:text-ink-2"
-                    )}
-                    title={
-                      hidden
-                        ? "Include this fund in your view and totals"
-                        : "Hide fund (not my account)"
-                    }
-                    onClick={() => onToggleHiddenFund(emp.id, fs.id)}
-                  >
-                    {hidden ? (
-                      <EyeOff className="h-3.5 w-3.5" />
-                    ) : (
-                      <Eye className="h-3.5 w-3.5" />
-                    )}
-                  </button>
+                  {/* A planned hire's accounts are its own assumptions, so
+                      there is no fund to hide — only the landmark and the
+                      rule stay. */}
+                  {!planned && (
+                    <button
+                      type="button"
+                      className={cn(
+                        "shrink-0 rounded p-0.5 hover:bg-inset",
+                        hidden ? "text-muted" : "text-muted hover:text-ink-2"
+                      )}
+                      title={
+                        hidden
+                          ? "Include this fund in your view and totals"
+                          : "Hide fund (not my account)"
+                      }
+                      onClick={() => onToggleHiddenFund(emp.id, fs.id)}
+                    >
+                      {hidden ? (
+                        <EyeOff className="h-3.5 w-3.5" />
+                      ) : (
+                        <Eye className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
                   <button
                     type="button"
                     className={cn(
@@ -575,6 +795,7 @@ function EmployeeBlock({
                       dryStart={dryIndex !== null && months.indexOf(segment.months[0]!) === dryIndex}
                       dryMonthLabel={dryMonth ? formatMonthLabel(dryMonth) : undefined}
                       readOnly={locked}
+                      planned={Boolean(planned)}
                       onClick={() => onEdit(emp, fs)}
                     />
                   </td>

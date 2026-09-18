@@ -25,6 +25,11 @@ export interface StoredAppState {
   snapshot: PayrollReportSnapshot | null;
   workingPlan: WorkingPlan | null;
   scenarios: Scenario[];
+  /**
+   * Persisted whole — including the planned-personnel records (plannedHires,
+   * personLinks, reconciliationChoices, matchDismissals, reconciliationEvents),
+   * which need no path of their own here or in the cloud workspace JSON.
+   */
   settings: AppSettings;
   payrollImports?: PayrollReportImport[];
   netPositionImports?: NetPositionReportImport[];

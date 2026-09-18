@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { OnboardingGate } from "@/components/onboarding/OnboardingGate";
+import { ReconciliationDialogsProvider } from "@/context/ReconciliationDialogs";
 import { useApp } from "@/context/AppContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -34,7 +35,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Bare pages route themselves; the gate covers only the main app. */}
       <OnboardingGate />
       <Sidebar />
-      <div className="min-w-0 flex-1">{children}</div>
+      <div className="min-w-0 flex-1">
+        <ReconciliationDialogsProvider>{children}</ReconciliationDialogsProvider>
+      </div>
     </div>
   );
 }

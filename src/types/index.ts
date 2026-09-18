@@ -81,10 +81,24 @@ export interface ImportFileResult {
   status: ParseStatus;
 }
 
+/** What one payroll upload changed, for the uploader's outcome sub-line. */
+export interface PayrollFoldOutcome {
+  replacedMonths: string[];
+  preservedMonths: string[];
+  newEmployees: { name: string; employeeId?: string }[];
+  suggestionCount: number;
+  /** Same suggestion set as before the upload (and there were some). */
+  suggestionsUnchanged: boolean;
+  linkCount: number;
+  eventsAdded: number;
+}
+
 /** What every file-import method on AppContext resolves to. */
 export interface ImportFilesResult {
   warnings: ParseWarning[];
   files: ImportFileResult[];
+  /** Payroll uploads only: what the fold replaced, who is new, what was suggested. */
+  fold?: PayrollFoldOutcome;
 }
 
 export interface Employee {
@@ -389,6 +403,95 @@ export interface ProjectionHorizonSettings {
   customEndMonth?: string;
 }
 
+/**
+ * A hire the PI is planning before the person exists in payroll. Its
+ * distribution is ordinary ProjectionRule rows keyed to `planned:{id}`
+ * (setEffort from startMonth, applyOverPayroll), so the engine needs no
+ * second path. A link never deletes the plan — it stays for comparison.
+ */
+export interface PlannedHire {
+  id: string;
+  /** "Postdoc (TBD)" or a real name */
+  displayName: string;
+  role?: string;
+  teamId?: PersonnelType;
+  /** yyyy-MM */
+  startMonth: string;
+  /** yyyy-MM — last month the plan is on payroll */
+  endMonth?: string;
+  /** Default 100 */
+  appointmentPercent: number;
+  annualSalary: number;
+  /** User-entered; Runway has no composite rate source. The form defaults to 32. */
+  benefitsRatePct: number;
+  notes?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+/**
+ * Identity only: this plan and this payroll person are one person. Keys on
+ * employeePersonKey so it survives the id churn of every re-parse, the same
+ * way aliases and rules do. Reversed links are kept, never deleted.
+ */
+export interface PersonLink {
+  id: string;
+  plannedHireId: string;
+  /** `hr:…` | `name:…` (employeePersonKey) */
+  employeePersonKey: string;
+  basis: "suggested" | "manual";
+  /** Signal ids that passed when the link was made, for the record */
+  signals: string[];
+  linkedAt: string;
+  linkedBy: string;
+  reversedAt?: string;
+  reversedBy?: string;
+  /** What Confirm copied onto the employee, so Unlink removes only that */
+  copied?: { team?: boolean; startDate?: boolean; scope?: boolean };
+}
+
+/** Finance only: which source drives which field from when. One per active link. */
+export interface ReconciliationChoice {
+  linkId: string;
+  forecastRate: "planned" | "fyRate" | "payrollActual";
+  /** Keep the planned rate even after a full payroll month closes */
+  pinPlannedRate: boolean;
+  distribution: "plan" | "payrollFuture";
+  /** yyyy-MM — the first month after origin when the choice was made */
+  effectiveFrom: string;
+  decidedAt: string;
+  decidedBy: string;
+}
+
+/** "Not a match": the pair never resurfaces on re-upload; both rows keep counting. */
+export interface MatchDismissal {
+  plannedHireId: string;
+  employeePersonKey: string;
+  at: string;
+  by: string;
+}
+
+export type ReconciliationEventType =
+  | "link"
+  | "unlink"
+  | "dismiss"
+  | "rateSwitch"
+  | "planAdded"
+  | "planRemoved";
+
+/** Append-only audit row. `by` is the acting account's email. */
+export interface ReconciliationEvent {
+  id: string;
+  at: string;
+  by: string;
+  type: ReconciliationEventType;
+  summary: string;
+  linkId?: string;
+  plannedHireId?: string;
+  /** rateSwitch records oldRate, newRate, sourceMonth and reportFile */
+  detail?: Record<string, string | number>;
+}
+
 export interface AppSettings {
   fiscalYearStartMonth: number;
   supportEndingSoonDays: number;
@@ -476,6 +579,16 @@ export interface AppSettings {
    * Settings, since the hide is derived rather than stored.
    */
   unhiddenAccountBalanceKeys?: string[];
+  /** Planned hires (Employees → Roster → Planned); simulate as planned rows until linked */
+  plannedHires?: PlannedHire[];
+  /** Identity links between a plan and a payroll person; reversed rows are kept */
+  personLinks?: PersonLink[];
+  /** Forecast-rate and distribution choices, one per active link */
+  reconciliationChoices?: ReconciliationChoice[];
+  /** "Not a match" decisions, remembered across re-uploads */
+  matchDismissals?: MatchDismissal[];
+  /** Append-only history: link, unlink, dismiss, rate switch, plan added/removed */
+  reconciliationEvents?: ReconciliationEvent[];
 }
 export interface WorkingPlan {
   snapshotId: string;
@@ -532,6 +645,11 @@ export const DEFAULT_SETTINGS: AppSettings = {
   freezeGridHeader: true,
   hiddenAccountBalanceKeys: [],
   unhiddenAccountBalanceKeys: [],
+  plannedHires: [],
+  personLinks: [],
+  reconciliationChoices: [],
+  matchDismissals: [],
+  reconciliationEvents: [],
 };
 
 /**

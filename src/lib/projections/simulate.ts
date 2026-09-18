@@ -23,8 +23,16 @@ import {
   coverageOptionsFromSettings,
   getEffectiveExpectedPercent,
 } from "@/lib/funding/visibility";
-import { employeePersonKey } from "@/lib/employees/stableKey";
 import { buildSharedAccountBurnIndex } from "@/lib/runway/calculate";
+import {
+  isPlannedPersonKey,
+  personKeyForEmployee,
+  plannedEntity,
+  plannedMonthlyComp,
+  plannedPersonKey,
+} from "@/lib/reconciliation/plans";
+import { effectiveLinks, resolveRules } from "@/lib/reconciliation/links";
+import { resolveForecastRate } from "@/lib/reconciliation/forecastRate";
 import {
   effectiveAssumedEndDate,
   estimateBalanceFromAssumedEnd,
@@ -102,6 +110,25 @@ export interface ProjectionResult {
   conflicts: ProjectionConflict[];
   staleness: ProjectionStaleness;
   sources: FundingSource[];
+  /** Unlinked planned hires simulated as their own rows; empty when there are none. */
+  plannedEntities: Employee[];
+  /**
+   * The rules this run applied: the stored rules with a linked plan's rules
+   * resolved onto its person. The grid reads a person's rules from here, not
+   * from storage, so a cell driven by a linked plan shows the rule that drives it.
+   */
+  rules: ProjectionRule[];
+}
+
+/**
+ * Salary and benefits to scale by effort in place of the payroll-derived
+ * figure, and the effort that figure stands for: a plan's own rate over its
+ * appointment; a linked person's closed-month rate over the effort posted in
+ * that month (so the forecast continues the posted burn, not a re-scaled one).
+ */
+interface CompBasis {
+  comp: number;
+  basisPercent: number;
 }
 
 interface PendingOff {
@@ -183,8 +210,17 @@ function applyStructuralRules(
   settings: AppSettings,
   rules: ProjectionRule[],
   plannedEnds: Map<string, string>,
-  fired: string[]
+  fired: string[],
+  /** A planned hire's own months on payroll: nothing before its start, nothing after its end. */
+  window?: { startMonth: string; endMonth?: string }
 ) {
+  if (
+    window &&
+    (month < window.startMonth || (window.endMonth !== undefined && month > window.endMonth))
+  ) {
+    zeroEmployee(mix, emp.id);
+    return;
+  }
   const start = getEmployeeStartDate(settings, emp.id, emp);
   if (start && month < start.slice(0, 7)) {
     zeroEmployee(mix, emp.id);
@@ -283,11 +319,18 @@ function personFundBurn(
   allocations: MonthlyAllocation[],
   sources: FundingSource[],
   settings: AppSettings,
-  referenceMonth: string
+  referenceMonth: string,
+  /**
+   * A planned hire's own rate (it has no payroll to read), or a linked
+   * person's resolved forecast rate for months after origin. Never passed for
+   * a posted month — those stay the imported actuals.
+   */
+  override?: CompBasis
 ): number {
   if (!hasPercentEffort(percentEffort)) return 0;
-  const fs = lookupFundingSource(sources, chartstringKey);
   const expected = getEffectiveExpectedPercent(emp, settings) || 100;
+  if (override) return override.comp * (percentEffort / (override.basisPercent || expected));
+  const fs = lookupFundingSource(sources, chartstringKey);
   const monthlyComp =
     calculateMonthlyCost(emp.id, referenceMonth, snapshot.monthlyCosts).total ||
     lastPositiveMonthlyComp(emp.id, snapshot);
@@ -438,12 +481,26 @@ function originBurnByRootFromMix(
   allocations: MonthlyAllocation[],
   sources: FundingSource[],
   settings: AppSettings,
-  refMonth: string
+  refMonth: string,
+  compOverride: Map<string, CompBasis>
 ): Map<string, number> {
   const byRoot = new Map<string, number>();
   for (const emp of employees) {
+    // Only a planned hire is overridden at origin; a linked person's origin
+    // burn is their posted payroll, like everyone else's.
+    const override = isPlannedPersonKey(emp.id) ? compOverride.get(emp.id) : undefined;
     for (const [key, pct] of mix.get(emp.id) ?? []) {
-      const burn = personFundBurn(emp, key, pct, snapshot, allocations, sources, settings, refMonth);
+      const burn = personFundBurn(
+        emp,
+        key,
+        pct,
+        snapshot,
+        allocations,
+        sources,
+        settings,
+        refMonth,
+        override
+      );
       if (burn <= 0) continue;
       const root = chartRoot(key);
       byRoot.set(root, (byRoot.get(root) ?? 0) + burn);
@@ -515,13 +572,79 @@ export function simulateProjections(input: {
     settings.projectionHorizon,
     settings.fiscalYearStartMonth
   );
-  const employees = filterEmployeesForPlanning(snapshot.employees, settings);
+  /**
+   * Planned hires. An unlinked plan simulates as its own entity — a synthetic
+   * employee keyed `planned:{id}` — with zero effort before its start month,
+   * its rules from then on, and its own salary and benefits as the burn rate.
+   * A linked plan is not simulated: its rules resolve onto the person at
+   * simulation time (the stored rules keep `planned:{id}`), so the person is
+   * counted exactly once.
+   */
+  const links = effectiveLinks(settings, snapshot.employees);
+  const choices = settings.reconciliationChoices ?? [];
+  const linkedPlanIds = new Set(links.map((l) => l.plannedHireId));
+  const unlinkedPlans = (settings.plannedHires ?? []).filter((p) => !linkedPlanIds.has(p.id));
+  const plannedEntities = unlinkedPlans.map(plannedEntity);
+  const plannedWindows = new Map(
+    unlinkedPlans.map((p) => [
+      plannedPersonKey(p.id),
+      { startMonth: p.startMonth, endMonth: p.endMonth },
+    ])
+  );
+  const employees = [
+    ...filterEmployeesForPlanning(snapshot.employees, settings),
+    ...plannedEntities,
+  ];
+  const keyOf = personKeyForEmployee;
   const allocations = getAllocations(snapshot, workingPlan);
   const sources = projectionFundingSources(snapshot, settings);
   const idToKey = new Map(sources.map((fs) => [fs.id, chartstringKeyForFundingSource(fs)]));
   const payrollMonths = new Set(getAllMonths(snapshot));
   const lastKnown = lastMonthOnOrBefore(getAllMonths(snapshot), originMonth);
-  const rules = settings.projectionRules ?? [];
+  const rules = resolveRules(settings.projectionRules ?? [], links, choices, originMonth);
+  /**
+   * Salary and benefits per entity for months without posted payroll: a plan's
+   * own rate, or a linked person's forecast rate (pinned planned → latest
+   * closed full month → FY rate → planned; "carry the posted amount" leaves
+   * the payroll-derived path alone). Posted months never read this.
+   */
+  const compOverride = new Map<string, CompBasis>();
+  const payrollFutureEmployees = new Set<string>();
+  for (const plan of unlinkedPlans) {
+    const entity = plannedEntity(plan);
+    compOverride.set(entity.id, {
+      comp: plannedMonthlyComp(plan),
+      basisPercent: getEffectiveExpectedPercent(entity, settings) || 100,
+    });
+  }
+  for (const link of links) {
+    const plan = (settings.plannedHires ?? []).find((p) => p.id === link.plannedHireId);
+    const emp = employees.find((e) => keyOf(e) === link.employeePersonKey);
+    if (!plan || !emp) continue;
+    const choice = choices.find((c) => c.linkId === link.id);
+    const rate = resolveForecastRate({ plan, employee: emp, snapshot, choice });
+    if (rate.monthlyRate !== null) {
+      // A closed month's posted total already reflects the effort posted that
+      // month, so it is scaled from that effort; the plan's and FY rates are
+      // full-appointment figures and scale from the person's expected effort.
+      const posted =
+        rate.source === "closedMonth" && rate.sourceMonth
+          ? calculateEmployeeCoverage(emp, rate.sourceMonth, allocations).allocatedPercent
+          : 0;
+      compOverride.set(emp.id, {
+        comp: rate.monthlyRate,
+        basisPercent: posted > 0 ? posted : getEffectiveExpectedPercent(emp, settings) || 100,
+      });
+    }
+    if (choice?.distribution === "payrollFuture") payrollFutureEmployees.add(emp.id);
+  }
+  /**
+   * "Adopt payroll's future distribution": the report's future rows stand in
+   * for the plan's rules. Each step in those rows is applied in the month it
+   * occurs; between steps the mix carries, so an off-ramp of the person's own
+   * that has fired is not undone by re-reading the same row every month.
+   */
+  const lastFutureSignature = new Map<string, string>();
   const plannedEnds = new Map(
     unmatchedPlannedSources(settings, snapshot)
       .filter((p) => p.projectEndMonth)
@@ -546,7 +669,8 @@ export function simulateProjections(input: {
       allocations,
       sources,
       settings,
-      lastKnown ?? originMonth
+      lastKnown ?? originMonth,
+      compOverride
     )
   );
   const remaining = openingBalances(sources, settings, balances, assumedOkEstimates);
@@ -555,7 +679,7 @@ export function simulateProjections(input: {
   const capSpent = new Map<string, number>();
 
   for (const emp of employees) {
-    const personKey = employeePersonKey(emp);
+    const personKey = keyOf(emp);
     for (const rule of rules.filter((r) => r.personKey === personKey)) {
       if (rule.trigger.type !== "dollarCap" || !rule.chartstringKey) continue;
       const fs = lookupFundingSource(sources, rule.chartstringKey);
@@ -573,17 +697,18 @@ export function simulateProjections(input: {
         mix,
         originMonth,
         emp,
-        employeePersonKey(emp),
+        keyOf(emp),
         settings,
         rules,
         plannedEnds,
-        fired
+        fired,
+        plannedWindows.get(emp.id)
       );
     }
   }
 
   for (const emp of employees) {
-    const personKey = employeePersonKey(emp);
+    const personKey = keyOf(emp);
     for (const rule of rules.filter((r) => r.personKey === personKey && r.chartstringKey)) {
       const key = rule.chartstringKey!;
       const leftover = getEffort(mix, emp.id, key);
@@ -606,6 +731,23 @@ export function simulateProjections(input: {
     // to the wrong person) while earlier months in the same file are still right.
     const knownPayroll = month <= originMonth && payrollMonths.has(month);
 
+    if (!knownPayroll) {
+      mix = cloneMix(mix);
+      dropReversalEffort(mix);
+      for (const emp of employees) {
+        if (!payrollFutureEmployees.has(emp.id)) continue;
+        const future = mixFromAllocations(month, [emp], allocations, idToKey).get(emp.id);
+        if (!future || future.size === 0) continue;
+        const signature = [...future.entries()]
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([k, v]) => `${k}:${v}`)
+          .join("|");
+        if (lastFutureSignature.get(emp.id) === signature) continue;
+        lastFutureSignature.set(emp.id, signature);
+        mix.set(emp.id, future);
+      }
+    }
+
     for (const hit of pendingOff) {
       applyRemainder(
         mix,
@@ -621,7 +763,7 @@ export function simulateProjections(input: {
     if (knownPayroll) {
       const payrollMix = mixFromAllocations(month, employees, allocations, idToKey);
       for (const emp of employees) {
-        const personKey = employeePersonKey(emp);
+        const personKey = keyOf(emp);
         const empRules = rules.filter((r) => r.personKey === personKey);
         const merged = new Map(payrollMix.get(emp.id) ?? []);
 
@@ -670,7 +812,8 @@ export function simulateProjections(input: {
           settings,
           empRules.filter((r) => r.applyOverPayroll),
           plannedEnds,
-          fired
+          fired,
+          plannedWindows.get(emp.id)
         );
 
         const endMo = employmentEndMonth(emp, settings, personKey, empRules);
@@ -690,18 +833,17 @@ export function simulateProjections(input: {
         }
       }
     } else {
-      mix = cloneMix(mix);
-      dropReversalEffort(mix);
       for (const emp of employees) {
         applyStructuralRules(
           mix,
           month,
           emp,
-          employeePersonKey(emp),
+          keyOf(emp),
           settings,
           rules,
           plannedEnds,
-          fired
+          fired,
+          plannedWindows.get(emp.id)
         );
       }
     }
@@ -711,10 +853,24 @@ export function simulateProjections(input: {
     const refMonth = lastKnown ?? month;
 
     for (const emp of employees) {
-      const personKey = employeePersonKey(emp);
+      const personKey = keyOf(emp);
+      // A posted month is the imported actual; only forecast months — and a
+      // planned hire, which has no payroll at all — take the resolved rate.
+      const override =
+        !knownPayroll || isPlannedPersonKey(emp.id) ? compOverride.get(emp.id) : undefined;
       for (const [key, pct] of mix.get(emp.id) ?? []) {
         const fs = lookupFundingSource(sources, key);
-        const burn = personFundBurn(emp, key, pct, snapshot, allocations, sources, settings, refMonth);
+        const burn = personFundBurn(
+          emp,
+          key,
+          pct,
+          snapshot,
+          allocations,
+          sources,
+          settings,
+          refMonth,
+          override
+        );
         monthAllocs.push({
           employeeId: emp.id,
           personKey,
@@ -740,7 +896,7 @@ export function simulateProjections(input: {
 
     const queued = new Set<string>();
     for (const emp of employees) {
-      const personKey = employeePersonKey(emp);
+      const personKey = keyOf(emp);
       for (const rule of rules.filter((r) => r.personKey === personKey && r.chartstringKey)) {
         const key = rule.chartstringKey!;
         const pct = getEffort(mix, emp.id, key);
@@ -780,6 +936,10 @@ export function simulateProjections(input: {
 
     const coverageByEmployee: ProjectionMonthState["coverageByEmployee"] = {};
     for (const emp of employees) {
+      // Before a planned hire starts there is nothing to cover — no entry, so
+      // the grid shows a dash rather than a caution gap.
+      const window = plannedWindows.get(emp.id);
+      if (window && month < window.startMonth) continue;
       const fakeAllocs: MonthlyAllocation[] = [...(mix.get(emp.id) ?? new Map())].map(
         ([key, pct]) => ({
           id: `${emp.id}|${key}|${month}`,
@@ -825,6 +985,8 @@ export function simulateProjections(input: {
     conflicts: uniqueConflicts(conflicts),
     staleness: detectStaleness(snapshot, originMonth, balances),
     sources,
+    plannedEntities,
+    rules,
   };
 }
 

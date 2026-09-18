@@ -4,8 +4,9 @@ import { useCallback, useState } from "react";
 import { CheckCircle2, FileSpreadsheet, X, XCircle } from "lucide-react";
 import { UploadDropzone } from "@/components/upload/UploadDropzone";
 import { formatFileNameList } from "@/lib/data-sources/helpers";
+import { formatFoldOutcome } from "@/lib/reconciliation/view";
 import { cn } from "@/lib/utils/cn";
-import type { ImportFilesResult } from "@/types";
+import type { ImportFilesResult, PayrollFoldOutcome } from "@/types";
 
 /**
  * Two-step uploader for the Data Sources cards: drop or pick files to stage
@@ -27,7 +28,12 @@ export function StagedUploader({
 }) {
   const [staged, setStaged] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [outcome, setOutcome] = useState<{ uploaded: string[]; failed: string[] } | null>(null);
+  const [outcome, setOutcome] = useState<{
+    uploaded: string[];
+    failed: string[];
+    /** Payroll only: what the fold replaced, who is new, what was suggested. */
+    fold?: PayrollFoldOutcome;
+  } | null>(null);
 
   const stage = useCallback((incoming: FileList) => {
     // Copy now: a FileList is live, and the dropzone resets its input right
@@ -49,10 +55,11 @@ export function StagedUploader({
     if (staged.length === 0 || uploading) return;
     setUploading(true);
     try {
-      const { files } = await onUpload(staged);
+      const { files, fold } = await onUpload(staged);
       setOutcome({
         uploaded: files.filter((f) => f.status !== "failed").map((f) => f.fileName),
         failed: files.filter((f) => f.status === "failed").map((f) => f.fileName),
+        fold,
       });
       setStaged([]);
     } finally {
@@ -143,6 +150,9 @@ export function StagedUploader({
                   Uploaded {formatFileNameList(outcome.uploaded)}.
                 </span>
               </p>
+            )}
+            {outcome.uploaded.length > 0 && outcome.fold && (
+              <p className="pl-6 text-xs text-ink-2">{formatFoldOutcome(outcome.fold)}</p>
             )}
             {outcome.failed.length > 0 && (
               <p className="flex gap-2 text-critical">

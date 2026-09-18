@@ -22,6 +22,7 @@ When configured, planning data syncs to Supabase (this browser’s localStorage 
 - Payroll Funding Report snapshot and Timeline edits
 - Net Position Report balances
 - Runway overrides and Projections rules / planned accounts
+- Planned hires, their links to payroll people, reconciliation choices, dismissals and history
 - Chartstring aliases and account types
 - Employee photos, roster extras (personnel type, dates, scope, hidden/alumni)
 - Offer letter files (Storage bucket `employee-offer-letters`)
