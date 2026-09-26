@@ -1133,13 +1133,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
       const { startDate, endDate, startingSalary } = await parseOfferLetterFile(file);
       const uploadedAt = new Date().toISOString();
-      await saveOfferLetterFile({
-        employeeId,
-        fileName: file.name,
-        mimeType: file.type || "application/octet-stream",
-        uploadedAt,
-        blob: file,
-      });
+      // Delegate mode is cloud-only: a PI's offer letter must never be cached
+      // into the analyst's own local IndexedDB.
+      if (!actingAsDelegate) {
+        await saveOfferLetterFile(
+          {
+            employeeId,
+            fileName: file.name,
+            mimeType: file.type || "application/octet-stream",
+            uploadedAt,
+            blob: file,
+          },
+          userIdRef.current
+        );
+      }
       const emp = snapshot?.employees.find((e) => e.id === employeeId);
       let fileUrl: string | undefined;
       let storagePath: string | undefined;
@@ -1174,11 +1181,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       return { startDate, endDate };
     },
-    [patchEmployeeProfile, pushRosterCloud, snapshot]
+    [patchEmployeeProfile, pushRosterCloud, snapshot, actingAsDelegate]
   );
 
   const viewEmployeeOfferLetter = useCallback(async (employeeId: string) => {
-    const stored = await getOfferLetterFile(employeeId);
+    // Delegate mode is cloud-only: never read the analyst's own local cache,
+    // which cannot hold this PI's file anyway now that uploads skip it.
+    const stored = actingAsDelegate ? null : await getOfferLetterFile(employeeId, userIdRef.current);
     if (stored) {
       const url = URL.createObjectURL(stored.blob);
       window.open(url, "_blank", "noopener,noreferrer");
@@ -1191,7 +1200,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       : settings.employeeProfiles?.[employeeId]?.offerLetter;
     if (!letter) throw new Error("No offer letter on file.");
     await openOfferLetterFromCloud(letter);
-  }, [snapshot, settings]);
+  }, [snapshot, settings, actingAsDelegate]);
 
   const removeEmployeeOfferLetter = useCallback(
     async (employeeId: string) => {
@@ -1199,7 +1208,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const existing = emp
         ? resolveEmployeeProfile(settings, emp)?.offerLetter
         : settings.employeeProfiles?.[employeeId]?.offerLetter;
-      await deleteOfferLetterFile(employeeId);
+      // Delegate mode is cloud-only: nothing of the PI's should be in the
+      // analyst's own local IndexedDB to delete.
+      if (!actingAsDelegate) {
+        await deleteOfferLetterFile(employeeId, userIdRef.current);
+      }
       if (existing?.storagePath && cloudSyncRef.current) {
         await deleteEmployeeOfferLetterFile(existing.storagePath);
       }
@@ -1208,7 +1221,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
       pushRosterCloud(employeeId, { offerLetter: null });
     },
-    [patchEmployeeProfile, pushRosterCloud, snapshot, settings]
+    [patchEmployeeProfile, pushRosterCloud, snapshot, settings, actingAsDelegate]
   );
 
   const setEmployeeHidden = useCallback((employeeId: string, hidden: boolean) => {
@@ -1271,7 +1284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const result = applyUnlink(next, link.id, actingEmail, emp?.name ?? "This person");
           if (result.ok) next = result.settings;
         }
-        return pruneEmployeeFromSettings(next, employeeId);
+        return pruneEmployeeFromSettings(next, employeeId, userIdRef.current);
       });
     },
     [snapshot, settings, actingEmail]

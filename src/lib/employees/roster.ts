@@ -72,13 +72,15 @@ export function filterEmployeesForEmployeesPage(
 
 export function pruneEmployeeFromSettings(
   settings: AppSettings,
-  employeeId: string
+  employeeId: string,
+  /** Acting owner's id (null for signed-out/local) — deleting under the wrong scope is a harmless no-op, never a leak. */
+  offerLetterOwnerId: string | null
 ): AppSettings {
   const hiddenEmployeeIds = (settings.hiddenEmployeeIds ?? []).filter((id) => id !== employeeId);
   const alumniEmployeeIds = (settings.alumniEmployeeIds ?? []).filter((id) => id !== employeeId);
   const employeeProfiles = { ...(settings.employeeProfiles ?? {}) };
   delete employeeProfiles[employeeId];
-  void deleteOfferLetterFile(employeeId).catch(() => undefined);
+  void deleteOfferLetterFile(employeeId, offerLetterOwnerId).catch(() => undefined);
 
   const employeePlanningScope = { ...(settings.employeePlanningScope ?? {}) };
   delete employeePlanningScope[employeeId];

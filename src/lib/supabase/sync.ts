@@ -354,7 +354,7 @@ export async function backfillOfferLettersToCloud(
     const profile = resolveEmployeeProfile(settings, emp);
     const letter = profile?.offerLetter;
     if (!letter || letter.storagePath || letter.fileUrl) continue;
-    const stored = await getOfferLetterFile(emp.id);
+    const stored = await getOfferLetterFile(emp.id, userId);
     if (!stored) continue;
     try {
       const file = new File([stored.blob], stored.fileName, {
