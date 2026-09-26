@@ -309,6 +309,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [netPositionImports, setNetPositionImports] = useState<NetPositionReportImport[]>([]);
   const [positionSalaryImports, setPositionSalaryImports] = useState<PositionSalaryReportImport[]>([]);
   const cloudSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * The owner id that snapshot/workingPlan/settings currently in React state
+   * actually belong to, set only at the point a hydrate commits its result.
+   * The autosave effect below refuses to save unless this matches the owner
+   * implied by the current render, so a workspace switch can never have the
+   * debounced-save effect build a payload from the pre-switch owner's stale
+   * state and write it under the post-switch owner's id.
+   */
+  const dataOwnerIdRef = useRef<string | null>(null);
   const { ready: authReady, cloudSyncEnabled, user } = useAuth();
   const { activeOwner, needsWorkspacePick } = useWorkspace();
   // Every planned-personnel event names who acted — the delegate when a
@@ -393,6 +402,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         plan = migrated.workingPlan;
         setDataMigrated(migrated.migrated);
       }
+      dataOwnerIdRef.current = expectedOwnerId;
       setPayrollImports(ensurePayrollImports(snap, s.payrollImports));
       setSnapshot(snap);
       setWorkingPlan(plan);
@@ -497,6 +507,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setDataMigrated(migrated.migrated);
       }
       if (cancelled || !ownerStillCurrent()) return;
+      dataOwnerIdRef.current = expectedOwnerId;
       setNetPositionImports(workspace.netPositionImports ?? []);
       setPositionSalaryImports(workspace.positionSalaryImports ?? []);
       setPayrollImports(ensurePayrollImports(snap, workspace.payrollImports));
@@ -530,6 +541,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // persist — writing would mint empty local and cloud artifacts under
     // their account, which the analyst model says must not exist.
     if (needsWorkspacePick) return;
+    // snapshot/workingPlan/settings above are whatever the last hydrate
+    // committed them as; on a workspace switch this effect re-fires (its
+    // deps include activeOwner/actingAsDelegate) before that hydrate's async
+    // fetch resolves, while the values above still belong to the owner that
+    // was active before the switch. Saving them now would write the old
+    // owner's stale data under the new owner's id. Skip until the pending
+    // hydrate commits and re-tags dataOwnerIdRef to the current owner.
+    const ownerIdForCurrentState = actingAsDelegate && activeOwner ? activeOwner.userId : userId;
+    if (dataOwnerIdRef.current !== ownerIdForCurrentState) return;
     const savedAt = new Date().toISOString();
     const state = {
       snapshot,
@@ -569,6 +589,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loading,
     cloudSyncEnabled,
     userId,
+    activeOwner,
     actingAsDelegate,
     needsWorkspacePick,
   ]);
