@@ -243,8 +243,8 @@ export function TimelineGrid() {
 
   if (!snapshot) return null;
 
-  const sourcesForEmployee = (empId: string, revealHidden: boolean) =>
-    getTimelineFundingSources(empId, allocations, fundingSources, months, settings, {
+  const sourcesForEmployee = (emp: Employee, revealHidden: boolean) =>
+    getTimelineFundingSources(emp, allocations, fundingSources, months, settings, {
       revealHidden,
     });
 
@@ -263,7 +263,7 @@ export function TimelineGrid() {
    */
   const csvEntries: ChartstringCsvEntry[] = planningEmployees.flatMap((emp) =>
     sourcesForEmployee(
-      emp.id,
+      emp,
       showHiddenFunds || revealHiddenForEmployees.has(emp.id)
     ).map((fs) => ({
       person: emp.name,
@@ -366,7 +366,7 @@ export function TimelineGrid() {
               const isCollapsed = collapsed.has(emp.id);
               const revealHidden =
                 showHiddenFunds || revealHiddenForEmployees.has(emp.id);
-              const sources = sourcesForEmployee(emp.id, revealHidden);
+              const sources = sourcesForEmployee(emp, revealHidden);
               return (
                 <EmployeeRows
                   key={emp.id}
@@ -457,7 +457,7 @@ function EmployeeRows({
   setEmployeePlanningScope: (employeeId: string, percent: number | null) => void;
 }) {
   const coverageOpts = coverageOptionsFromSettings(emp, settings);
-  const hiddenCount = countHiddenFundsForEmployee(emp.id, settings);
+  const hiddenCount = countHiddenFundsForEmployee(emp, settings);
   const planningScope = settings.employeePlanningScope?.[emp.id];
   const revealHidden =
     showHiddenFunds || revealHiddenForEmployees.has(emp.id);
@@ -465,7 +465,7 @@ function EmployeeRows({
   const barColors = useMemo(
     () =>
       colorsForEmployeeVisibleSources(sources, (fs) =>
-        isEmployeeFundHidden(settings, emp.id, fs.id)
+        isEmployeeFundHidden(settings, emp, fs)
       ),
     [sources, settings.hiddenEmployeeFunds, emp.id]
   );
@@ -553,7 +553,7 @@ function EmployeeRows({
       </tr>
       {!isCollapsed &&
         sources.map((fs) => {
-          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const hidden = isEmployeeFundHidden(settings, emp, fs);
           const notMine = isNotMyAccountKey(
             settings,
             chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??

@@ -203,7 +203,7 @@ function AccountBlock({
    * belongs in the projection, one of its people is just filtered out of view.
    */
   const visibleContributors = contributors.filter(
-    (emp) => revealHidden || !isEmployeeFundHidden(settings, emp.id, fs.id)
+    (emp) => revealHidden || !isEmployeeFundHidden(settings, emp, fs)
   );
   const hiddenCount = contributors.length - visibleContributors.length;
   const notMine = isNotMyAccountKey(settings, rootOf(key));
@@ -331,7 +331,7 @@ function AccountBlock({
       </tr>
       {!isCollapsed &&
         visibleContributors.map((emp) => {
-          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const hidden = isEmployeeFundHidden(settings, emp, fs);
           const locked = lockedPersonKeys.has(personKeyForEmployee(emp));
           /**
            * Grouped by projected-ness and by whether the account still has

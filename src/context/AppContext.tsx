@@ -6,6 +6,8 @@ import type {
   AccountGroupDef,
   PersonnelType,
   AppSettings,
+  Employee,
+  FundingSource,
   FundingSourceTypeDef,
   ImportFileResult,
   ImportFilesResult,
@@ -37,6 +39,7 @@ import {
   accountsHiddenForEveryone,
   effectiveHiddenAccountKeys,
   hiddenFundKey,
+  migrateHiddenFundKeys,
   withoutHiddenFundsForEmployee,
 } from "@/lib/funding/visibility";
 import {
@@ -56,6 +59,8 @@ import { buildAccountBalances, type AccountBalance } from "@/lib/funding/account
 import { chartstringFundDeptProject, findAccountTitleForChartstring } from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
+  migrateRunwayBalanceOverrideKeys,
+  migrateRunwayBurnOverrideKeys,
   runwayBalanceValuesMatch,
   runwayBurnOverrideKey,
   runwayBurnValuesMatch,
@@ -273,6 +278,37 @@ const AppContext = createContext<AppContextValue | null>(null);
  * used to skip it entirely, so the same data behaved differently depending on
  * whether cloud sync happened to be on.
  */
+/**
+ * Re-key hiddenEmployeeFunds/runwayBalanceOverrides/runwayBurnOverrides from
+ * legacy per-import ids to stable identity, mirroring migrateAliasKeys/
+ * migrateCategoryKeys/rematchEmployeeProfiles. Run wherever those three run —
+ * on every load and every import/removal — so a re-import's id reassignment
+ * can never silently detach an existing hide or override.
+ */
+function migrateOverrideKeysForSnapshot(
+  settings: AppSettings,
+  snapshot: PayrollReportSnapshot | null
+): AppSettings {
+  if (!snapshot) return settings;
+  return {
+    ...settings,
+    hiddenEmployeeFunds: migrateHiddenFundKeys(
+      settings.hiddenEmployeeFunds ?? [],
+      snapshot.employees,
+      snapshot.fundingSources
+    ),
+    runwayBalanceOverrides: migrateRunwayBalanceOverrideKeys(
+      settings.runwayBalanceOverrides ?? {},
+      snapshot.employees
+    ),
+    runwayBurnOverrides: migrateRunwayBurnOverrideKeys(
+      settings.runwayBurnOverrides ?? {},
+      snapshot.employees,
+      snapshot.fundingSources
+    ),
+  };
+}
+
 function applyAssumedEndDateRules(
   settings: AppSettings,
   snapshot: PayrollReportSnapshot | null
@@ -391,6 +427,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
 
       settingsLocal = applyAssumedEndDateRules(settingsLocal, s.snapshot);
+      settingsLocal = migrateOverrideKeysForSnapshot(settingsLocal, s.snapshot);
 
       if (cancelled) return;
 
@@ -495,6 +532,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
 
       settingsLocal = applyAssumedEndDateRules(settingsLocal, workspace.snapshot);
+      settingsLocal = migrateOverrideKeysForSnapshot(settingsLocal, workspace.snapshot);
 
       settingsLocal = await syncCatalogFromCloud(settingsLocal);
 
@@ -616,14 +654,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!snapshot) return effectiveHiddenAccountKeys(settings, new Set<string>());
     const currentMonth = getCurrentMonth(snapshot);
     const currentAllocations = getAllocations(snapshot, workingPlan);
-    const pairs: { employeeId: string; fundingSourceId: string; accountKey: string }[] = [];
+    const pairs: { employee: Employee; fundingSource: FundingSource; accountKey: string }[] = [];
     for (const emp of snapshot.employees) {
       for (const fs of snapshot.fundingSources) {
         if (!isAccountActiveInMonth(emp.id, fs.id, currentMonth, snapshot, currentAllocations)) continue;
         const accountKey = normalizeAccountBalanceKey(
           chartstringFundDeptProject(fs.accountString ?? fs.rawName) ?? fs.accountString ?? fs.rawName
         );
-        pairs.push({ employeeId: emp.id, fundingSourceId: fs.id, accountKey });
+        pairs.push({ employee: emp, fundingSource: fs, accountKey });
       }
     }
     return effectiveHiddenAccountKeys(settings, accountsHiddenForEveryone(pairs, settings));
@@ -732,15 +770,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
        * them twice.
        */
       const overlaid = overlayPositionSalaryOnSnapshot(next, positionSalaryImports) ?? next;
-      const migratedSettings: AppSettings = {
-        ...settings,
-        fundingSourceAliases: migrateAliasKeys(settings.fundingSourceAliases, next.fundingSources),
-        fundingSourceCategories: migrateCategoryKeys(
-          settings.fundingSourceCategories,
-          next.fundingSources
-        ),
-        employeeProfiles: rematchEmployeeProfiles(settings.employeeProfiles, next.employees),
-      };
+      const migratedSettings: AppSettings = migrateOverrideKeysForSnapshot(
+        {
+          ...settings,
+          fundingSourceAliases: migrateAliasKeys(settings.fundingSourceAliases, next.fundingSources),
+          fundingSourceCategories: migrateCategoryKeys(
+            settings.fundingSourceCategories,
+            next.fundingSources
+          ),
+          employeeProfiles: rematchEmployeeProfiles(settings.employeeProfiles, next.employees),
+        },
+        next
+      );
       const reportFile = incomingImports[incomingImports.length - 1]?.sourceFileName ?? "";
       const rateEvents = rateSwitchEventsForImport({
         snapshot: overlaid,
@@ -784,15 +825,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       setSettings((prev) =>
         appendEvents(
-          {
-            ...prev,
-            fundingSourceAliases: migrateAliasKeys(prev.fundingSourceAliases, next.fundingSources),
-            fundingSourceCategories: migrateCategoryKeys(
-              prev.fundingSourceCategories,
-              next.fundingSources
-            ),
-            employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, next.employees),
-          },
+          migrateOverrideKeysForSnapshot(
+            {
+              ...prev,
+              fundingSourceAliases: migrateAliasKeys(prev.fundingSourceAliases, next.fundingSources),
+              fundingSourceCategories: migrateCategoryKeys(
+                prev.fundingSourceCategories,
+                next.fundingSources
+              ),
+              employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, next.employees),
+            },
+            next
+          ),
           rateEvents
         )
       );
@@ -882,15 +926,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setSettings((prev) => ({ ...prev, ...s }));
   }, []);
 
-  const toggleHiddenEmployeeFund = useCallback((employeeId: string, fundingSourceId: string) => {
-    const key = hiddenFundKey(employeeId, fundingSourceId);
-    setSettings((prev) => {
-      const hidden = new Set(prev.hiddenEmployeeFunds ?? []);
-      if (hidden.has(key)) hidden.delete(key);
-      else hidden.add(key);
-      return { ...prev, hiddenEmployeeFunds: [...hidden] };
-    });
-  }, []);
+  const toggleHiddenEmployeeFund = useCallback(
+    (employeeId: string, fundingSourceId: string) => {
+      const emp = snapshot?.employees.find((e) => e.id === employeeId);
+      const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+      const key = hiddenFundKey(
+        emp ? employeePersonKey(emp) : employeeId,
+        fs ? fundingSourceKey(fs) : fundingSourceId
+      );
+      setSettings((prev) => {
+        const hidden = new Set(prev.hiddenEmployeeFunds ?? []);
+        if (hidden.has(key)) hidden.delete(key);
+        else hidden.add(key);
+        return { ...prev, hiddenEmployeeFunds: [...hidden] };
+      });
+    },
+    [snapshot]
+  );
 
   /**
    * "Not my account" is a property of the account, so the landmark mark writes the
@@ -951,12 +1003,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
-  const unhideEmployeeFunds = useCallback((employeeId: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      hiddenEmployeeFunds: withoutHiddenFundsForEmployee(prev.hiddenEmployeeFunds ?? [], employeeId),
-    }));
-  }, []);
+  const unhideEmployeeFunds = useCallback(
+    (employeeId: string) => {
+      const emp = snapshot?.employees.find((e) => e.id === employeeId);
+      const key = emp ? employeePersonKey(emp) : employeeId;
+      setSettings((prev) => ({
+        ...prev,
+        hiddenEmployeeFunds: withoutHiddenFundsForEmployee(prev.hiddenEmployeeFunds ?? [], key),
+      }));
+    },
+    [snapshot]
+  );
 
   const unhideAllEmployeeFunds = useCallback(() => {
     setSettings((prev) => ({ ...prev, hiddenEmployeeFunds: [] }));
@@ -1284,7 +1341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const result = applyUnlink(next, link.id, actingEmail, emp?.name ?? "This person");
           if (result.ok) next = result.settings;
         }
-        return pruneEmployeeFromSettings(next, employeeId, userIdRef.current);
+        return pruneEmployeeFromSettings(next, employeeId, userIdRef.current, emp);
       });
     },
     [snapshot, settings, actingEmail]
@@ -1471,6 +1528,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           allocations: refreshed.monthlyAllocations.map((a) => ({ ...a })),
           updatedAt: new Date().toISOString(),
         });
+        // Removing an import re-folds the rest, which can reassign the
+        // internal ids of people/funds that survive — re-attach every
+        // stable-keyed setting to them here rather than waiting for the
+        // next full reload to notice.
+        setSettings((prev) =>
+          migrateOverrideKeysForSnapshot(
+            {
+              ...prev,
+              fundingSourceAliases: migrateAliasKeys(
+                prev.fundingSourceAliases,
+                refreshed.fundingSources
+              ),
+              fundingSourceCategories: migrateCategoryKeys(
+                prev.fundingSourceCategories,
+                refreshed.fundingSources
+              ),
+              employeeProfiles: rematchEmployeeProfiles(prev.employeeProfiles, refreshed.employees),
+            },
+            refreshed
+          )
+        );
       } else {
         setSnapshot(null);
         setWorkingPlan(null);
@@ -1592,7 +1670,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setRunwayBalanceOverride = useCallback(
     (employeeId: string, chartstring: string, balance: number | null) => {
-      const key = runwayOverrideKey(employeeId, chartstring);
+      const emp = snapshot?.employees.find((e) => e.id === employeeId);
+      const key = runwayOverrideKey(emp ? employeePersonKey(emp) : employeeId, chartstring);
       setSettings((prev) => {
         const overrides = { ...(prev.runwayBalanceOverrides ?? {}) };
         if (balance === null || Number.isNaN(balance)) {
@@ -1612,7 +1691,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { ...prev, runwayBalanceOverrides: overrides };
       });
     },
-    [accountBalances]
+    [accountBalances, snapshot]
   );
 
   const setRunwayBurnOverride = useCallback(
@@ -1622,10 +1701,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       percentEffort: number,
       monthlyBurn: number
     ) => {
-      const key = runwayBurnOverrideKey(employeeId, fundingSourceId);
       setSettings((prev) => {
         const overrides = { ...(prev.runwayBurnOverrides ?? {}) };
         if (!snapshot) return prev;
+
+        const emp = snapshot.employees.find((e) => e.id === employeeId);
+        const fs = snapshot.fundingSources.find((f) => f.id === fundingSourceId);
+        const key = runwayBurnOverrideKey(
+          emp ? employeePersonKey(emp) : employeeId,
+          fs ? fundingSourceKey(fs) : fundingSourceId
+        );
 
         const defaults = computePayrollBurnDefaults(
           employeeId,
@@ -1646,14 +1731,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [snapshot, workingPlan]
   );
 
-  const clearRunwayBurnOverride = useCallback((employeeId: string, fundingSourceId: string) => {
-    const key = runwayBurnOverrideKey(employeeId, fundingSourceId);
-    setSettings((prev) => {
-      const overrides = { ...(prev.runwayBurnOverrides ?? {}) };
-      delete overrides[key];
-      return { ...prev, runwayBurnOverrides: overrides };
-    });
-  }, []);
+  const clearRunwayBurnOverride = useCallback(
+    (employeeId: string, fundingSourceId: string) => {
+      const emp = snapshot?.employees.find((e) => e.id === employeeId);
+      const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+      const key = runwayBurnOverrideKey(
+        emp ? employeePersonKey(emp) : employeeId,
+        fs ? fundingSourceKey(fs) : fundingSourceId
+      );
+      setSettings((prev) => {
+        const overrides = { ...(prev.runwayBurnOverrides ?? {}) };
+        delete overrides[key];
+        return { ...prev, runwayBurnOverrides: overrides };
+      });
+    },
+    [snapshot]
+  );
 
   const addPlannedHire = useCallback(
     (plan: PlannedHire, rules: ProjectionRule[]) => {

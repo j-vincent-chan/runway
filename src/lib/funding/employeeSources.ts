@@ -1,7 +1,9 @@
-import type { FundingSource, MonthlyAllocation, PayrollReportSnapshot } from "@/types";
+import type { Employee, FundingSource, MonthlyAllocation, PayrollReportSnapshot } from "@/types";
 import type { AppSettings } from "@/types";
 import { calculateMonthlyCost, getCurrentMonth } from "@/lib/calculations";
 import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import { employeePersonKey } from "@/lib/employees/stableKey";
+import { fundingSourceKey } from "@/lib/funding/sourceKey";
 import { hasPercentEffort } from "@/lib/utils/parse";
 
 /**
@@ -9,13 +11,14 @@ import { hasPercentEffort } from "@/lib/utils/parse";
  * Includes accounts with non-zero effort (including reversals) in a visible month.
  */
 export function getTimelineFundingSources(
-  employeeId: string,
+  employee: Employee,
   allocations: MonthlyAllocation[],
   fundingSources: FundingSource[],
   visibleMonths: string[],
   settings: AppSettings,
   options: { revealHidden: boolean }
 ): FundingSource[] {
+  const employeeId = employee.id;
   const monthSet = new Set(visibleMonths);
   const fsMap = new Map(fundingSources.map((f) => [f.id, f]));
   const sourceIds = new Set<string>();
@@ -27,16 +30,23 @@ export function getTimelineFundingSources(
   }
 
   if (options.revealHidden) {
+    const employeeKey = employeePersonKey(employee);
+    const fundKeyToId = new Map(fundingSources.map((f) => [fundingSourceKey(f), f.id]));
     for (const key of settings.hiddenEmployeeFunds ?? []) {
-      const [eid, fsid] = key.split("|");
-      if (eid === employeeId && fsid) sourceIds.add(fsid);
+      const sep = key.indexOf("|");
+      if (sep === -1) continue;
+      const eKey = key.slice(0, sep);
+      const fKey = key.slice(sep + 1);
+      if (eKey !== employeeKey) continue;
+      const fsid = fundKeyToId.get(fKey);
+      if (fsid) sourceIds.add(fsid);
     }
   }
 
   return [...sourceIds]
     .map((id) => fsMap.get(id))
     .filter((f): f is FundingSource => !!f)
-    .filter((f) => !isEmployeeFundHidden(settings, employeeId, f.id) || options.revealHidden)
+    .filter((f) => !isEmployeeFundHidden(settings, employee, f) || options.revealHidden)
     .sort((a, b) => a.alias.localeCompare(b.alias));
 }
 
@@ -75,13 +85,14 @@ export function isAccountActiveInMonth(
 
 /** Runway rows: active in current month only; same hide/reveal rules as timeline. */
 export function getRunwayFundingSources(
-  employeeId: string,
+  employee: Employee,
   allocations: MonthlyAllocation[],
   fundingSources: FundingSource[],
   snapshot: PayrollReportSnapshot,
   settings: AppSettings,
   options: { revealHidden: boolean }
 ): FundingSource[] {
+  const employeeId = employee.id;
   const currentMonth = getCurrentMonth(snapshot);
   const fsMap = new Map(fundingSources.map((f) => [f.id, f]));
   const sourceIds = new Set<string>();
@@ -93,9 +104,16 @@ export function getRunwayFundingSources(
   }
 
   if (options.revealHidden) {
+    const employeeKey = employeePersonKey(employee);
+    const fundKeyToId = new Map(fundingSources.map((f) => [fundingSourceKey(f), f.id]));
     for (const key of settings.hiddenEmployeeFunds ?? []) {
-      const [eid, fsid] = key.split("|");
-      if (eid === employeeId && fsid && isAccountActiveInMonth(eid, fsid, currentMonth, snapshot, allocations)) {
+      const sep = key.indexOf("|");
+      if (sep === -1) continue;
+      const eKey = key.slice(0, sep);
+      const fKey = key.slice(sep + 1);
+      if (eKey !== employeeKey) continue;
+      const fsid = fundKeyToId.get(fKey);
+      if (fsid && isAccountActiveInMonth(employeeId, fsid, currentMonth, snapshot, allocations)) {
         sourceIds.add(fsid);
       }
     }
@@ -104,6 +122,6 @@ export function getRunwayFundingSources(
   return [...sourceIds]
     .map((id) => fsMap.get(id))
     .filter((f): f is FundingSource => !!f)
-    .filter((f) => !isEmployeeFundHidden(settings, employeeId, f.id) || options.revealHidden)
+    .filter((f) => !isEmployeeFundHidden(settings, employee, f) || options.revealHidden)
     .sort((a, b) => a.alias.localeCompare(b.alias));
 }

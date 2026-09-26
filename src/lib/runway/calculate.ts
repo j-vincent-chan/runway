@@ -18,6 +18,8 @@ import {
 } from "@/lib/funding/chartstring";
 import { getRunwayFundingSources, isAccountActiveInMonth } from "@/lib/funding/employeeSources";
 import { isEmployeeFundHidden } from "@/lib/funding/visibility";
+import { employeePersonKey } from "@/lib/employees/stableKey";
+import { fundingSourceKey } from "@/lib/funding/sourceKey";
 import { isNotMyAccountKey } from "@/lib/net-position/accountGroup";
 import {
   estimateBalanceFromAssumedEnd,
@@ -93,8 +95,8 @@ export function buildSharedAccountBurnIndex(
       const root =
         chartstringFundDeptProject(chartstring) ?? normalizeChartstring(chartstring);
       const burn = resolveBurnAndPercent(
-        emp.id,
-        fs.id,
+        emp,
+        fs,
         snapshot,
         allocations,
         burnMonths,
@@ -153,6 +155,66 @@ export function runwayOverrideKey(employeeId: string, chartstring: string): stri
 
 export function runwayBurnOverrideKey(employeeId: string, fundingSourceId: string): string {
   return `${employeeId}|${fundingSourceId}`;
+}
+
+/**
+ * Re-key runwayBalanceOverrides from legacy per-import employee ids to
+ * stable keys — mirrors migrateAliasKeys (src/lib/funding/sourceKey.ts). The
+ * chartstring half is already a stable natural string, so only the employee
+ * half needs resolving; splitting on the first "|" is safe since
+ * employeePersonKey output never contains one.
+ */
+export function migrateRunwayBalanceOverrideKeys(
+  overrides: Record<string, number>,
+  employees: Employee[]
+): Record<string, number> {
+  const idToEmployee = new Map(employees.map((e) => [e.id, e]));
+  const result: Record<string, number> = {};
+
+  for (const [key, value] of Object.entries(overrides)) {
+    const sep = key.indexOf("|");
+    if (sep === -1) {
+      result[key] = value;
+      continue;
+    }
+    const empPart = key.slice(0, sep);
+    const chartstringPart = key.slice(sep + 1);
+    const emp = idToEmployee.get(empPart);
+    const stableEmp = emp ? employeePersonKey(emp) : empPart;
+    const stableKey = runwayOverrideKey(stableEmp, chartstringPart);
+    if (!(stableKey in result)) result[stableKey] = value;
+  }
+
+  return result;
+}
+
+/** Same idea as migrateRunwayBalanceOverrideKeys, but both halves are re-keyed. */
+export function migrateRunwayBurnOverrideKeys(
+  overrides: Record<string, { percentEffort: number; monthlyBurn: number }>,
+  employees: Employee[],
+  fundingSources: FundingSource[]
+): Record<string, { percentEffort: number; monthlyBurn: number }> {
+  const idToEmployee = new Map(employees.map((e) => [e.id, e]));
+  const idToSource = new Map(fundingSources.map((f) => [f.id, f]));
+  const result: Record<string, { percentEffort: number; monthlyBurn: number }> = {};
+
+  for (const [key, value] of Object.entries(overrides)) {
+    const sep = key.indexOf("|");
+    if (sep === -1) {
+      result[key] = value;
+      continue;
+    }
+    const empPart = key.slice(0, sep);
+    const fundPart = key.slice(sep + 1);
+    const emp = idToEmployee.get(empPart);
+    const fs = idToSource.get(fundPart);
+    const stableEmp = emp ? employeePersonKey(emp) : empPart;
+    const stableFund = fs ? fundingSourceKey(fs) : fundPart;
+    const stableKey = runwayBurnOverrideKey(stableEmp, stableFund);
+    if (!(stableKey in result)) result[stableKey] = value;
+  }
+
+  return result;
 }
 
 /** True when values match after typical UI rounding (whole dollars, 0.1% effort). */
@@ -253,23 +315,27 @@ export function computePayrollBurnDefaults(
 }
 
 function resolveBurnAndPercent(
-  employeeId: string,
-  fundingSourceId: string,
+  employee: Employee,
+  fundingSource: FundingSource,
   snapshot: PayrollReportSnapshot,
   allocations: MonthlyAllocation[],
   visibleMonths: string[],
   overrides: AppSettings["runwayBurnOverrides"]
 ): Pick<RunwayAccountLine, "percentEffort" | "monthlyBurn" | "monthlyCompensation" | "burnIsOverride"> {
   const defaults = computePayrollBurnDefaults(
-    employeeId,
-    fundingSourceId,
+    employee.id,
+    fundingSource.id,
     snapshot,
     allocations,
     visibleMonths
   );
   const { monthlyCompensation } = defaults;
 
-  const override = overrides?.[runwayBurnOverrideKey(employeeId, fundingSourceId)];
+  // Keyed by stable identity, not the raw per-parse ids above — those are
+  // reassigned across re-imports, which would otherwise silently drop an
+  // existing override.
+  const override =
+    overrides?.[runwayBurnOverrideKey(employeePersonKey(employee), fundingSourceKey(fundingSource))];
   if (override) {
     if (runwayBurnValuesMatch(override, defaults)) {
       return { ...defaults, burnIsOverride: false };
@@ -367,7 +433,7 @@ function averageMonthlyBurn(
 }
 
 function resolveBalance(
-  employeeId: string,
+  employee: Employee,
   chartstring: string,
   balances: Map<string, AccountBalance>,
   overrides: AppSettings["runwayBalanceOverrides"]
@@ -378,7 +444,9 @@ function resolveBalance(
   }
   const match = findBalanceForChartstring(chartstring, balanceByKey);
 
-  const overrideKey = runwayOverrideKey(employeeId, chartstring);
+  // Keyed by stable identity (chartstring is already stable on its own; the
+  // employee half is not — see resolveBurnAndPercent above).
+  const overrideKey = runwayOverrideKey(employeePersonKey(employee), chartstring);
   const manual = overrides?.[overrideKey];
   if (manual !== undefined && manual !== null && !Number.isNaN(manual)) {
     if (match !== undefined && runwayBalanceValuesMatch(manual, match.balance)) {
@@ -440,7 +508,7 @@ export function computeEmployeeRunway(
    */
   const estimateOrigin = options.estimateOriginMonth ?? getProjectionOriginMonth();
   const activeSources = getRunwayFundingSources(
-    employee.id,
+    employee,
     allocations,
     fundingSources,
     snapshot,
@@ -448,18 +516,25 @@ export function computeEmployeeRunway(
     { revealHidden: options.revealHidden }
   );
 
+  const employeeKey = employeePersonKey(employee);
+  const fundKeyToId = new Map(fundingSources.map((f) => [fundingSourceKey(f), f.id]));
   const hiddenAccountCount = (settings.hiddenEmployeeFunds ?? []).filter((key) => {
-    const [eid, fsid] = key.split("|");
-    if (eid !== employee.id || !fsid) return false;
+    const sep = key.indexOf("|");
+    if (sep === -1) return false;
+    const eKey = key.slice(0, sep);
+    const fKey = key.slice(sep + 1);
+    if (eKey !== employeeKey) return false;
+    const fsid = fundKeyToId.get(fKey);
+    if (!fsid) return false;
     return isAccountActiveInMonth(employee.id, fsid, currentMonth, snapshot, allocations);
   }).length;
   const burnMonths = [currentMonth];
   const accounts: RunwayAccountLine[] = activeSources.map((fs) => {
     const chartstring = fs.accountString ?? fs.rawName;
-    const bal = resolveBalance(employee.id, chartstring, balances, settings.runwayBalanceOverrides);
+    const bal = resolveBalance(employee, chartstring, balances, settings.runwayBalanceOverrides);
     const burn = resolveBurnAndPercent(
-      employee.id,
-      fs.id,
+      employee,
+      fs,
       snapshot,
       allocations,
       burnMonths,
@@ -506,7 +581,7 @@ export function computeEmployeeRunway(
       monthlyCompensation: burn.monthlyCompensation,
       burnIsOverride: burn.burnIsOverride,
       monthsRunway: monthsRunway === null ? null : monthsRunway,
-      isHidden: isEmployeeFundHidden(settings, employee.id, fs.id),
+      isHidden: isEmployeeFundHidden(settings, employee, fs),
       isAssumedOk,
       assumedEndDate,
     };

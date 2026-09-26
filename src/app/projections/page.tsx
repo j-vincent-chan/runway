@@ -212,14 +212,14 @@ export default function ProjectionsPage() {
         const reveal = showHiddenFunds || revealHidden.has(emp.id);
         return result.sources
           .filter((fs) => keys.has(chartstringKeyForFundingSource(fs)))
-          .filter((fs) => reveal || !isEmployeeFundHidden(settings, emp.id, fs.id))
+          .filter((fs) => reveal || !isEmployeeFundHidden(settings, emp, fs))
           .map((fs) => entry(emp, fs));
       });
     }
     return result.sources.flatMap((fs) => {
       const reveal = showHiddenFunds || revealHidden.has(fs.id);
       return contributorsForSource(result, chartstringKeyForFundingSource(fs), people)
-        .filter((emp) => reveal || !isEmployeeFundHidden(settings, emp.id, fs.id))
+        .filter((emp) => reveal || !isEmployeeFundHidden(settings, emp, fs))
         .map((emp) => entry(emp, fs));
     });
   }, [

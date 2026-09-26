@@ -5,6 +5,8 @@ import {
 } from "@/lib/runway/calculate";
 import { defaultAssumedEndDate, monthsUntilAssumedEnd } from "@/lib/runway/assumedEndDate";
 import { hiddenFundKey } from "@/lib/funding/visibility";
+import { employeePersonKey } from "@/lib/employees/stableKey";
+import { fundingSourceKey } from "@/lib/funding/sourceKey";
 import { NOT_MY_ACCOUNTS_GROUP_ID } from "@/lib/catalog/defaults";
 import { DEFAULT_SETTINGS } from "@/types";
 import type {
@@ -71,7 +73,7 @@ function runFor(settings: AppSettings, estimateOriginMonth = TODAY) {
 
 describe("an account marked not-my-account", () => {
   /** Hiding is still per person and fund; the not-mine mark is per account. */
-  const key = hiddenFundKey("e1", "f1");
+  const key = hiddenFundKey(employeePersonKey(emp()), fundingSourceKey(fs()));
   const ACCOUNT_KEY = "7000-1-7030720";
   const markedNotMine = (endDate: string) => ({
     accountGroupByBalanceKey: { [ACCOUNT_KEY]: NOT_MY_ACCOUNTS_GROUP_ID },

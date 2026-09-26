@@ -74,7 +74,14 @@ export function pruneEmployeeFromSettings(
   settings: AppSettings,
   employeeId: string,
   /** Acting owner's id (null for signed-out/local) — deleting under the wrong scope is a harmless no-op, never a leak. */
-  offerLetterOwnerId: string | null
+  offerLetterOwnerId: string | null,
+  /**
+   * The employee being removed, when available. hiddenEmployeeFunds/
+   * runwayBalanceOverrides/runwayBurnOverrides are keyed by stable identity
+   * (employeePersonKey), not the raw id, so pruning them needs the object —
+   * falls back to employeeId if the employee can't be found.
+   */
+  employee?: Pick<Employee, "id" | "employeeId" | "name">
 ): AppSettings {
   const hiddenEmployeeIds = (settings.hiddenEmployeeIds ?? []).filter((id) => id !== employeeId);
   const alumniEmployeeIds = (settings.alumniEmployeeIds ?? []).filter((id) => id !== employeeId);
@@ -88,19 +95,21 @@ export function pruneEmployeeFromSettings(
   const employeePersonnelTypes = { ...(settings.employeePersonnelTypes ?? {}) };
   delete employeePersonnelTypes[employeeId];
 
+  const employeeKey = employee ? employeePersonKey(employee) : employeeId;
+
   const hiddenEmployeeFunds = withoutHiddenFundsForEmployee(
     settings.hiddenEmployeeFunds ?? [],
-    employeeId
+    employeeKey
   );
 
   const runwayBalanceOverrides = { ...(settings.runwayBalanceOverrides ?? {}) };
   for (const key of Object.keys(runwayBalanceOverrides)) {
-    if (key.startsWith(`${employeeId}|`)) delete runwayBalanceOverrides[key];
+    if (key.startsWith(`${employeeKey}|`)) delete runwayBalanceOverrides[key];
   }
 
   const runwayBurnOverrides = { ...(settings.runwayBurnOverrides ?? {}) };
   for (const key of Object.keys(runwayBurnOverrides)) {
-    if (key.startsWith(`${employeeId}|`)) delete runwayBurnOverrides[key];
+    if (key.startsWith(`${employeeKey}|`)) delete runwayBurnOverrides[key];
   }
 
   return {

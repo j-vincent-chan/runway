@@ -377,15 +377,15 @@ function EmployeeBlock({
    * view concern on every page that offers it.
    */
   const visibleSources = sources.filter(
-    (fs) => revealHidden || !isEmployeeFundHidden(settings, emp.id, fs.id)
+    (fs) => revealHidden || !isEmployeeFundHidden(settings, emp, fs)
   );
-  const hiddenCount = countHiddenFundsForEmployee(emp.id, settings);
+  const hiddenCount = countHiddenFundsForEmployee(emp, settings);
   const barColors = useMemo(
     () =>
       colorsForEmployeeVisibleSources(sources, (fs) =>
-        isEmployeeFundHidden(settings, emp.id, fs.id)
+        isEmployeeFundHidden(settings, emp, fs)
       ),
-    [sources, settings, emp.id]
+    [sources, settings, emp]
   );
 
   return (
@@ -600,7 +600,7 @@ function EmployeeBlock({
       {!isCollapsed &&
         visibleSources.map((fs) => {
           const key = chartstringKeyForFundingSource(fs);
-          const hidden = isEmployeeFundHidden(settings, emp.id, fs.id);
+          const hidden = isEmployeeFundHidden(settings, emp, fs);
           const notMine = isNotMyAccountKey(
             settings,
             chartstringFundDeptProject(fs.accountString ?? fs.rawName) ??
