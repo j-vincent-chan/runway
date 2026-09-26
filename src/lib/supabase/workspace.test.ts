@@ -6,6 +6,7 @@ import {
   cloudWorkspaceToStored,
   pickWorkspace,
   toCloudWorkspacePayload,
+  workspaceHasCustomSettings,
   type CloudWorkspacePayload,
 } from "@/lib/supabase/workspace";
 
@@ -71,6 +72,72 @@ describe("pickWorkspace", () => {
       })
     );
     expect(picked.snapshot?.id).toBe("local");
+  });
+
+  it("never discards local-only settings just because local has no snapshot", () => {
+    // Regression: cloudHas && !localHas used to return cloudState wholesale,
+    // dropping any local-only settings unconditionally.
+    const picked = pickWorkspace(
+      local({ settings: { ...DEFAULT_SETTINGS, hiddenEmployeeIds: ["e1"] } }),
+      cloud({ snapshot: { id: "cloud" } as CloudWorkspacePayload["snapshot"] })
+    );
+    expect(picked.snapshot?.id).toBe("cloud");
+    expect(picked.settings.hiddenEmployeeIds).toEqual(["e1"]);
+  });
+
+  it("never discards cloud-only settings just because cloud has no snapshot", () => {
+    const picked = pickWorkspace(
+      local({
+        snapshot: { id: "local" } as StoredAppState["snapshot"],
+        savedAt: "2026-08-01T00:00:00.000Z",
+      }),
+      cloud({ settings: { ...DEFAULT_SETTINGS, alumniEmployeeIds: ["e2"] } })
+    );
+    expect(picked.snapshot?.id).toBe("local");
+    expect(picked.settings.alumniEmployeeIds).toEqual(["e2"]);
+  });
+
+  it("prefers the winning side's own value over the loser's when both have it", () => {
+    const picked = pickWorkspace(
+      local({ settings: { ...DEFAULT_SETTINGS, hiddenEmployeeIds: ["local-e"] } }),
+      cloud({
+        snapshot: { id: "cloud" } as CloudWorkspacePayload["snapshot"],
+        settings: { ...DEFAULT_SETTINGS, hiddenEmployeeIds: ["cloud-e"] },
+      })
+    );
+    expect(picked.settings.hiddenEmployeeIds).toEqual(["cloud-e"]);
+  });
+});
+
+describe("workspaceHasCustomSettings", () => {
+  it("is false for untouched defaults", () => {
+    expect(workspaceHasCustomSettings(DEFAULT_SETTINGS)).toBe(false);
+  });
+
+  it("is true when any tracked field is non-empty", () => {
+    expect(
+      workspaceHasCustomSettings({ ...DEFAULT_SETTINGS, hiddenEmployeeFunds: ["a|b"] })
+    ).toBe(true);
+    expect(
+      workspaceHasCustomSettings({ ...DEFAULT_SETTINGS, runwayBalanceOverrides: { "a|b": 1 } })
+    ).toBe(true);
+    expect(workspaceHasCustomSettings({ ...DEFAULT_SETTINGS, orgStructure: { branches: [] } })).toBe(
+      true
+    );
+  });
+
+  it("ignores catalog arrays, which are always seeded non-empty on a fresh state", () => {
+    // ensureCatalogDefaults populates these on every load regardless of user
+    // action, so their presence alone must never count as "customized" —
+    // otherwise every fresh workspace would look customized.
+    expect(
+      workspaceHasCustomSettings({
+        ...DEFAULT_SETTINGS,
+        personnelGroups: [{ id: "postdoc", label: "Postdoc" } as never],
+        fundingSourceTypes: [{ id: "grant", label: "Grant" } as never],
+        accountGroups: [{ id: "core", label: "Core" } as never],
+      })
+    ).toBe(false);
   });
 });
 

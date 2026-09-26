@@ -122,13 +122,11 @@ import {
 } from "@/lib/supabase/catalog";
 import { normalizeAccountBalanceKey } from "@/lib/net-position/accountBalancesView";
 import {
-  claimLegacyCloudWorkspace,
   fetchCloudWorkspace,
   pickWorkspace,
   saveCloudWorkspace,
   workspaceHasPlanningData,
 } from "@/lib/supabase/workspace";
-import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
 import {
   getActiveWorkspaceOverride,
   setActiveWorkspaceOverride,
@@ -459,14 +457,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      let cloud = await fetchCloudWorkspace();
-      if (
-        !actingAsDelegate &&
-        !workspaceHasPlanningData(cloud ?? {}) &&
-        isLabOwnerEmail(ownerEmail)
-      ) {
-        cloud = (await claimLegacyCloudWorkspace(ownerEmail)) ?? cloud;
-      }
+      const cloud = await fetchCloudWorkspace();
 
       const [remoteAliases, remoteRoster] = await Promise.all([
         fetchRemoteAliases(),

@@ -10,6 +10,7 @@ import type {
 import { DEFAULT_SETTINGS } from "@/types";
 import { ensureCatalogDefaults } from "@/lib/supabase/catalog";
 import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
+import { workspaceHasCustomSettings } from "@/lib/supabase/workspace";
 
 const BASE_KEY = "payroll-funding-planner";
 const DB_NAME = "runway-workspace";
@@ -317,7 +318,12 @@ export async function loadStateForAccount(
   if (!userId) return loadStateAsync(null);
 
   const own = await loadStateAsync(userId);
-  if (hasPlanningData(own) || !isLabOwnerEmail(email)) {
+  // A snapshot-less slot can still hold real settings customization (hidden
+  // funds, overrides, planned hires, the org chart, ...) — orphan recovery
+  // below replaces the whole slot, so it must never fire just because the
+  // snapshot happens to be empty, or it would silently overwrite that with
+  // whatever the richest orphan slot has.
+  if (hasPlanningData(own) || workspaceHasCustomSettings(own.settings) || !isLabOwnerEmail(email)) {
     return own;
   }
 

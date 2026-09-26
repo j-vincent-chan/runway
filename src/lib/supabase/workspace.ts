@@ -9,18 +9,12 @@ import type {
   Scenario,
   WorkingPlan,
 } from "@/types";
-import { getCurrentUserId } from "@/lib/supabase/authUser";
 import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
 import { getSupabase } from "@/lib/supabase/client";
 import { ensureCatalogDefaults } from "@/lib/supabase/catalog";
 import { ensurePayrollImports } from "@/lib/import/foldPayrollImports";
-import { isLabOwnerEmail } from "@/lib/supabase/labOwner";
 
 export const WORKSPACE_STORAGE_BUCKET = "app-workspace";
-/** Pre-auth shared lab files — claimed once by the lab owner account. */
-export const LEGACY_WORKSPACE_STORAGE_PATHS = ["default.json", "workspace.json"] as const;
-/** @deprecated use LEGACY_WORKSPACE_STORAGE_PATHS */
-export const LEGACY_WORKSPACE_STORAGE_PATH = LEGACY_WORKSPACE_STORAGE_PATHS[0];
 
 export function workspaceStoragePath(userId: string): string {
   return `${userId}/workspace.json`;
@@ -53,6 +47,113 @@ export function workspaceHasPlanningData(state: {
       (state.netPositionImports && state.netPositionImports.length > 0) ||
       (state.positionSalaryImports && state.positionSalaryImports.length > 0)
   );
+}
+
+function isEmptyArray<T>(value: T[] | undefined): boolean {
+  return !value || value.length === 0;
+}
+
+function isEmptyRecord(value: Record<string, unknown> | undefined): boolean {
+  return !value || Object.keys(value).length === 0;
+}
+
+/**
+ * True when any user-authored setting beyond the payroll snapshot itself has
+ * been customized — hidden funds/accounts/people, category assignments,
+ * overrides, planned hires, projection rules, the org chart.
+ * workspaceHasPlanningData only looks at the snapshot/imports, so a side with
+ * no snapshot but real settings customization must not be treated as empty.
+ *
+ * Deliberately excludes personnelGroups/fundingSourceTypes/accountGroups:
+ * ensureCatalogDefaults seeds those with non-empty defaults on every fresh
+ * state, so their mere presence says nothing about customization — they are
+ * independently synced via catalog.ts, off Supabase directly, not this blob.
+ */
+export function workspaceHasCustomSettings(settings: AppSettings): boolean {
+  return (
+    !isEmptyArray(settings.hiddenEmployeeFunds) ||
+    !isEmptyRecord(settings.runwayBalanceOverrides) ||
+    !isEmptyRecord(settings.runwayBurnOverrides) ||
+    !isEmptyRecord(settings.accountGroupByBalanceKey) ||
+    !isEmptyRecord(settings.fundingSourceCategories) ||
+    !isEmptyRecord(settings.fundingSourceAliases) ||
+    !isEmptyRecord(settings.employeeProfiles) ||
+    !isEmptyArray(settings.hiddenEmployeeIds) ||
+    !isEmptyArray(settings.alumniEmployeeIds) ||
+    !isEmptyRecord(settings.employeePlanningScope) ||
+    !isEmptyRecord(settings.employeePersonnelTypes) ||
+    !isEmptyArray(settings.projectionRules) ||
+    !isEmptyArray(settings.plannedFundingSources) ||
+    !isEmptyArray(settings.plannedHires) ||
+    !isEmptyArray(settings.personLinks) ||
+    !isEmptyArray(settings.reconciliationChoices) ||
+    Boolean(settings.orgStructure)
+  );
+}
+
+/**
+ * Field-by-field merge: winner's settings, filled in from the loser wherever
+ * the winner is empty and the loser is not. Mirrors mergeRemoteSettings'
+ * philosophy for aliases/roster ("a filled field wins, an empty field keeps
+ * the other side") so picking a workspace can never silently drop settings
+ * the losing side had.
+ */
+export function mergeSettingsPreferringWinner(
+  winner: AppSettings,
+  loser: AppSettings
+): AppSettings {
+  return {
+    ...winner,
+    hiddenEmployeeFunds: isEmptyArray(winner.hiddenEmployeeFunds)
+      ? (loser.hiddenEmployeeFunds ?? winner.hiddenEmployeeFunds)
+      : winner.hiddenEmployeeFunds,
+    runwayBalanceOverrides: isEmptyRecord(winner.runwayBalanceOverrides)
+      ? (loser.runwayBalanceOverrides ?? winner.runwayBalanceOverrides)
+      : winner.runwayBalanceOverrides,
+    runwayBurnOverrides: isEmptyRecord(winner.runwayBurnOverrides)
+      ? (loser.runwayBurnOverrides ?? winner.runwayBurnOverrides)
+      : winner.runwayBurnOverrides,
+    accountGroupByBalanceKey: isEmptyRecord(winner.accountGroupByBalanceKey)
+      ? (loser.accountGroupByBalanceKey ?? winner.accountGroupByBalanceKey)
+      : winner.accountGroupByBalanceKey,
+    fundingSourceCategories: isEmptyRecord(winner.fundingSourceCategories)
+      ? (loser.fundingSourceCategories ?? winner.fundingSourceCategories)
+      : winner.fundingSourceCategories,
+    fundingSourceAliases: isEmptyRecord(winner.fundingSourceAliases)
+      ? (loser.fundingSourceAliases ?? winner.fundingSourceAliases)
+      : winner.fundingSourceAliases,
+    employeeProfiles: isEmptyRecord(winner.employeeProfiles)
+      ? (loser.employeeProfiles ?? winner.employeeProfiles)
+      : winner.employeeProfiles,
+    hiddenEmployeeIds: isEmptyArray(winner.hiddenEmployeeIds)
+      ? (loser.hiddenEmployeeIds ?? winner.hiddenEmployeeIds)
+      : winner.hiddenEmployeeIds,
+    alumniEmployeeIds: isEmptyArray(winner.alumniEmployeeIds)
+      ? (loser.alumniEmployeeIds ?? winner.alumniEmployeeIds)
+      : winner.alumniEmployeeIds,
+    employeePlanningScope: isEmptyRecord(winner.employeePlanningScope)
+      ? (loser.employeePlanningScope ?? winner.employeePlanningScope)
+      : winner.employeePlanningScope,
+    employeePersonnelTypes: isEmptyRecord(winner.employeePersonnelTypes)
+      ? (loser.employeePersonnelTypes ?? winner.employeePersonnelTypes)
+      : winner.employeePersonnelTypes,
+    projectionRules: isEmptyArray(winner.projectionRules)
+      ? (loser.projectionRules ?? winner.projectionRules)
+      : winner.projectionRules,
+    plannedFundingSources: isEmptyArray(winner.plannedFundingSources)
+      ? (loser.plannedFundingSources ?? winner.plannedFundingSources)
+      : winner.plannedFundingSources,
+    plannedHires: isEmptyArray(winner.plannedHires)
+      ? (loser.plannedHires ?? winner.plannedHires)
+      : winner.plannedHires,
+    personLinks: isEmptyArray(winner.personLinks)
+      ? (loser.personLinks ?? winner.personLinks)
+      : winner.personLinks,
+    reconciliationChoices: isEmptyArray(winner.reconciliationChoices)
+      ? (loser.reconciliationChoices ?? winner.reconciliationChoices)
+      : winner.reconciliationChoices,
+    orgStructure: winner.orgStructure ?? loser.orgStructure,
+  };
 }
 
 export function toCloudWorkspacePayload(
@@ -100,12 +201,24 @@ export function pickWorkspace(
   const cloudState = cloudWorkspaceToStored(cloud);
   const localHas = workspaceHasPlanningData(local);
   const cloudHas = workspaceHasPlanningData(cloud);
-  if (cloudHas && !localHas) return cloudState;
-  if (!cloudHas) return local;
-  const localAt = local.savedAt ?? "";
-  const cloudAt = cloud.updatedAt ?? "";
-  if (!localAt || cloudAt >= localAt) return cloudState;
-  return local;
+
+  let winner: StoredAppState;
+  if (cloudHas && !localHas) {
+    winner = cloudState;
+  } else if (!cloudHas) {
+    winner = local;
+  } else {
+    const localAt = local.savedAt ?? "";
+    const cloudAt = cloud.updatedAt ?? "";
+    winner = !localAt || cloudAt >= localAt ? cloudState : local;
+  }
+
+  // The side that lost on snapshot/imports may still hold real settings
+  // customization the winner lacks (most often: it has no snapshot at all,
+  // which used to mean it was discarded wholesale regardless of what
+  // settings it carried).
+  const loser = winner === cloudState ? local : cloudState;
+  return { ...winner, settings: mergeSettingsPreferringWinner(winner.settings, loser.settings) };
 }
 
 function isCloudWorkspacePayload(value: unknown): value is CloudWorkspacePayload {
@@ -190,94 +303,6 @@ export async function fetchCloudWorkspace(): Promise<CloudWorkspacePayload | nul
   }
 
   return parseWorkspaceBlob(data);
-}
-
-/**
- * Lab owner only: copy a root-level legacy workspace file into `{userId}/workspace.json`.
- * Tries `default.json` then root `workspace.json` (common when Storage UI shows only that file).
- * Requires schema RLS that allows the owner email to read/delete those root objects.
- */
-export async function claimLegacyCloudWorkspace(
-  email: string | null | undefined
-): Promise<CloudWorkspacePayload | null> {
-  if (!isLabOwnerEmail(email)) return null;
-
-  const supabase = getSupabase();
-  const userId = await getCurrentUserId();
-  if (!supabase || !userId) return null;
-
-  const existing = await fetchCloudWorkspace();
-  if (existing && workspaceHasPlanningData(existing)) return existing;
-
-  let legacy: CloudWorkspacePayload | null = null;
-  let claimedFrom: string | null = null;
-
-  for (const path of LEGACY_WORKSPACE_STORAGE_PATHS) {
-    const { data, error } = await supabase.storage
-      .from(WORKSPACE_STORAGE_BUCKET)
-      .download(path);
-
-    if (error || !data) {
-      console.warn(
-        `[supabase] legacy claim miss for ${path}:`,
-        error?.message ?? "not found"
-      );
-      continue;
-    }
-
-    const parsed = await parseWorkspaceBlob(data);
-    if (parsed && workspaceHasPlanningData(parsed)) {
-      legacy = parsed;
-      claimedFrom = path;
-      break;
-    }
-    console.warn(`[supabase] ${path} had no planning data`);
-  }
-
-  if (!legacy || !claimedFrom) {
-    console.warn(
-      "[supabase] no claimable root workspace (default.json / workspace.json) — check Storage path is {userId}/workspace.json"
-    );
-    return null;
-  }
-
-  const dest = workspaceStoragePath(userId);
-  // If the "legacy" file is already our destination, nothing to copy.
-  if (claimedFrom === dest) return legacy;
-
-  const blob = new Blob([JSON.stringify(legacy)], { type: "application/json" });
-  const { error: uploadError } = await supabase.storage
-    .from(WORKSPACE_STORAGE_BUCKET)
-    .upload(dest, blob, {
-      upsert: true,
-      contentType: "application/json",
-      cacheControl: "0",
-    });
-
-  if (uploadError) {
-    console.warn("[supabase] legacy workspace upload failed:", uploadError.message);
-    return null;
-  }
-
-  const { error: rowError } = await supabase.from("app_workspace").upsert(
-    {
-      user_id: userId,
-      updated_at: legacy.updatedAt ?? new Date().toISOString(),
-    },
-    { onConflict: "user_id" }
-  );
-  if (rowError) {
-    console.warn("[supabase] legacy workspace metadata failed:", rowError.message);
-  }
-
-  const { error: removeError } = await supabase.storage
-    .from(WORKSPACE_STORAGE_BUCKET)
-    .remove([claimedFrom]);
-  if (removeError) {
-    console.warn(`[supabase] could not remove legacy ${claimedFrom}:`, removeError.message);
-  }
-
-  return legacy;
 }
 
 export async function saveCloudWorkspace(state: StoredAppState): Promise<string | null> {

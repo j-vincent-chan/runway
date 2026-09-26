@@ -6,9 +6,8 @@ import { getCurrentUserId } from "@/lib/supabase/authUser";
  * every cloud read/write in workspace.ts / sync.ts / catalog.ts targets the
  * PI instead — same ambient style as getCurrentUserId(), one setter.
  *
- * Auth-identity paths (claimLegacyCloudWorkspace, the lab-owner checks) keep
- * reading getCurrentUserId() directly: they are about who you are, not whose
- * workspace you're in.
+ * Auth-identity paths (the lab-owner checks) keep reading getCurrentUserId()
+ * directly: they are about who you are, not whose workspace you're in.
  */
 export type ActiveWorkspaceOwner = { userId: string; email: string };
 
