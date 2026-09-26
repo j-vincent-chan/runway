@@ -16,11 +16,12 @@ import { partitionAnalystRequests } from "@/lib/workspaces/partition";
 import { formatIsoDateDisplay } from "@/lib/utils/parse";
 
 /**
- * The analyst's front door. An analyst never has a standalone runway — their
- * Runway is always a PI's workspace they were delegated into — so this page
- * is where they land until a PI has approved access, and where they come
- * back to switch PIs or ask for another. PIs are routed straight through to
- * their own Dashboard; this page is not part of their world.
+ * The analyst's front door. A pure analyst has no standalone runway of their
+ * own, so this is where they land until a PI has approved access, and where
+ * they come back to switch PIs or ask for another. An account that is also a
+ * PI in its own right (has its own workspace) reaches this page the same way
+ * — via "Add or manage PIs…" — and can always return to it with the button
+ * below; the onboarding role hint never forecloses that.
  */
 export default function WorkspacesPage() {
   const router = useRouter();
@@ -62,15 +63,20 @@ export default function WorkspacesPage() {
   }, [ready, configured, user, router, refreshDelegations]);
 
   useEffect(() => {
-    // PIs (and accounts with no recorded role) have their own workspace;
-    // there is nothing to pick. Signed-out visits are the first effect's
-    // problem — workspaceReady is trivially true without a session.
+    // Accounts with no recorded analyst role have no reason to land here at
+    // all. Signed-out visits are the first effect's problem — workspaceReady
+    // is trivially true without a session.
     if (!ready || !configured || !user) return;
     if (workspaceReady && rolePreference !== "analyst") router.replace("/dashboard");
   }, [ready, configured, user, workspaceReady, rolePreference, router]);
 
   function openWorkspace(piUserId: string) {
     switchWorkspace(piUserId);
+    router.replace("/dashboard");
+  }
+
+  function openMyWorkspace() {
+    switchWorkspace(null);
     router.replace("/dashboard");
   }
 
@@ -92,11 +98,23 @@ export default function WorkspacesPage() {
       <div className="w-full max-w-lg rounded-xl bg-surface p-6 shadow-lg">
         <h1 className="text-xl font-semibold text-ink">Your PI workspaces</h1>
         <p className="mt-1 text-sm text-ink-2">
-          Runway opens inside the workspace of a PI you support. Pick one below, or
+          Continue in your own workspace, open a PI&apos;s workspace you support, or
           request access to another.
         </p>
 
         <div className="mt-4 space-y-2">
+          <button
+            type="button"
+            onClick={openMyWorkspace}
+            className="flex w-full items-center justify-between gap-3 rounded-lg border border-control p-4 text-left hover:border-accent hover:bg-accent-soft/40"
+          >
+            <span className="text-sm font-medium text-ink">My workspace</span>
+            <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-medium text-accent">
+              Continue
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </span>
+          </button>
+
           {delegationsToMe.length === 0 ? (
             requestsLoaded && buckets.pending.length === 0 ? (
               <p className="rounded-lg border border-rule bg-inset px-3 py-3 text-sm text-ink-2">

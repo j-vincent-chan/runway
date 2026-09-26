@@ -18,6 +18,7 @@ import {
   type DelegationGrant,
 } from "@/lib/supabase/delegates";
 import { lookupMyProfile, type RolePreference } from "@/lib/supabase/profiles";
+import { resolveWorkspaceSelection, SELF_SELECTION } from "@/lib/workspaces/selection";
 
 /**
  * Roles are derived, not stored: everyone is the PI of their own workspace,
@@ -52,9 +53,11 @@ type WorkspaceContextValue = {
   /** True once grants, profile role, and selection restore have settled. */
   workspaceReady: boolean;
   /**
-   * An analyst with no PI workspace open. Analysts never have a standalone
-   * runway, so this state routes to /workspaces instead of the main app,
-   * and AppContext skips persisting their (empty) self workspace.
+   * A pure analyst — never yet chosen a workspace, including their own — with
+   * no PI selected. Routes to /workspaces instead of the main app, and
+   * AppContext skips persisting a workspace nobody has opened. Once any
+   * workspace has been explicitly chosen (a PI's, or their own), this never
+   * fires again for that account, even if it later has zero or several grants.
    */
   needsWorkspacePick: boolean;
   /** piUserId to act as, or null for my own workspace. */
@@ -78,9 +81,9 @@ function readPersistedSelection(userId: string): string | null {
   }
 }
 
-function persistSelection(userId: string, piUserId: string | null): void {
+function persistSelection(userId: string, value: string | null): void {
   try {
-    if (piUserId) localStorage.setItem(selectionStorageKey(userId), piUserId);
+    if (value) localStorage.setItem(selectionStorageKey(userId), value);
     else localStorage.removeItem(selectionStorageKey(userId));
   } catch {
     // Selection persistence is a convenience; failing closed is fine.
@@ -88,7 +91,7 @@ function persistSelection(userId: string, piUserId: string | null): void {
 }
 
 type GrantsState = { forUserId: string; toMe: DelegationGrant[]; mine: DelegationGrant[] };
-type SelectionState = { forUserId: string; grant: DelegationGrant };
+type SelectionState = { forUserId: string; grant: DelegationGrant | null; chosen: boolean };
 type RoleState = { forUserId: string; role: RolePreference | null };
 
 const NO_GRANTS: DelegationGrant[] = [];
@@ -110,6 +113,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     delegationActive && grants?.forUserId === userId ? grants.mine : NO_GRANTS;
   const selectedPi =
     delegationActive && selection?.forUserId === userId ? selection.grant : null;
+  const hasChosenWorkspace =
+    delegationActive && selection?.forUserId === userId ? selection.chosen : false;
   const rolePreference =
     delegationActive && roleState?.forUserId === userId ? roleState.role : null;
   const workspaceReady = delegationActive ? settledFor === userId : true;
@@ -124,11 +129,13 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [delegationActive, userId, userEmail]);
 
   /**
-   * On sign-in: load grants and the onboarding role, then restore a persisted
-   * selection only if the grant still exists — a revoked analyst lands back on
-   * workspace selection rather than a wall of permission errors. An analyst
-   * with exactly one grant and no persisted choice is switched into it
-   * silently; there is nothing for them to pick.
+   * On sign-in: load grants and the onboarding role, then resolve the
+   * persisted selection via resolveWorkspaceSelection — a revoked analyst
+   * lands back on workspace selection rather than a wall of permission
+   * errors, and an analyst with exactly one grant and no prior choice is
+   * switched into it silently; there is nothing for them to pick. A stored
+   * "analyst" role never by itself means the account has no workspace of its
+   * own — see the `chosen` field's doc in selection.ts.
    */
   useEffect(() => {
     if (!authReady || !delegationActive || !userId) return;
@@ -145,13 +152,9 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       setGrants({ forUserId: userId, toMe, mine });
       setRoleState({ forUserId: userId, role });
       const persisted = readPersistedSelection(userId);
-      let grant = persisted ? toMe.find((g) => g.piUserId === persisted) ?? null : null;
-      if (persisted && !grant) persistSelection(userId, null);
-      if (!grant && role === "analyst" && toMe.length === 1) {
-        grant = toMe[0];
-        persistSelection(userId, grant.piUserId);
-      }
-      setSelection(grant ? { forUserId: userId, grant } : null);
+      const resolved = resolveWorkspaceSelection(persisted, toMe, role);
+      if (resolved.persist !== persisted) persistSelection(userId, resolved.persist);
+      setSelection({ forUserId: userId, grant: resolved.grant, chosen: resolved.chosen });
       setSettledFor(userId);
     })();
     return () => {
@@ -168,8 +171,8 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       // AppContext's re-hydrate re-asserts the override from activeOwner;
       // setting it here too just closes the gap until that effect runs.
       setActiveWorkspaceOverride(grant ? { userId: grant.piUserId, email: grant.piEmail } : null);
-      persistSelection(userId, grant?.piUserId ?? null);
-      setSelection(grant ? { forUserId: userId, grant } : null);
+      persistSelection(userId, grant ? grant.piUserId : SELF_SELECTION);
+      setSelection({ forUserId: userId, grant, chosen: true });
     },
     [userId, delegationsToMe]
   );
@@ -198,7 +201,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
   }, [userId, userEmail, selectedPi]);
 
   const needsWorkspacePick =
-    delegationActive && workspaceReady && rolePreference === "analyst" && !selectedPi;
+    delegationActive &&
+    workspaceReady &&
+    rolePreference === "analyst" &&
+    !selectedPi &&
+    !hasChosenWorkspace;
 
   const value = useMemo<WorkspaceContextValue>(
     () => ({

@@ -45,7 +45,7 @@ export function Header({
   const { snapshot, settings, updateSettings } = useApp();
   const { configured, cloudSyncEnabled } = useAuth();
   const router = useRouter();
-  const { activeOwner, delegationsToMe, switchWorkspace, rolePreference } = useWorkspace();
+  const { activeOwner, delegationsToMe, switchWorkspace } = useWorkspace();
 
   /**
    * Period and closure state lead the provenance line, matching the
@@ -154,7 +154,11 @@ export function Header({
         </div>
         <div className="flex items-center gap-2">
           {/* The workspace picker exists only for accounts with delegated
-              access — everyone else is simply in their own workspace. */}
+              access — everyone else is simply in their own workspace. An
+              account can be a PI in its own right *and* a delegated analyst
+              elsewhere, so both "My workspace" and the delegated PIs are
+              always offered together — the onboarding role hint never hides
+              either option. */}
           {delegationsToMe.length > 0 && activeOwner && (
             <label
               className={cn(
@@ -179,18 +183,13 @@ export function Header({
                   else switchWorkspace(e.target.value || null);
                 }}
               >
-                {/* Analysts have no standalone workspace — their "home" is the
-                    workspace-selection page, not a self workspace. */}
-                {rolePreference === "analyst" ? (
-                  <option value="__manage__">Add or manage PIs…</option>
-                ) : (
-                  <option value="">My workspace</option>
-                )}
+                <option value="">My workspace</option>
                 {delegationsToMe.map((g) => (
                   <option key={g.piUserId} value={g.piUserId}>
                     {g.piEmail}
                   </option>
                 ))}
+                <option value="__manage__">Add or manage PIs…</option>
               </select>
             </label>
           )}
