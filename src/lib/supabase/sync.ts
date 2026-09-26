@@ -58,6 +58,138 @@ export async function fetchRemoteAliases(): Promise<
   return out;
 }
 
+export type RemoteAccountGroupAssignmentRow = {
+  account_key: string;
+  group_id: string;
+};
+
+export async function fetchRemoteAccountGroupAssignments(): Promise<
+  NonNullable<AppSettings["accountGroupByBalanceKey"]>
+> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return {};
+
+  const { data, error } = await supabase
+    .from("account_group_assignments")
+    .select("account_key, group_id")
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch account group assignments failed:", error.message);
+    return {};
+  }
+
+  const out: NonNullable<AppSettings["accountGroupByBalanceKey"]> = {};
+  for (const row of (data ?? []) as RemoteAccountGroupAssignmentRow[]) {
+    if (!row.account_key || !row.group_id) continue;
+    out[row.account_key] = row.group_id;
+  }
+  return out;
+}
+
+export async function upsertAccountGroupAssignment(
+  accountKey: string,
+  groupId: string
+): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("account_group_assignments").upsert(
+    {
+      user_id: userId,
+      account_key: accountKey,
+      group_id: groupId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,account_key" }
+  );
+
+  if (error) console.warn("[supabase] upsert account group assignment failed:", error.message);
+}
+
+export async function deleteAccountGroupAssignmentRemote(accountKey: string): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("account_group_assignments")
+    .delete()
+    .eq("user_id", userId)
+    .eq("account_key", accountKey);
+  if (error) console.warn("[supabase] delete account group assignment failed:", error.message);
+}
+
+export type RemoteFundingSourceCategoryAssignmentRow = {
+  chartstring_key: string;
+  category: string;
+};
+
+export async function fetchRemoteFundingSourceCategoryAssignments(): Promise<
+  NonNullable<AppSettings["fundingSourceCategories"]>
+> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return {};
+
+  const { data, error } = await supabase
+    .from("funding_source_category_assignments")
+    .select("chartstring_key, category")
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch funding source category assignments failed:", error.message);
+    return {};
+  }
+
+  const out: NonNullable<AppSettings["fundingSourceCategories"]> = {};
+  for (const row of (data ?? []) as RemoteFundingSourceCategoryAssignmentRow[]) {
+    if (!row.chartstring_key || !row.category) continue;
+    out[row.chartstring_key] = row.category;
+  }
+  return out;
+}
+
+export async function upsertFundingSourceCategoryAssignment(
+  chartstringKey: string,
+  category: string
+): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("funding_source_category_assignments").upsert(
+    {
+      user_id: userId,
+      chartstring_key: chartstringKey,
+      category,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,chartstring_key" }
+  );
+
+  if (error) {
+    console.warn("[supabase] upsert funding source category assignment failed:", error.message);
+  }
+}
+
+export async function deleteFundingSourceCategoryAssignmentRemote(
+  chartstringKey: string
+): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("funding_source_category_assignments")
+    .delete()
+    .eq("user_id", userId)
+    .eq("chartstring_key", chartstringKey);
+  if (error) {
+    console.warn("[supabase] delete funding source category assignment failed:", error.message);
+  }
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -104,13 +236,23 @@ export function mergeRemoteSettings(
   local: AppSettings,
   remoteAliases: AppSettings["fundingSourceAliases"],
   remoteRoster: RemoteRosterRecord[],
-  employees: Employee[]
+  employees: Employee[],
+  remoteAccountGroups?: AppSettings["accountGroupByBalanceKey"],
+  remoteFundingSourceCategories?: AppSettings["fundingSourceCategories"]
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
     fundingSourceAliases: {
       ...local.fundingSourceAliases,
       ...remoteAliases,
+    },
+    accountGroupByBalanceKey: {
+      ...local.accountGroupByBalanceKey,
+      ...remoteAccountGroups,
+    },
+    fundingSourceCategories: {
+      ...local.fundingSourceCategories,
+      ...remoteFundingSourceCategories,
     },
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);

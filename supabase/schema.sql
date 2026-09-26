@@ -82,6 +82,22 @@ create table if not exists public.employee_roster_meta (
   primary key (user_id, person_key)
 );
 
+create table if not exists public.account_group_assignments (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  account_key text not null,
+  group_id text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, account_key)
+);
+
+create table if not exists public.funding_source_category_assignments (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  chartstring_key text not null,
+  category text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, chartstring_key)
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -288,6 +304,8 @@ alter table public.personnel_groups enable row level security;
 alter table public.funding_source_types enable row level security;
 alter table public.account_groups enable row level security;
 alter table public.employee_roster_meta enable row level security;
+alter table public.account_group_assignments enable row level security;
+alter table public.funding_source_category_assignments enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -378,6 +396,42 @@ create policy "employee_roster_meta_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "employee_roster_meta_delete"
   on public.employee_roster_meta for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "account_group_assignments_select" on public.account_group_assignments;
+drop policy if exists "account_group_assignments_upsert" on public.account_group_assignments;
+drop policy if exists "account_group_assignments_update" on public.account_group_assignments;
+drop policy if exists "account_group_assignments_delete" on public.account_group_assignments;
+
+create policy "account_group_assignments_select"
+  on public.account_group_assignments for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "account_group_assignments_upsert"
+  on public.account_group_assignments for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "account_group_assignments_update"
+  on public.account_group_assignments for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "account_group_assignments_delete"
+  on public.account_group_assignments for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "funding_source_category_assignments_select" on public.funding_source_category_assignments;
+drop policy if exists "funding_source_category_assignments_upsert" on public.funding_source_category_assignments;
+drop policy if exists "funding_source_category_assignments_update" on public.funding_source_category_assignments;
+drop policy if exists "funding_source_category_assignments_delete" on public.funding_source_category_assignments;
+
+create policy "funding_source_category_assignments_select"
+  on public.funding_source_category_assignments for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "funding_source_category_assignments_upsert"
+  on public.funding_source_category_assignments for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "funding_source_category_assignments_update"
+  on public.funding_source_category_assignments for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "funding_source_category_assignments_delete"
+  on public.funding_source_category_assignments for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;

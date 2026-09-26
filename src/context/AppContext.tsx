@@ -56,7 +56,11 @@ import { parseNetPositionFile } from "@/lib/parsers/netPositionParser";
 import { parsePositionSalaryFile } from "@/lib/parsers/positionSalaryParser";
 import { overlayPositionSalaryOnSnapshot } from "@/lib/employees/positionSalary";
 import { buildAccountBalances, type AccountBalance } from "@/lib/funding/accountBalances";
-import { chartstringFundDeptProject, findAccountTitleForChartstring } from "@/lib/funding/chartstring";
+import {
+  chartstringFundDeptProject,
+  findAccountTitleForChartstring,
+  normalizeChartstring,
+} from "@/lib/funding/chartstring";
 import {
   computePayrollBurnDefaults,
   migrateRunwayBalanceOverrideKeys,
@@ -99,14 +103,20 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { parseStorageRef } from "@/lib/supabase/signedUrl";
 import {
+  deleteAccountGroupAssignmentRemote,
   deleteEmployeeOfferLetterFile,
+  deleteFundingSourceCategoryAssignmentRemote,
+  fetchRemoteAccountGroupAssignments,
   fetchRemoteAliases,
+  fetchRemoteFundingSourceCategoryAssignments,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
   openOfferLetterFromCloud,
+  upsertAccountGroupAssignment,
   upsertEmployeePhoto,
   upsertEmployeeRosterMeta,
   upsertFundingSourceAlias,
+  upsertFundingSourceCategoryAssignment,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
   type RosterCloudPatch,
@@ -459,10 +469,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const cloud = await fetchCloudWorkspace();
 
-      const [remoteAliases, remoteRoster] = await Promise.all([
-        fetchRemoteAliases(),
-        fetchRemoteRosterMeta(),
-      ]);
+      const [remoteAliases, remoteRoster, remoteAccountGroups, remoteFundingSourceCategories] =
+        await Promise.all([
+          fetchRemoteAliases(),
+          fetchRemoteRosterMeta(),
+          fetchRemoteAccountGroupAssignments(),
+          fetchRemoteFundingSourceCategoryAssignments(),
+        ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
         ? cloud
@@ -506,7 +519,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         settingsLocal,
         remoteAliases,
         remoteRoster,
-        workspace.snapshot?.employees ?? []
+        workspace.snapshot?.employees ?? [],
+        remoteAccountGroups,
+        remoteFundingSourceCategories
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -940,32 +955,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    * account group — the single place it is stored. Marking from Runway or the
    * timeline and assigning the group in Settings are the same action.
    */
-  const toggleNotMyAccount = useCallback((chartstring: string) => {
-    setSettings((prev) => {
+  const toggleNotMyAccount = useCallback(
+    (chartstring: string) => {
       const root = chartstringFundDeptProject(chartstring) ?? chartstring;
       const key = normalizeAccountBalanceKey(root);
+      const wasNotMine = settings.accountGroupByBalanceKey?.[key] === NOT_MY_ACCOUNTS_GROUP_ID;
 
-      const groups = { ...(prev.accountGroupByBalanceKey ?? {}) };
-      const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
+      setSettings((prev) => {
+        const groups = { ...(prev.accountGroupByBalanceKey ?? {}) };
+        const endDates = { ...(prev.runwayAssumedEndDates ?? {}) };
 
-      if (groups[key] === NOT_MY_ACCOUNTS_GROUP_ID) {
-        delete groups[key];
-        delete endDates[key];
-      } else {
-        groups[key] = NOT_MY_ACCOUNTS_GROUP_ID;
-        // Marking an account always gives it a horizon. Without one it would
-        // read as never running out, and there is no such thing as infinite
-        // runway — fiscal year end is editable, but it is never absent.
-        if (!endDates[key]) {
-          endDates[key] = defaultAssumedEndDate(
-            prev.fiscalYearStartMonth,
-            getProjectionOriginMonth()
-          );
+        if (groups[key] === NOT_MY_ACCOUNTS_GROUP_ID) {
+          delete groups[key];
+          delete endDates[key];
+        } else {
+          groups[key] = NOT_MY_ACCOUNTS_GROUP_ID;
+          // Marking an account always gives it a horizon. Without one it would
+          // read as never running out, and there is no such thing as infinite
+          // runway — fiscal year end is editable, but it is never absent.
+          if (!endDates[key]) {
+            endDates[key] = defaultAssumedEndDate(
+              prev.fiscalYearStartMonth,
+              getProjectionOriginMonth()
+            );
+          }
         }
+        return { ...prev, accountGroupByBalanceKey: groups, runwayAssumedEndDates: endDates };
+      });
+
+      if (cloudSyncRef.current) {
+        if (wasNotMine) void deleteAccountGroupAssignmentRemote(key);
+        else void upsertAccountGroupAssignment(key, NOT_MY_ACCOUNTS_GROUP_ID);
       }
-      return { ...prev, accountGroupByBalanceKey: groups, runwayAssumedEndDates: endDates };
-    });
-  }, []);
+    },
+    [settings.accountGroupByBalanceKey]
+  );
 
   const setRunwayAssumedEndDate = useCallback(
     (accountKey: string, endDate: string | null) => {
@@ -1371,14 +1395,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setFundingSourceCategory = useCallback(
     (fundingSourceId: string, category: AccountCategory | null) => {
+      const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
+      const key = fs ? fundingSourceKey(fs) : fundingSourceId;
       setSettings((prev) => {
-        const fs = snapshot?.fundingSources.find((f) => f.id === fundingSourceId);
-        const key = fs ? fundingSourceKey(fs) : fundingSourceId;
         const categories = { ...(prev.fundingSourceCategories ?? {}) };
         if (category === null) delete categories[key];
         else categories[key] = category;
         return { ...prev, fundingSourceCategories: categories };
       });
+      if (cloudSyncRef.current) {
+        if (category === null) void deleteFundingSourceCategoryAssignmentRemote(key);
+        else void upsertFundingSourceCategoryAssignment(key, category);
+      }
     },
     [snapshot]
   );
@@ -1390,6 +1418,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    */
   const setFundingSourceCategoryForAccountKey = useCallback(
     (accountKey: string, category: AccountCategory | null) => {
+      const root = normalizeChartstring(accountKey);
+      // Same predicate setCategoryForAccountKey uses to drop the chartstrings
+      // beneath this account — their remote rows must go too, or a re-fetch
+      // would resurrect the very duplication this consolidates away.
+      const affectedKeys = Object.keys(settings.fundingSourceCategories ?? {}).filter(
+        (key) => normalizeChartstring(key) === root || chartstringFundDeptProject(key) === root
+      );
       setSettings((prev) => ({
         ...prev,
         fundingSourceCategories: setCategoryForAccountKey(
@@ -1398,8 +1433,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           category
         ),
       }));
+      if (cloudSyncRef.current) {
+        for (const key of affectedKeys) void deleteFundingSourceCategoryAssignmentRemote(key);
+        if (category !== null) void upsertFundingSourceCategoryAssignment(root, category);
+      }
     },
-    []
+    [settings.fundingSourceCategories]
   );
 
   const saveScenario = useCallback(
@@ -1655,6 +1694,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         return { ...prev, accountGroupByBalanceKey: map, runwayAssumedEndDates: endDates };
       });
+
+      if (cloudSyncRef.current) {
+        if (groupId === null) void deleteAccountGroupAssignmentRemote(key);
+        else void upsertAccountGroupAssignment(key, groupId);
+      }
     },
     []
   );
