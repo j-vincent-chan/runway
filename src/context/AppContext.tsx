@@ -17,6 +17,7 @@ import type {
   PayrollFoldOutcome,
   PayrollReportImport,
   PayrollReportSnapshot,
+  PersonLink,
   PersonnelGroupDef,
   PlannedHire,
   ProjectionRule,
@@ -110,6 +111,7 @@ import {
   fetchRemoteAccountGroupAssignments,
   fetchRemoteAliases,
   fetchRemoteFundingSourceCategoryAssignments,
+  fetchRemotePersonLinks,
   fetchRemotePlannedHires,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
@@ -119,6 +121,7 @@ import {
   upsertEmployeeRosterMeta,
   upsertFundingSourceAlias,
   upsertFundingSourceCategoryAssignment,
+  upsertPersonLink,
   upsertPlannedHire,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
@@ -478,12 +481,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteAccountGroups,
         remoteFundingSourceCategories,
         remotePlannedHires,
+        remotePersonLinks,
       ] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
         fetchRemoteAccountGroupAssignments(),
         fetchRemoteFundingSourceCategoryAssignments(),
         fetchRemotePlannedHires(),
+        fetchRemotePersonLinks(),
       ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
@@ -531,7 +536,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         workspace.snapshot?.employees ?? [],
         remoteAccountGroups,
         remoteFundingSourceCategories,
-        remotePlannedHires
+        remotePlannedHires,
+        remotePersonLinks
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -1866,9 +1872,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       };
       const check = applyLink(settings, linkInput);
       if (!check.ok) return { ok: false, reason: check.reason };
+      // applyLink generates a fresh id/timestamp on every call, so the link
+      // actually committed to state can differ from `check.link` above —
+      // capture it from inside the updater rather than re-deriving it.
+      let committedLink: PersonLink | null = null;
       setSettings((prev) => {
         const linked = applyLink(prev, linkInput);
         if (!linked.ok) return prev;
+        committedLink = linked.link;
         // A closed full month may already exist: then the closed-month rate
         // is in force from the first forecast month and the link's rate row
         // says so, so no later import can record a switch that never happened.
@@ -1884,6 +1895,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : null;
         return atLink ? appendEvents(linked.settings, [atLink]) : linked.settings;
       });
+      if (cloudSyncRef.current && committedLink) void upsertPersonLink(committedLink);
       if (copied.team && plan.teamId) setEmployeePersonnelType(emp.id, plan.teamId);
       if (copied.startDate) setEmployeeStartDate(emp.id, `${plan.startMonth}-01`);
       if (copied.scope) setEmployeePlanningScope(emp.id, plan.appointmentPercent);
@@ -1910,7 +1922,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const employeeName = emp?.name ?? link?.employeePersonKey ?? "This person";
       const check = applyUnlink(settings, linkId, actingEmail, employeeName);
       if (!check.ok) return { ok: false, reason: check.reason };
-      setSettings((prev) => applyUnlink(prev, linkId, actingEmail, employeeName).settings);
+      // Same non-determinism as applyLink (fresh reversedAt each call) — read
+      // the reversed link that actually landed in state, not `check.link`.
+      let reversedLink: PersonLink | null = null;
+      setSettings((prev) => {
+        const unlinked = applyUnlink(prev, linkId, actingEmail, employeeName);
+        if (!unlinked.ok) return prev;
+        reversedLink = unlinked.link;
+        return unlinked.settings;
+      });
+      if (cloudSyncRef.current && reversedLink) void upsertPersonLink(reversedLink);
       // Remove only what Confirm copied, and only while it still says what
       // the plan said — anything the PI typed since stays.
       if (emp && plan && link?.copied) {

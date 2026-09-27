@@ -1,4 +1,4 @@
-import type { AppSettings, Employee, EmployeeOfferLetterMeta, PlannedHire } from "@/types";
+import type { AppSettings, Employee, EmployeeOfferLetterMeta, PersonLink, PlannedHire } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
@@ -308,6 +308,106 @@ export async function deletePlannedHireRemote(id: string): Promise<void> {
   if (error) console.warn("[supabase] delete planned hire failed:", error.message);
 }
 
+type RemotePersonLinkRow = {
+  id: string;
+  planned_hire_id: string;
+  employee_person_key: string;
+  basis: string;
+  signals: string[] | null;
+  linked_at: string;
+  linked_by: string;
+  reversed_at: string | null;
+  reversed_by: string | null;
+  copied_team: boolean | null;
+  copied_start_date: boolean | null;
+  copied_scope: boolean | null;
+};
+
+function remotePersonLinkRowToRecord(row: RemotePersonLinkRow): PersonLink {
+  const copied =
+    row.copied_team !== null || row.copied_start_date !== null || row.copied_scope !== null
+      ? {
+          ...(row.copied_team !== null ? { team: row.copied_team } : {}),
+          ...(row.copied_start_date !== null ? { startDate: row.copied_start_date } : {}),
+          ...(row.copied_scope !== null ? { scope: row.copied_scope } : {}),
+        }
+      : undefined;
+  return {
+    id: row.id,
+    plannedHireId: row.planned_hire_id,
+    employeePersonKey: row.employee_person_key,
+    basis: row.basis as PersonLink["basis"],
+    signals: row.signals ?? [],
+    linkedAt: row.linked_at,
+    linkedBy: row.linked_by,
+    ...(row.reversed_at ? { reversedAt: row.reversed_at } : {}),
+    ...(row.reversed_by ? { reversedBy: row.reversed_by } : {}),
+    ...(copied ? { copied } : {}),
+  };
+}
+
+export async function fetchRemotePersonLinks(): Promise<PersonLink[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("person_links")
+    .select(
+      [
+        "id",
+        "planned_hire_id",
+        "employee_person_key",
+        "basis",
+        "signals",
+        "linked_at",
+        "linked_by",
+        "reversed_at",
+        "reversed_by",
+        "copied_team",
+        "copied_start_date",
+        "copied_scope",
+      ].join(", ")
+    )
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch person links failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemotePersonLinkRow[]).map(remotePersonLinkRowToRecord);
+}
+
+/** Links are never locally deleted — Unlink marks reversedAt/reversedBy instead. */
+export async function upsertPersonLink(link: PersonLink): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("person_links").upsert(
+    {
+      user_id: userId,
+      id: link.id,
+      planned_hire_id: link.plannedHireId,
+      employee_person_key: link.employeePersonKey,
+      basis: link.basis,
+      signals: link.signals,
+      linked_at: link.linkedAt,
+      linked_by: link.linkedBy,
+      reversed_at: link.reversedAt ?? null,
+      reversed_by: link.reversedBy ?? null,
+      copied_team: link.copied?.team ?? null,
+      copied_start_date: link.copied?.startDate ?? null,
+      copied_scope: link.copied?.scope ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
+
+  if (error) console.warn("[supabase] upsert person link failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -357,7 +457,8 @@ export function mergeRemoteSettings(
   employees: Employee[],
   remoteAccountGroups?: AppSettings["accountGroupByBalanceKey"],
   remoteFundingSourceCategories?: AppSettings["fundingSourceCategories"],
-  remotePlannedHires?: PlannedHire[]
+  remotePlannedHires?: PlannedHire[],
+  remotePersonLinks?: PersonLink[]
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -374,6 +475,7 @@ export function mergeRemoteSettings(
       ...remoteFundingSourceCategories,
     },
     plannedHires: mergeArrayById(local.plannedHires ?? [], remotePlannedHires ?? []),
+    personLinks: mergeArrayById(local.personLinks ?? [], remotePersonLinks ?? []),
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }

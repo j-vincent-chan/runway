@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mergeRemoteSettings } from "@/lib/supabase/sync";
-import { DEFAULT_SETTINGS, type PlannedHire } from "@/types";
+import { DEFAULT_SETTINGS, type PersonLink, type PlannedHire } from "@/types";
 
 function plannedHire(overrides: Partial<PlannedHire> = {}): PlannedHire {
   return {
@@ -12,6 +12,19 @@ function plannedHire(overrides: Partial<PlannedHire> = {}): PlannedHire {
     benefitsRatePct: 32,
     createdAt: "2026-06-18T00:00:00.000Z",
     createdBy: "pi@ucsf.edu",
+    ...overrides,
+  };
+}
+
+function personLink(overrides: Partial<PersonLink> = {}): PersonLink {
+  return {
+    id: "l1",
+    plannedHireId: "p1",
+    employeePersonKey: "hr:02987654",
+    basis: "suggested",
+    signals: ["newInReport"],
+    linkedAt: "2026-09-16T17:00:00.000Z",
+    linkedBy: "pi@ucsf.edu",
     ...overrides,
   };
 }
@@ -72,5 +85,20 @@ describe("mergeRemoteSettings", () => {
       plannedHire({ id: "p1", displayName: "New name" }),
     ]);
     expect(merged.plannedHires).toEqual([plannedHire({ id: "p1", displayName: "New name" })]);
+  });
+
+  it("unions person links by id, keeping a local-only link not yet on the remote", () => {
+    const local = { ...DEFAULT_SETTINGS, personLinks: [personLink({ id: "local-only" })] };
+    const merged = mergeRemoteSettings(local, {}, [], [], undefined, undefined, undefined, [
+      personLink({ id: "remote-only" }),
+    ]);
+    expect(merged.personLinks?.map((l) => l.id).sort()).toEqual(["local-only", "remote-only"]);
+  });
+
+  it("lets the remote copy of a reversed link win over a stale local one", () => {
+    const local = { ...DEFAULT_SETTINGS, personLinks: [personLink({ id: "l1" })] };
+    const reversed = personLink({ id: "l1", reversedAt: "2026-09-20T00:00:00.000Z", reversedBy: "pi@ucsf.edu" });
+    const merged = mergeRemoteSettings(local, {}, [], [], undefined, undefined, undefined, [reversed]);
+    expect(merged.personLinks).toEqual([reversed]);
   });
 });

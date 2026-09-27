@@ -116,6 +116,24 @@ create table if not exists public.planned_hires (
   primary key (user_id, id)
 );
 
+create table if not exists public.person_links (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  planned_hire_id text not null,
+  employee_person_key text not null,
+  basis text not null,
+  signals text[] not null default '{}',
+  linked_at timestamptz not null,
+  linked_by text not null,
+  reversed_at timestamptz,
+  reversed_by text,
+  copied_team boolean,
+  copied_start_date boolean,
+  copied_scope boolean,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -325,6 +343,7 @@ alter table public.employee_roster_meta enable row level security;
 alter table public.account_group_assignments enable row level security;
 alter table public.funding_source_category_assignments enable row level security;
 alter table public.planned_hires enable row level security;
+alter table public.person_links enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -469,6 +488,24 @@ create policy "planned_hires_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "planned_hires_delete"
   on public.planned_hires for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "person_links_select" on public.person_links;
+drop policy if exists "person_links_upsert" on public.person_links;
+drop policy if exists "person_links_update" on public.person_links;
+drop policy if exists "person_links_delete" on public.person_links;
+
+create policy "person_links_select"
+  on public.person_links for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "person_links_upsert"
+  on public.person_links for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "person_links_update"
+  on public.person_links for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "person_links_delete"
+  on public.person_links for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;
