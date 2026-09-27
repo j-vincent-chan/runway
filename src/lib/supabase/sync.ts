@@ -1,4 +1,12 @@
-import type { AppSettings, Employee, EmployeeOfferLetterMeta, PersonLink, PlannedHire } from "@/types";
+import type {
+  AppSettings,
+  Employee,
+  EmployeeOfferLetterMeta,
+  MatchDismissal,
+  PersonLink,
+  PlannedHire,
+  ReconciliationChoice,
+} from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
@@ -30,16 +38,20 @@ function userScopedPath(userId: string, ...parts: string[]): string {
 }
 
 /**
- * Union two entity arrays by id, remote winning on conflict — the same
+ * Union two entity arrays by a key, remote winning on conflict — the same
  * "filled/present wins" philosophy as the flat-map merges above, generalized
  * to arrays of per-entity rows (planned hires, links, reconciliation
  * records, ...). Local-only entries survive in case a remote fetch raced a
  * not-yet-synced local edit.
  */
+function mergeArrayByKey<T>(local: T[], remote: T[], keyOf: (item: T) => string): T[] {
+  const byKey = new Map(local.map((item) => [keyOf(item), item]));
+  for (const item of remote) byKey.set(keyOf(item), item);
+  return [...byKey.values()];
+}
+
 function mergeArrayById<T extends { id: string }>(local: T[], remote: T[]): T[] {
-  const byId = new Map(local.map((item) => [item.id, item]));
-  for (const item of remote) byId.set(item.id, item);
-  return [...byId.values()];
+  return mergeArrayByKey(local, remote, (item) => item.id);
 }
 
 export async function fetchRemoteAliases(): Promise<
@@ -408,6 +420,138 @@ export async function upsertPersonLink(link: PersonLink): Promise<void> {
   if (error) console.warn("[supabase] upsert person link failed:", error.message);
 }
 
+type RemoteReconciliationChoiceRow = {
+  link_id: string;
+  forecast_rate: string;
+  pin_planned_rate: boolean;
+  distribution: string;
+  effective_from: string;
+  decided_at: string;
+  decided_by: string;
+};
+
+function remoteReconciliationChoiceRowToRecord(
+  row: RemoteReconciliationChoiceRow
+): ReconciliationChoice {
+  return {
+    linkId: row.link_id,
+    forecastRate: row.forecast_rate as ReconciliationChoice["forecastRate"],
+    pinPlannedRate: row.pin_planned_rate,
+    distribution: row.distribution as ReconciliationChoice["distribution"],
+    effectiveFrom: row.effective_from,
+    decidedAt: row.decided_at,
+    decidedBy: row.decided_by,
+  };
+}
+
+export async function fetchRemoteReconciliationChoices(): Promise<ReconciliationChoice[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("reconciliation_choices")
+    .select(
+      [
+        "link_id",
+        "forecast_rate",
+        "pin_planned_rate",
+        "distribution",
+        "effective_from",
+        "decided_at",
+        "decided_by",
+      ].join(", ")
+    )
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch reconciliation choices failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemoteReconciliationChoiceRow[]).map(
+    remoteReconciliationChoiceRowToRecord
+  );
+}
+
+export async function upsertReconciliationChoice(choice: ReconciliationChoice): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("reconciliation_choices").upsert(
+    {
+      user_id: userId,
+      link_id: choice.linkId,
+      forecast_rate: choice.forecastRate,
+      pin_planned_rate: choice.pinPlannedRate,
+      distribution: choice.distribution,
+      effective_from: choice.effectiveFrom,
+      decided_at: choice.decidedAt,
+      decided_by: choice.decidedBy,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,link_id" }
+  );
+
+  if (error) console.warn("[supabase] upsert reconciliation choice failed:", error.message);
+}
+
+type RemoteMatchDismissalRow = {
+  planned_hire_id: string;
+  employee_person_key: string;
+  dismissed_at: string;
+  dismissed_by: string;
+};
+
+function remoteMatchDismissalRowToRecord(row: RemoteMatchDismissalRow): MatchDismissal {
+  return {
+    plannedHireId: row.planned_hire_id,
+    employeePersonKey: row.employee_person_key,
+    at: row.dismissed_at,
+    by: row.dismissed_by,
+  };
+}
+
+export async function fetchRemoteMatchDismissals(): Promise<MatchDismissal[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("match_dismissals")
+    .select(["planned_hire_id", "employee_person_key", "dismissed_at", "dismissed_by"].join(", "))
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch match dismissals failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemoteMatchDismissalRow[]).map(remoteMatchDismissalRowToRecord);
+}
+
+/** Dismissals are append-only — never edited or removed locally. */
+export async function upsertMatchDismissal(dismissal: MatchDismissal): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("match_dismissals").upsert(
+    {
+      user_id: userId,
+      planned_hire_id: dismissal.plannedHireId,
+      employee_person_key: dismissal.employeePersonKey,
+      dismissed_at: dismissal.at,
+      dismissed_by: dismissal.by,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,planned_hire_id,employee_person_key" }
+  );
+
+  if (error) console.warn("[supabase] upsert match dismissal failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -458,7 +602,9 @@ export function mergeRemoteSettings(
   remoteAccountGroups?: AppSettings["accountGroupByBalanceKey"],
   remoteFundingSourceCategories?: AppSettings["fundingSourceCategories"],
   remotePlannedHires?: PlannedHire[],
-  remotePersonLinks?: PersonLink[]
+  remotePersonLinks?: PersonLink[],
+  remoteReconciliationChoices?: ReconciliationChoice[],
+  remoteMatchDismissals?: MatchDismissal[]
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -476,6 +622,16 @@ export function mergeRemoteSettings(
     },
     plannedHires: mergeArrayById(local.plannedHires ?? [], remotePlannedHires ?? []),
     personLinks: mergeArrayById(local.personLinks ?? [], remotePersonLinks ?? []),
+    reconciliationChoices: mergeArrayByKey(
+      local.reconciliationChoices ?? [],
+      remoteReconciliationChoices ?? [],
+      (c) => c.linkId
+    ),
+    matchDismissals: mergeArrayByKey(
+      local.matchDismissals ?? [],
+      remoteMatchDismissals ?? [],
+      (d) => `${d.plannedHireId}|${d.employeePersonKey}`
+    ),
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }

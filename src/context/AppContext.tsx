@@ -11,6 +11,7 @@ import type {
   FundingSourceTypeDef,
   ImportFileResult,
   ImportFilesResult,
+  MatchDismissal,
   MonthlyAllocation,
   OrgStructure,
   ParseWarning,
@@ -111,8 +112,10 @@ import {
   fetchRemoteAccountGroupAssignments,
   fetchRemoteAliases,
   fetchRemoteFundingSourceCategoryAssignments,
+  fetchRemoteMatchDismissals,
   fetchRemotePersonLinks,
   fetchRemotePlannedHires,
+  fetchRemoteReconciliationChoices,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
   openOfferLetterFromCloud,
@@ -121,8 +124,10 @@ import {
   upsertEmployeeRosterMeta,
   upsertFundingSourceAlias,
   upsertFundingSourceCategoryAssignment,
+  upsertMatchDismissal,
   upsertPersonLink,
   upsertPlannedHire,
+  upsertReconciliationChoice,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
   type RosterCloudPatch,
@@ -482,6 +487,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteFundingSourceCategories,
         remotePlannedHires,
         remotePersonLinks,
+        remoteReconciliationChoices,
+        remoteMatchDismissals,
       ] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
@@ -489,6 +496,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemoteFundingSourceCategoryAssignments(),
         fetchRemotePlannedHires(),
         fetchRemotePersonLinks(),
+        fetchRemoteReconciliationChoices(),
+        fetchRemoteMatchDismissals(),
       ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
@@ -537,7 +546,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteAccountGroups,
         remoteFundingSourceCategories,
         remotePlannedHires,
-        remotePersonLinks
+        remotePersonLinks,
+        remoteReconciliationChoices,
+        remoteMatchDismissals
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -1876,10 +1887,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // actually committed to state can differ from `check.link` above —
       // capture it from inside the updater rather than re-deriving it.
       let committedLink: PersonLink | null = null;
+      let committedChoice: ReconciliationChoice | null = null;
       setSettings((prev) => {
         const linked = applyLink(prev, linkInput);
         if (!linked.ok) return prev;
         committedLink = linked.link;
+        committedChoice = linked.choice;
         // A closed full month may already exist: then the closed-month rate
         // is in force from the first forecast month and the link's rate row
         // says so, so no later import can record a switch that never happened.
@@ -1896,6 +1909,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return atLink ? appendEvents(linked.settings, [atLink]) : linked.settings;
       });
       if (cloudSyncRef.current && committedLink) void upsertPersonLink(committedLink);
+      if (cloudSyncRef.current && committedChoice) void upsertReconciliationChoice(committedChoice);
       if (copied.team && plan.teamId) setEmployeePersonnelType(emp.id, plan.teamId);
       if (copied.startDate) setEmployeeStartDate(emp.id, `${plan.startMonth}-01`);
       if (copied.scope) setEmployeePlanningScope(emp.id, plan.appointmentPercent);
@@ -1969,14 +1983,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ? findEmployeeByPersonKey(snapshotForUi.employees, personKey)
         : undefined;
       const name = emp?.name ?? personKey;
-      setSettings((prev) => applyDismissal(prev, plannedHireId, personKey, name, actingEmail));
+      // applyDismissal is a no-op (same array reference) when this pair was
+      // already dismissed, so only sync when a new row actually landed.
+      let newDismissal: MatchDismissal | null = null;
+      setSettings((prev) => {
+        const next = applyDismissal(prev, plannedHireId, personKey, name, actingEmail);
+        if (next.matchDismissals !== prev.matchDismissals) {
+          newDismissal = next.matchDismissals?.at(-1) ?? null;
+        }
+        return next;
+      });
+      if (cloudSyncRef.current && newDismissal) void upsertMatchDismissal(newDismissal);
     },
     [snapshotForUi, actingEmail]
   );
 
-  const setPinPlannedRate = useCallback((linkId: string, pinned: boolean) => {
-    setSettings((prev) => setPinPlannedRateInSettings(prev, linkId, pinned));
-  }, []);
+  const setPinPlannedRate = useCallback(
+    (linkId: string, pinned: boolean) => {
+      const current = (settings.reconciliationChoices ?? []).find((c) => c.linkId === linkId);
+      setSettings((prev) => setPinPlannedRateInSettings(prev, linkId, pinned));
+      if (cloudSyncRef.current && current) {
+        void upsertReconciliationChoice({ ...current, pinPlannedRate: pinned });
+      }
+    },
+    [settings.reconciliationChoices]
+  );
 
   const clearAll = useCallback(() => {
     setSettings((prev) => {

@@ -134,6 +134,29 @@ create table if not exists public.person_links (
   primary key (user_id, id)
 );
 
+create table if not exists public.reconciliation_choices (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  link_id text not null,
+  forecast_rate text not null,
+  pin_planned_rate boolean not null,
+  distribution text not null,
+  effective_from text not null,
+  decided_at timestamptz not null,
+  decided_by text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, link_id)
+);
+
+create table if not exists public.match_dismissals (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  planned_hire_id text not null,
+  employee_person_key text not null,
+  dismissed_at timestamptz not null,
+  dismissed_by text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, planned_hire_id, employee_person_key)
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -344,6 +367,8 @@ alter table public.account_group_assignments enable row level security;
 alter table public.funding_source_category_assignments enable row level security;
 alter table public.planned_hires enable row level security;
 alter table public.person_links enable row level security;
+alter table public.reconciliation_choices enable row level security;
+alter table public.match_dismissals enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -506,6 +531,42 @@ create policy "person_links_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "person_links_delete"
   on public.person_links for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "reconciliation_choices_select" on public.reconciliation_choices;
+drop policy if exists "reconciliation_choices_upsert" on public.reconciliation_choices;
+drop policy if exists "reconciliation_choices_update" on public.reconciliation_choices;
+drop policy if exists "reconciliation_choices_delete" on public.reconciliation_choices;
+
+create policy "reconciliation_choices_select"
+  on public.reconciliation_choices for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "reconciliation_choices_upsert"
+  on public.reconciliation_choices for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "reconciliation_choices_update"
+  on public.reconciliation_choices for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "reconciliation_choices_delete"
+  on public.reconciliation_choices for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "match_dismissals_select" on public.match_dismissals;
+drop policy if exists "match_dismissals_upsert" on public.match_dismissals;
+drop policy if exists "match_dismissals_update" on public.match_dismissals;
+drop policy if exists "match_dismissals_delete" on public.match_dismissals;
+
+create policy "match_dismissals_select"
+  on public.match_dismissals for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "match_dismissals_upsert"
+  on public.match_dismissals for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "match_dismissals_update"
+  on public.match_dismissals for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "match_dismissals_delete"
+  on public.match_dismissals for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;

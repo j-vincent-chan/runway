@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { mergeRemoteSettings } from "@/lib/supabase/sync";
-import { DEFAULT_SETTINGS, type PersonLink, type PlannedHire } from "@/types";
+import {
+  DEFAULT_SETTINGS,
+  type MatchDismissal,
+  type PersonLink,
+  type PlannedHire,
+  type ReconciliationChoice,
+} from "@/types";
 
 function plannedHire(overrides: Partial<PlannedHire> = {}): PlannedHire {
   return {
@@ -25,6 +31,29 @@ function personLink(overrides: Partial<PersonLink> = {}): PersonLink {
     signals: ["newInReport"],
     linkedAt: "2026-09-16T17:00:00.000Z",
     linkedBy: "pi@ucsf.edu",
+    ...overrides,
+  };
+}
+
+function reconciliationChoice(overrides: Partial<ReconciliationChoice> = {}): ReconciliationChoice {
+  return {
+    linkId: "l1",
+    forecastRate: "planned",
+    pinPlannedRate: false,
+    distribution: "plan",
+    effectiveFrom: "2026-10",
+    decidedAt: "2026-09-16T17:00:00.000Z",
+    decidedBy: "pi@ucsf.edu",
+    ...overrides,
+  };
+}
+
+function matchDismissal(overrides: Partial<MatchDismissal> = {}): MatchDismissal {
+  return {
+    plannedHireId: "p2",
+    employeePersonKey: "hr:1",
+    at: "2026-09-16T17:01:00.000Z",
+    by: "pi@ucsf.edu",
     ...overrides,
   };
 }
@@ -100,5 +129,45 @@ describe("mergeRemoteSettings", () => {
     const reversed = personLink({ id: "l1", reversedAt: "2026-09-20T00:00:00.000Z", reversedBy: "pi@ucsf.edu" });
     const merged = mergeRemoteSettings(local, {}, [], [], undefined, undefined, undefined, [reversed]);
     expect(merged.personLinks).toEqual([reversed]);
+  });
+
+  it("unions reconciliation choices by linkId, remote winning on conflict", () => {
+    const local = {
+      ...DEFAULT_SETTINGS,
+      reconciliationChoices: [reconciliationChoice({ linkId: "local-only" })],
+    };
+    const merged = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [reconciliationChoice({ linkId: "l1", pinPlannedRate: true })]
+    );
+    expect(merged.reconciliationChoices?.map((c) => c.linkId).sort()).toEqual(["l1", "local-only"]);
+    expect(merged.reconciliationChoices?.find((c) => c.linkId === "l1")?.pinPlannedRate).toBe(true);
+  });
+
+  it("unions match dismissals by the plannedHireId+employeePersonKey pair", () => {
+    const local = { ...DEFAULT_SETTINGS, matchDismissals: [matchDismissal({ plannedHireId: "local-only" })] };
+    const merged = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [matchDismissal({ plannedHireId: "remote-only" })]
+    );
+    expect(merged.matchDismissals?.map((d) => d.plannedHireId).sort()).toEqual([
+      "local-only",
+      "remote-only",
+    ]);
   });
 });
