@@ -102,6 +102,7 @@ import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/ass
 import { getProjectionOriginMonth } from "@/lib/projections/horizon";
 import { upsertRule } from "@/lib/projections/rules";
 import { applyChartstringRemoval, type ChartstringRemovalCheck } from "@/lib/projections/removal";
+import { keptChartstringKey } from "@/lib/projections/sources";
 import {
   deleteOfferLetterFile,
   getOfferLetterFile,
@@ -220,6 +221,8 @@ interface AppContextValue {
   removeChartstringFromProjections: (
     check: Extract<ChartstringRemovalCheck, { removable: true }>
   ) => void;
+  keepChartstringForPerson: (personKey: string, chartstringKey: string) => void;
+  clearKeptChartstring: (personKey: string, chartstringKey: string) => void;
   updateFundingSourceAlias: (fundingSourceId: string, aliasBase: string) => void;
   setFundingSourceCategory: (fundingSourceId: string, category: AccountCategory | null) => void;
   setFundingSourceCategoryForAccountKey: (
@@ -1012,10 +1015,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           r.personKey === rule.personKey &&
           (r.chartstringKey ?? null) === (rule.chartstringKey ?? null)
       );
-      setSettings((prev) => ({
-        ...prev,
-        projectionRules: upsertRule(prev.projectionRules ?? [], rule),
-      }));
+      setSettings((prev) => {
+        const next: AppSettings = {
+          ...prev,
+          projectionRules: upsertRule(prev.projectionRules ?? [], rule),
+        };
+        // A real rule now covers this pairing again — the inert placeholder
+        // that kept it listed while it had no rule is no longer needed.
+        if (rule.chartstringKey) {
+          const key = keptChartstringKey(rule.personKey, rule.chartstringKey);
+          next.keptProjectionChartstrings = (prev.keptProjectionChartstrings ?? []).filter(
+            (k) => k !== key
+          );
+        }
+        return next;
+      });
       if (cloudSyncRef.current) {
         if (displaced) void deleteProjectionRuleRemote(displaced.id);
         void upsertProjectionRuleRemote(rule);
@@ -1069,6 +1083,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     },
     [settings.projectionRules]
   );
+
+  const keepChartstringForPerson = useCallback((personKey: string, chartstringKey: string) => {
+    const key = keptChartstringKey(personKey, chartstringKey);
+    setSettings((prev) => {
+      const kept = new Set(prev.keptProjectionChartstrings ?? []);
+      if (kept.has(key)) return prev;
+      kept.add(key);
+      return { ...prev, keptProjectionChartstrings: [...kept] };
+    });
+  }, []);
+
+  const clearKeptChartstring = useCallback((personKey: string, chartstringKey: string) => {
+    const key = keptChartstringKey(personKey, chartstringKey);
+    setSettings((prev) => ({
+      ...prev,
+      keptProjectionChartstrings: (prev.keptProjectionChartstrings ?? []).filter((k) => k !== key),
+    }));
+  }, []);
 
   const toggleHiddenEmployeeFund = useCallback(
     (employeeId: string, fundingSourceId: string) => {
@@ -2239,6 +2271,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     addPlannedFundingSource,
     setProjectionHorizon,
     removeChartstringFromProjections,
+    keepChartstringForPerson,
+    clearKeptChartstring,
     updateFundingSourceAlias,
     setFundingSourceCategory,
     setFundingSourceCategoryForAccountKey,

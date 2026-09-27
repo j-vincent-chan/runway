@@ -66,6 +66,7 @@ import { DEEP_LINK_PARAM } from "@/lib/navigation/deepLinks";
 import { useDeepLinkTarget } from "@/lib/navigation/useDeepLinkTarget";
 import { useReconciliationDialogs } from "@/context/ReconciliationDialogs";
 import type {
+  AppSettings,
   Employee,
   FundingSource,
   PlannedFundingSource,
@@ -88,6 +89,8 @@ export default function ProjectionsPage() {
     addPlannedFundingSource,
     setProjectionHorizon,
     removeChartstringFromProjections,
+    keepChartstringForPerson,
+    clearKeptChartstring,
     toggleHiddenEmployeeFund,
     toggleNotMyAccount,
     updateFundingSourceAlias,
@@ -256,12 +259,43 @@ export default function ProjectionsPage() {
     upsertProjectionRule(rule);
   }
 
+  /**
+   * Removing a rule here (unlike the trashcan) skips checkChartstringRemoval
+   * entirely, so it can silently drop an account from the list as a side
+   * effect when the rule was the only thing keeping it visible. Re-run the
+   * real simulation without this rule — reusing the canonical selector and
+   * simulateProjections rather than guessing — and if the chartstring would
+   * disappear, keep it listed inertly instead of letting it vanish unannounced.
+   */
   function removeRule(id: string) {
     const rule = (settings.projectionRules ?? []).find((r) => r.id === id);
     const owner = rule ? resolvePersonKey(rule.personKey, links) : null;
     if (owner && isDistributionLocked(settings, owner)) {
       window.alert(lockedEditMessage(nameForPersonKey(owner)));
       return;
+    }
+    if (rule?.chartstringKey && snapshot) {
+      const settingsWithoutRule: AppSettings = {
+        ...settings,
+        projectionRules: (settings.projectionRules ?? []).filter((r) => r.id !== id),
+      };
+      const resultWithoutRule = simulateProjections({
+        snapshot,
+        workingPlan,
+        settings: settingsWithoutRule,
+        balances: accountBalances,
+      });
+      const emp = [...employees, ...plannedEntities].find(
+        (e) => personKeyForEmployee(e) === rule.personKey
+      );
+      const stillVisible =
+        emp &&
+        chartstringKeysForPerson(resultWithoutRule, settingsWithoutRule, emp, rule.personKey).has(
+          rule.chartstringKey
+        );
+      if (!stillVisible) {
+        keepChartstringForPerson(rule.personKey, rule.chartstringKey);
+      }
     }
     removeProjectionRule(id);
   }
@@ -415,6 +449,7 @@ export default function ProjectionsPage() {
     );
     if (!ok) return;
     removeChartstringFromProjections(check);
+    clearKeptChartstring(personKeyForEmployee(employee), chartstringKey);
   }
 
   if (!hasData || !snapshot || !result) {

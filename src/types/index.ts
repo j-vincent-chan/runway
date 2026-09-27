@@ -553,6 +553,13 @@ export interface AppSettings {
   projectionHorizon?: ProjectionHorizonSettings;
   plannedFundingSources?: PlannedFundingSource[];
   projectionRules?: ProjectionRule[];
+  /**
+   * Keys: `${personKey}|${chartstringKey}` — an account with no current
+   * allocation or rule that stays on a person's Projections list anyway,
+   * because its rule was removed directly (not via the trashcan). Cleared
+   * once a new rule covers the pairing again, or the trashcan removes it.
+   */
+  keptProjectionChartstrings?: string[];
   /** personKeys whose roster endDate should not zero projections */
   projectionIgnoreRosterEndDates?: string[];
   /**
@@ -638,6 +645,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   projectionHorizon: { preset: "12" },
   plannedFundingSources: [],
   projectionRules: [],
+  keptProjectionChartstrings: [],
   projectionIgnoreRosterEndDates: [],
   lockedDistributions: [],
   sidebarHidden: false,

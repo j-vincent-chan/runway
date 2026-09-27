@@ -68,6 +68,10 @@ export function makePlannedChartstringKey(id: string, accountString?: string): s
   return `planned:${id}`;
 }
 
+export function keptChartstringKey(personKey: string, chartstringKey: string): string {
+  return `${personKey}|${chartstringKey}`;
+}
+
 /** Alias/title · project # for projection rule pickers (not "Fund 4000"). */
 export function projectionSourceLabel(
   fs: FundingSource,
@@ -85,8 +89,11 @@ export function projectionSourceLabel(
  * Every chartstring a person's Projections row lists: each account the
  * projection charges them to in any month of the horizon, plus any account
  * one of their rules names (a rule can point at an account that has no
- * effort yet). By Person renders from this and the CSV exports from it, so
- * the file cannot list a different set than the screen.
+ * effort yet), plus any account explicitly kept (its rule was removed
+ * directly rather than through the trashcan, so it stays listed — inert,
+ * with no effort — until new activity covers it or the trashcan removes it).
+ * By Person renders from this and the CSV exports from it, so the file
+ * cannot list a different set than the screen.
  */
 export function chartstringKeysForPerson(
   result: ProjectionResult,
@@ -102,6 +109,10 @@ export function chartstringKeysForPerson(
   }
   for (const rule of settings.projectionRules ?? []) {
     if (rule.personKey === personKey && rule.chartstringKey) keys.add(rule.chartstringKey);
+  }
+  const prefix = `${personKey}|`;
+  for (const kept of settings.keptProjectionChartstrings ?? []) {
+    if (kept.startsWith(prefix)) keys.add(kept.slice(prefix.length));
   }
   return keys;
 }
