@@ -4,7 +4,9 @@ import {
   DEFAULT_SETTINGS,
   type MatchDismissal,
   type PersonLink,
+  type PlannedFundingSource,
   type PlannedHire,
+  type ProjectionRule,
   type ReconciliationChoice,
 } from "@/types";
 
@@ -54,6 +56,26 @@ function matchDismissal(overrides: Partial<MatchDismissal> = {}): MatchDismissal
     employeePersonKey: "hr:1",
     at: "2026-09-16T17:01:00.000Z",
     by: "pi@ucsf.edu",
+    ...overrides,
+  };
+}
+
+function projectionRule(overrides: Partial<ProjectionRule> = {}): ProjectionRule {
+  return {
+    id: "r1",
+    personKey: "hr:02987654",
+    trigger: { type: "onDate", month: "2026-12" },
+    remainder: { kind: "uncovered" },
+    ...overrides,
+  };
+}
+
+function plannedFundingSource(overrides: Partial<PlannedFundingSource> = {}): PlannedFundingSource {
+  return {
+    id: "pf1",
+    chartstringKey: "planned:pf1",
+    alias: "New Grant",
+    color: "#a3c4e8",
     ...overrides,
   };
 }
@@ -169,5 +191,55 @@ describe("mergeRemoteSettings", () => {
       "local-only",
       "remote-only",
     ]);
+  });
+
+  it("unions projection rules by id and planned funding sources by id", () => {
+    const local = {
+      ...DEFAULT_SETTINGS,
+      projectionRules: [projectionRule({ id: "local-only" })],
+      plannedFundingSources: [plannedFundingSource({ id: "local-only" })],
+    };
+    const merged = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [projectionRule({ id: "remote-only" })],
+      [plannedFundingSource({ id: "remote-only" })]
+    );
+    expect(merged.projectionRules?.map((r) => r.id).sort()).toEqual(["local-only", "remote-only"]);
+    expect(merged.plannedFundingSources?.map((p) => p.id).sort()).toEqual([
+      "local-only",
+      "remote-only",
+    ]);
+  });
+
+  it("prefers the remote projection horizon when present, keeps local otherwise", () => {
+    const local = { ...DEFAULT_SETTINGS, projectionHorizon: { preset: "12" as const } };
+    const withRemote = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { preset: "6" }
+    );
+    expect(withRemote.projectionHorizon).toEqual({ preset: "6" });
+
+    const withoutRemote = mergeRemoteSettings(local, {}, [], []);
+    expect(withoutRemote.projectionHorizon).toEqual({ preset: "12" });
   });
 });

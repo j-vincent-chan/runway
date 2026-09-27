@@ -4,7 +4,10 @@ import type {
   EmployeeOfferLetterMeta,
   MatchDismissal,
   PersonLink,
+  PlannedFundingSource,
   PlannedHire,
+  ProjectionHorizonSettings,
+  ProjectionRule,
   ReconciliationChoice,
 } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
@@ -552,6 +555,220 @@ export async function upsertMatchDismissal(dismissal: MatchDismissal): Promise<v
   if (error) console.warn("[supabase] upsert match dismissal failed:", error.message);
 }
 
+type RemoteProjectionRuleRow = {
+  id: string;
+  person_key: string;
+  chartstring_key: string | null;
+  trigger: ProjectionRule["trigger"];
+  remainder: ProjectionRule["remainder"];
+  apply_over_payroll: boolean | null;
+};
+
+function remoteProjectionRuleRowToRecord(row: RemoteProjectionRuleRow): ProjectionRule {
+  return {
+    id: row.id,
+    personKey: row.person_key,
+    chartstringKey: row.chartstring_key ?? undefined,
+    trigger: row.trigger,
+    remainder: row.remainder,
+    ...(row.apply_over_payroll !== null ? { applyOverPayroll: row.apply_over_payroll } : {}),
+  };
+}
+
+export async function fetchRemoteProjectionRules(): Promise<ProjectionRule[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("projection_rules")
+    .select(
+      ["id", "person_key", "chartstring_key", "trigger", "remainder", "apply_over_payroll"].join(", ")
+    )
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch projection rules failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemoteProjectionRuleRow[]).map(remoteProjectionRuleRowToRecord);
+}
+
+export async function upsertProjectionRuleRemote(rule: ProjectionRule): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("projection_rules").upsert(
+    {
+      user_id: userId,
+      id: rule.id,
+      person_key: rule.personKey,
+      chartstring_key: rule.chartstringKey ?? null,
+      trigger: rule.trigger,
+      remainder: rule.remainder,
+      apply_over_payroll: rule.applyOverPayroll ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
+
+  if (error) console.warn("[supabase] upsert projection rule failed:", error.message);
+}
+
+export async function deleteProjectionRuleRemote(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("projection_rules")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) console.warn("[supabase] delete projection rule failed:", error.message);
+}
+
+type RemotePlannedFundingSourceRow = {
+  id: string;
+  chartstring_key: string;
+  account_string: string | null;
+  alias: string;
+  color: string;
+  opening_balance: number | null;
+  project_end_month: string | null;
+  notes: string | null;
+};
+
+function remotePlannedFundingSourceRowToRecord(
+  row: RemotePlannedFundingSourceRow
+): PlannedFundingSource {
+  return {
+    id: row.id,
+    chartstringKey: row.chartstring_key,
+    accountString: row.account_string ?? undefined,
+    alias: row.alias,
+    color: row.color,
+    openingBalance: row.opening_balance ?? undefined,
+    projectEndMonth: row.project_end_month ?? undefined,
+    notes: row.notes ?? undefined,
+  };
+}
+
+export async function fetchRemotePlannedFundingSources(): Promise<PlannedFundingSource[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("planned_funding_sources")
+    .select(
+      [
+        "id",
+        "chartstring_key",
+        "account_string",
+        "alias",
+        "color",
+        "opening_balance",
+        "project_end_month",
+        "notes",
+      ].join(", ")
+    )
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch planned funding sources failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemotePlannedFundingSourceRow[]).map(
+    remotePlannedFundingSourceRowToRecord
+  );
+}
+
+export async function upsertPlannedFundingSourceRemote(source: PlannedFundingSource): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("planned_funding_sources").upsert(
+    {
+      user_id: userId,
+      id: source.id,
+      chartstring_key: source.chartstringKey,
+      account_string: source.accountString ?? null,
+      alias: source.alias,
+      color: source.color,
+      opening_balance: source.openingBalance ?? null,
+      project_end_month: source.projectEndMonth ?? null,
+      notes: source.notes ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
+
+  if (error) console.warn("[supabase] upsert planned funding source failed:", error.message);
+}
+
+export async function deletePlannedFundingSourceRemote(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("planned_funding_sources")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) console.warn("[supabase] delete planned funding source failed:", error.message);
+}
+
+type RemoteProjectionHorizonRow = {
+  preset: string;
+  custom_end_month: string | null;
+};
+
+export async function fetchRemoteProjectionHorizon(): Promise<ProjectionHorizonSettings | null> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return null;
+
+  const { data, error } = await supabase
+    .from("projection_horizon")
+    .select("preset, custom_end_month")
+    .eq("user_id", ownerId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[supabase] fetch projection horizon failed:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const row = data as RemoteProjectionHorizonRow;
+  return {
+    preset: row.preset as ProjectionHorizonSettings["preset"],
+    customEndMonth: row.custom_end_month ?? undefined,
+  };
+}
+
+export async function upsertProjectionHorizonRemote(horizon: ProjectionHorizonSettings): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("projection_horizon").upsert(
+    {
+      user_id: userId,
+      preset: horizon.preset,
+      custom_end_month: horizon.customEndMonth ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) console.warn("[supabase] upsert projection horizon failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -604,7 +821,10 @@ export function mergeRemoteSettings(
   remotePlannedHires?: PlannedHire[],
   remotePersonLinks?: PersonLink[],
   remoteReconciliationChoices?: ReconciliationChoice[],
-  remoteMatchDismissals?: MatchDismissal[]
+  remoteMatchDismissals?: MatchDismissal[],
+  remoteProjectionRules?: ProjectionRule[],
+  remotePlannedFundingSources?: PlannedFundingSource[],
+  remoteProjectionHorizon?: ProjectionHorizonSettings | null
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -632,6 +852,12 @@ export function mergeRemoteSettings(
       remoteMatchDismissals ?? [],
       (d) => `${d.plannedHireId}|${d.employeePersonKey}`
     ),
+    projectionRules: mergeArrayById(local.projectionRules ?? [], remoteProjectionRules ?? []),
+    plannedFundingSources: mergeArrayById(
+      local.plannedFundingSources ?? [],
+      remotePlannedFundingSources ?? []
+    ),
+    projectionHorizon: remoteProjectionHorizon ?? local.projectionHorizon,
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }

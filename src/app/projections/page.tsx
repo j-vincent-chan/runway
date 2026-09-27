@@ -28,8 +28,7 @@ import {
 } from "@/lib/export/chartstringCsv";
 import { downloadTextFile } from "@/lib/export/downloadTextFile";
 import { DownloadCsvButton } from "@/components/export/DownloadCsvButton";
-import { upsertRule } from "@/lib/projections/rules";
-import { applyChartstringRemoval, checkChartstringRemoval } from "@/lib/projections/removal";
+import { checkChartstringRemoval } from "@/lib/projections/removal";
 import {
   isDistributionLocked,
   lockedEditMessage,
@@ -84,6 +83,11 @@ export default function ProjectionsPage() {
     accountBalances,
     accountTitlesByChartstring,
     updateSettings,
+    upsertProjectionRule,
+    removeProjectionRule,
+    addPlannedFundingSource,
+    setProjectionHorizon,
+    removeChartstringFromProjections,
     toggleHiddenEmployeeFund,
     toggleNotMyAccount,
     updateFundingSourceAlias,
@@ -235,7 +239,7 @@ export default function ProjectionsPage() {
   ]);
 
   function setHorizon(preset: ProjectionHorizonPreset, customEndMonth?: string) {
-    updateSettings({ projectionHorizon: { preset, customEndMonth } });
+    setProjectionHorizon({ preset, customEndMonth });
   }
 
   /**
@@ -249,9 +253,7 @@ export default function ProjectionsPage() {
       window.alert(lockedEditMessage(nameForPersonKey(owner)));
       return;
     }
-    updateSettings({
-      projectionRules: upsertRule(settings.projectionRules ?? [], rule),
-    });
+    upsertProjectionRule(rule);
   }
 
   function removeRule(id: string) {
@@ -261,9 +263,7 @@ export default function ProjectionsPage() {
       window.alert(lockedEditMessage(nameForPersonKey(owner)));
       return;
     }
-    updateSettings({
-      projectionRules: (settings.projectionRules ?? []).filter((r) => r.id !== id),
-    });
+    removeProjectionRule(id);
   }
 
   /** The lock stores personKeys; refusals still have to name a person. */
@@ -316,8 +316,7 @@ export default function ProjectionsPage() {
   }
 
   function addPlanned(planned: PlannedFundingSource) {
-    const existing = settings.plannedFundingSources ?? [];
-    updateSettings({ plannedFundingSources: [...existing, planned] });
+    addPlannedFundingSource(planned);
   }
 
   /**
@@ -415,11 +414,7 @@ export default function ProjectionsPage() {
       [`Remove ${label} from ${employee.name}'s list?`, ...parts].join("\n\n")
     );
     if (!ok) return;
-    const next = applyChartstringRemoval(settings, check);
-    updateSettings({
-      projectionRules: next.projectionRules,
-      plannedFundingSources: next.plannedFundingSources,
-    });
+    removeChartstringFromProjections(check);
   }
 
   if (!hasData || !snapshot || !result) {

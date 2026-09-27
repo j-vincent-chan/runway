@@ -157,6 +157,39 @@ create table if not exists public.match_dismissals (
   primary key (user_id, planned_hire_id, employee_person_key)
 );
 
+create table if not exists public.projection_rules (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  person_key text not null,
+  chartstring_key text,
+  trigger jsonb not null,
+  remainder jsonb not null,
+  apply_over_payroll boolean,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create table if not exists public.planned_funding_sources (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  chartstring_key text not null,
+  account_string text,
+  alias text not null,
+  color text not null,
+  opening_balance numeric,
+  project_end_month text,
+  notes text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
+create table if not exists public.projection_horizon (
+  user_id uuid not null references auth.users (id) on delete cascade primary key,
+  preset text not null,
+  custom_end_month text,
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -369,6 +402,9 @@ alter table public.planned_hires enable row level security;
 alter table public.person_links enable row level security;
 alter table public.reconciliation_choices enable row level security;
 alter table public.match_dismissals enable row level security;
+alter table public.projection_rules enable row level security;
+alter table public.planned_funding_sources enable row level security;
+alter table public.projection_horizon enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -567,6 +603,60 @@ create policy "match_dismissals_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "match_dismissals_delete"
   on public.match_dismissals for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "projection_rules_select" on public.projection_rules;
+drop policy if exists "projection_rules_upsert" on public.projection_rules;
+drop policy if exists "projection_rules_update" on public.projection_rules;
+drop policy if exists "projection_rules_delete" on public.projection_rules;
+
+create policy "projection_rules_select"
+  on public.projection_rules for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "projection_rules_upsert"
+  on public.projection_rules for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "projection_rules_update"
+  on public.projection_rules for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "projection_rules_delete"
+  on public.projection_rules for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "planned_funding_sources_select" on public.planned_funding_sources;
+drop policy if exists "planned_funding_sources_upsert" on public.planned_funding_sources;
+drop policy if exists "planned_funding_sources_update" on public.planned_funding_sources;
+drop policy if exists "planned_funding_sources_delete" on public.planned_funding_sources;
+
+create policy "planned_funding_sources_select"
+  on public.planned_funding_sources for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "planned_funding_sources_upsert"
+  on public.planned_funding_sources for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "planned_funding_sources_update"
+  on public.planned_funding_sources for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "planned_funding_sources_delete"
+  on public.planned_funding_sources for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "projection_horizon_select" on public.projection_horizon;
+drop policy if exists "projection_horizon_upsert" on public.projection_horizon;
+drop policy if exists "projection_horizon_update" on public.projection_horizon;
+drop policy if exists "projection_horizon_delete" on public.projection_horizon;
+
+create policy "projection_horizon_select"
+  on public.projection_horizon for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "projection_horizon_upsert"
+  on public.projection_horizon for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "projection_horizon_update"
+  on public.projection_horizon for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "projection_horizon_delete"
+  on public.projection_horizon for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;

@@ -20,7 +20,9 @@ import type {
   PayrollReportSnapshot,
   PersonLink,
   PersonnelGroupDef,
+  PlannedFundingSource,
   PlannedHire,
+  ProjectionHorizonSettings,
   ProjectionRule,
   NetPositionReportImport,
   ReconciliationChoice,
@@ -97,6 +99,8 @@ import {
 } from "@/lib/catalog/defaults";
 import { backfillAssumedEndDates, defaultAssumedEndDate } from "@/lib/runway/assumedEndDate";
 import { getProjectionOriginMonth } from "@/lib/projections/horizon";
+import { upsertRule } from "@/lib/projections/rules";
+import { applyChartstringRemoval, type ChartstringRemovalCheck } from "@/lib/projections/removal";
 import {
   deleteOfferLetterFile,
   getOfferLetterFile,
@@ -108,13 +112,18 @@ import {
   deleteAccountGroupAssignmentRemote,
   deleteEmployeeOfferLetterFile,
   deleteFundingSourceCategoryAssignmentRemote,
+  deletePlannedFundingSourceRemote,
   deletePlannedHireRemote,
+  deleteProjectionRuleRemote,
   fetchRemoteAccountGroupAssignments,
   fetchRemoteAliases,
   fetchRemoteFundingSourceCategoryAssignments,
   fetchRemoteMatchDismissals,
   fetchRemotePersonLinks,
+  fetchRemotePlannedFundingSources,
   fetchRemotePlannedHires,
+  fetchRemoteProjectionHorizon,
+  fetchRemoteProjectionRules,
   fetchRemoteReconciliationChoices,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
@@ -126,7 +135,10 @@ import {
   upsertFundingSourceCategoryAssignment,
   upsertMatchDismissal,
   upsertPersonLink,
+  upsertPlannedFundingSourceRemote,
   upsertPlannedHire,
+  upsertProjectionHorizonRemote,
+  upsertProjectionRuleRemote,
   upsertReconciliationChoice,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
@@ -196,6 +208,13 @@ interface AppContextValue {
     percentEffort: number
   ) => void;
   updateSettings: (s: Partial<AppSettings>) => void;
+  upsertProjectionRule: (rule: ProjectionRule) => void;
+  removeProjectionRule: (id: string) => void;
+  addPlannedFundingSource: (source: PlannedFundingSource) => void;
+  setProjectionHorizon: (horizon: ProjectionHorizonSettings) => void;
+  removeChartstringFromProjections: (
+    check: Extract<ChartstringRemovalCheck, { removable: true }>
+  ) => void;
   updateFundingSourceAlias: (fundingSourceId: string, aliasBase: string) => void;
   setFundingSourceCategory: (fundingSourceId: string, category: AccountCategory | null) => void;
   setFundingSourceCategoryForAccountKey: (
@@ -489,6 +508,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remotePersonLinks,
         remoteReconciliationChoices,
         remoteMatchDismissals,
+        remoteProjectionRules,
+        remotePlannedFundingSources,
+        remoteProjectionHorizon,
       ] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
@@ -498,6 +520,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemotePersonLinks(),
         fetchRemoteReconciliationChoices(),
         fetchRemoteMatchDismissals(),
+        fetchRemoteProjectionRules(),
+        fetchRemotePlannedFundingSources(),
+        fetchRemoteProjectionHorizon(),
       ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
@@ -548,7 +573,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remotePlannedHires,
         remotePersonLinks,
         remoteReconciliationChoices,
-        remoteMatchDismissals
+        remoteMatchDismissals,
+        remoteProjectionRules,
+        remotePlannedFundingSources,
+        remoteProjectionHorizon
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -958,6 +986,75 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback((s: Partial<AppSettings>) => {
     setSettings((prev) => ({ ...prev, ...s }));
   }, []);
+
+  const upsertProjectionRule = useCallback(
+    (rule: ProjectionRule) => {
+      // upsertRule can silently replace a different rule sharing the same
+      // person+chartstring — delete its remote row too, or it would reappear
+      // on the next fetch.
+      const displaced = (settings.projectionRules ?? []).find(
+        (r) =>
+          r.id !== rule.id &&
+          r.personKey === rule.personKey &&
+          (r.chartstringKey ?? null) === (rule.chartstringKey ?? null)
+      );
+      setSettings((prev) => ({
+        ...prev,
+        projectionRules: upsertRule(prev.projectionRules ?? [], rule),
+      }));
+      if (cloudSyncRef.current) {
+        if (displaced) void deleteProjectionRuleRemote(displaced.id);
+        void upsertProjectionRuleRemote(rule);
+      }
+    },
+    [settings.projectionRules]
+  );
+
+  const removeProjectionRule = useCallback((id: string) => {
+    setSettings((prev) => ({
+      ...prev,
+      projectionRules: (prev.projectionRules ?? []).filter((r) => r.id !== id),
+    }));
+    if (cloudSyncRef.current) void deleteProjectionRuleRemote(id);
+  }, []);
+
+  const addPlannedFundingSource = useCallback((source: PlannedFundingSource) => {
+    setSettings((prev) => ({
+      ...prev,
+      plannedFundingSources: [...(prev.plannedFundingSources ?? []), source],
+    }));
+    if (cloudSyncRef.current) void upsertPlannedFundingSourceRemote(source);
+  }, []);
+
+  const setProjectionHorizon = useCallback((horizon: ProjectionHorizonSettings) => {
+    setSettings((prev) => ({ ...prev, projectionHorizon: horizon }));
+    if (cloudSyncRef.current) void upsertProjectionHorizonRemote(horizon);
+  }, []);
+
+  /**
+   * Removing a chartstring from Projections can delete/rewind several rules
+   * and drop a planned funding source in one action — the check object
+   * already names exactly which ids changed, so the remote sync mirrors
+   * that instead of diffing arrays.
+   */
+  const removeChartstringFromProjections = useCallback(
+    (check: Extract<ChartstringRemovalCheck, { removable: true }>) => {
+      const repairedRules = (settings.projectionRules ?? []).filter((r) =>
+        check.remainderRuleIdsToRepair.includes(r.id)
+      );
+      setSettings((prev) => applyChartstringRemoval(prev, check));
+      if (cloudSyncRef.current) {
+        for (const id of check.ruleIdsToDelete) void deleteProjectionRuleRemote(id);
+        for (const rule of repairedRules) {
+          void upsertProjectionRuleRemote({ ...rule, remainder: { kind: "uncovered" } });
+        }
+        if (check.removePlannedSourceId) {
+          void deletePlannedFundingSourceRemote(check.removePlannedSourceId);
+        }
+      }
+    },
+    [settings.projectionRules]
+  );
 
   const toggleHiddenEmployeeFund = useCallback(
     (employeeId: string, fundingSourceId: string) => {
@@ -2066,6 +2163,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     resetToImported,
     updateAllocation,
     updateSettings,
+    upsertProjectionRule,
+    removeProjectionRule,
+    addPlannedFundingSource,
+    setProjectionHorizon,
+    removeChartstringFromProjections,
     updateFundingSourceAlias,
     setFundingSourceCategory,
     setFundingSourceCategoryForAccountKey,
