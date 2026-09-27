@@ -26,6 +26,7 @@ import type {
   ProjectionRule,
   NetPositionReportImport,
   ReconciliationChoice,
+  ReconciliationEvent,
   Scenario,
   WorkingPlan,
   PositionSalaryReportImport,
@@ -126,6 +127,7 @@ import {
   fetchRemoteProjectionHorizon,
   fetchRemoteProjectionRules,
   fetchRemoteReconciliationChoices,
+  fetchRemoteReconciliationEvents,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
   openOfferLetterFromCloud,
@@ -142,6 +144,7 @@ import {
   upsertProjectionHorizonRemote,
   upsertProjectionRuleRemote,
   upsertReconciliationChoice,
+  upsertReconciliationEvent,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
   type RosterCloudPatch,
@@ -514,6 +517,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remotePlannedFundingSources,
         remoteProjectionHorizon,
         remoteOrgStructure,
+        remoteReconciliationEvents,
       ] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
@@ -527,6 +531,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemotePlannedFundingSources(),
         fetchRemoteProjectionHorizon(),
         fetchRemoteOrgStructure(),
+        fetchRemoteReconciliationEvents(),
       ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
@@ -581,7 +586,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteProjectionRules,
         remotePlannedFundingSources,
         remoteProjectionHorizon,
-        remoteOrgStructure
+        remoteOrgStructure,
+        remoteReconciliationEvents
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -906,6 +912,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           rateEvents
         )
       );
+      if (cloudSyncRef.current) {
+        for (const e of rateEvents) void upsertReconciliationEvent(e);
+      }
 
       setSnapshot(refreshFundingSourceColors(next));
 
@@ -1486,7 +1495,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // stale link/branch membership would reappear on the next cloud fetch.
       const reversedLinks: PersonLink[] = [];
       let finalOrgStructure: OrgStructure | undefined;
+      let newEvents: ReconciliationEvent[] = [];
       setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
         let next = prev;
         for (const link of links) {
           const result = applyUnlink(next, link.id, actingEmail, emp?.name ?? "This person");
@@ -1497,11 +1508,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         next = pruneEmployeeFromSettings(next, employeeId, userIdRef.current, emp);
         finalOrgStructure = next.orgStructure;
+        newEvents = (next.reconciliationEvents ?? []).slice(prevEventCount);
         return next;
       });
       if (cloudSyncRef.current) {
         for (const link of reversedLinks) void upsertPersonLink(link);
         if (finalOrgStructure) void upsertOrgStructureRemote(finalOrgStructure);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
       }
     },
     [snapshot, settings, actingEmail]
@@ -1930,8 +1943,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addPlannedHire = useCallback(
     (plan: PlannedHire, rules: ProjectionRule[]) => {
-      setSettings((prev) => addPlannedHireToSettings(prev, plan, rules, actingEmail));
-      if (cloudSyncRef.current) void upsertPlannedHire(plan);
+      let newEvents: ReconciliationEvent[] = [];
+      setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
+        const next = addPlannedHireToSettings(prev, plan, rules, actingEmail);
+        newEvents = (next.reconciliationEvents ?? []).slice(prevEventCount);
+        return next;
+      });
+      if (cloudSyncRef.current) {
+        void upsertPlannedHire(plan);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
+      }
     },
     [actingEmail]
   );
@@ -1951,8 +1973,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // returned; the updater re-runs the same pure transform.
       const check = removePlannedHireFromSettings(settings, id, actingEmail);
       if (!check.ok) return { ok: false, reason: check.reason };
-      setSettings((prev) => removePlannedHireFromSettings(prev, id, actingEmail).settings);
-      if (cloudSyncRef.current) void deletePlannedHireRemote(id);
+      let newEvents: ReconciliationEvent[] = [];
+      setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
+        const result = removePlannedHireFromSettings(prev, id, actingEmail);
+        newEvents = (result.settings.reconciliationEvents ?? []).slice(prevEventCount);
+        return result.settings;
+      });
+      if (cloudSyncRef.current) {
+        void deletePlannedHireRemote(id);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
+      }
       return { ok: true };
     },
     [settings, actingEmail]
@@ -2006,7 +2037,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // capture it from inside the updater rather than re-deriving it.
       let committedLink: PersonLink | null = null;
       let committedChoice: ReconciliationChoice | null = null;
+      let newEvents: ReconciliationEvent[] = [];
       setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
         const linked = applyLink(prev, linkInput);
         if (!linked.ok) return prev;
         committedLink = linked.link;
@@ -2024,10 +2057,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               by: actingEmail,
             })
           : null;
-        return atLink ? appendEvents(linked.settings, [atLink]) : linked.settings;
+        const finalSettings = atLink ? appendEvents(linked.settings, [atLink]) : linked.settings;
+        newEvents = (finalSettings.reconciliationEvents ?? []).slice(prevEventCount);
+        return finalSettings;
       });
-      if (cloudSyncRef.current && committedLink) void upsertPersonLink(committedLink);
-      if (cloudSyncRef.current && committedChoice) void upsertReconciliationChoice(committedChoice);
+      if (cloudSyncRef.current) {
+        if (committedLink) void upsertPersonLink(committedLink);
+        if (committedChoice) void upsertReconciliationChoice(committedChoice);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
+      }
       if (copied.team && plan.teamId) setEmployeePersonnelType(emp.id, plan.teamId);
       if (copied.startDate) setEmployeeStartDate(emp.id, `${plan.startMonth}-01`);
       if (copied.scope) setEmployeePlanningScope(emp.id, plan.appointmentPercent);
@@ -2057,13 +2095,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Same non-determinism as applyLink (fresh reversedAt each call) — read
       // the reversed link that actually landed in state, not `check.link`.
       let reversedLink: PersonLink | null = null;
+      let newEvents: ReconciliationEvent[] = [];
       setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
         const unlinked = applyUnlink(prev, linkId, actingEmail, employeeName);
         if (!unlinked.ok) return prev;
         reversedLink = unlinked.link;
+        newEvents = (unlinked.settings.reconciliationEvents ?? []).slice(prevEventCount);
         return unlinked.settings;
       });
-      if (cloudSyncRef.current && reversedLink) void upsertPersonLink(reversedLink);
+      if (cloudSyncRef.current) {
+        if (reversedLink) void upsertPersonLink(reversedLink);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
+      }
       // Remove only what Confirm copied, and only while it still says what
       // the plan said — anything the PI typed since stays.
       if (emp && plan && link?.copied) {
@@ -2104,14 +2148,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // applyDismissal is a no-op (same array reference) when this pair was
       // already dismissed, so only sync when a new row actually landed.
       let newDismissal: MatchDismissal | null = null;
+      let newEvents: ReconciliationEvent[] = [];
       setSettings((prev) => {
+        const prevEventCount = (prev.reconciliationEvents ?? []).length;
         const next = applyDismissal(prev, plannedHireId, personKey, name, actingEmail);
         if (next.matchDismissals !== prev.matchDismissals) {
           newDismissal = next.matchDismissals?.at(-1) ?? null;
+          newEvents = (next.reconciliationEvents ?? []).slice(prevEventCount);
         }
         return next;
       });
-      if (cloudSyncRef.current && newDismissal) void upsertMatchDismissal(newDismissal);
+      if (cloudSyncRef.current) {
+        if (newDismissal) void upsertMatchDismissal(newDismissal);
+        for (const e of newEvents) void upsertReconciliationEvent(e);
+      }
     },
     [snapshotForUi, actingEmail]
   );

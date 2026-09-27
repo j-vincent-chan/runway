@@ -8,6 +8,7 @@ import {
   type PlannedHire,
   type ProjectionRule,
   type ReconciliationChoice,
+  type ReconciliationEvent,
 } from "@/types";
 
 function plannedHire(overrides: Partial<PlannedHire> = {}): PlannedHire {
@@ -268,5 +269,44 @@ describe("mergeRemoteSettings", () => {
 
     const withoutRemote = mergeRemoteSettings(local, {}, [], []);
     expect(withoutRemote.orgStructure).toEqual(localStructure);
+  });
+
+  it("unions reconciliation events by id, the append-only log's natural key", () => {
+    const localEvent: ReconciliationEvent = {
+      id: "local-only",
+      at: "2026-09-16T17:00:00.000Z",
+      by: "pi@ucsf.edu",
+      type: "planAdded",
+      summary: "Added planned hire Postdoc (TBD)",
+    };
+    const remoteEvent: ReconciliationEvent = {
+      id: "remote-only",
+      at: "2026-09-17T17:00:00.000Z",
+      by: "pi@ucsf.edu",
+      type: "link",
+      summary: "Linked Postdoc (TBD) to Ana Ruiz",
+    };
+    const local = { ...DEFAULT_SETTINGS, reconciliationEvents: [localEvent] };
+    const merged = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      [remoteEvent]
+    );
+    expect(merged.reconciliationEvents?.map((e) => e.id).sort()).toEqual([
+      "local-only",
+      "remote-only",
+    ]);
   });
 });

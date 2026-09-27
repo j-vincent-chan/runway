@@ -199,6 +199,20 @@ create table if not exists public.org_structure (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.reconciliation_events (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  at timestamptz not null,
+  by text not null,
+  type text not null,
+  summary text not null,
+  link_id text,
+  planned_hire_id text,
+  detail jsonb,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -415,6 +429,7 @@ alter table public.projection_rules enable row level security;
 alter table public.planned_funding_sources enable row level security;
 alter table public.projection_horizon enable row level security;
 alter table public.org_structure enable row level security;
+alter table public.reconciliation_events enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -685,6 +700,24 @@ create policy "org_structure_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "org_structure_delete"
   on public.org_structure for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "reconciliation_events_select" on public.reconciliation_events;
+drop policy if exists "reconciliation_events_upsert" on public.reconciliation_events;
+drop policy if exists "reconciliation_events_update" on public.reconciliation_events;
+drop policy if exists "reconciliation_events_delete" on public.reconciliation_events;
+
+create policy "reconciliation_events_select"
+  on public.reconciliation_events for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "reconciliation_events_upsert"
+  on public.reconciliation_events for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "reconciliation_events_update"
+  on public.reconciliation_events for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "reconciliation_events_delete"
+  on public.reconciliation_events for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;

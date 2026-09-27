@@ -10,6 +10,7 @@ import type {
   ProjectionHorizonSettings,
   ProjectionRule,
   ReconciliationChoice,
+  ReconciliationEvent,
 } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
@@ -823,6 +824,75 @@ export async function upsertOrgStructureRemote(structure: OrgStructure): Promise
   if (error) console.warn("[supabase] upsert org structure failed:", error.message);
 }
 
+type RemoteReconciliationEventRow = {
+  id: string;
+  at: string;
+  by: string;
+  type: string;
+  summary: string;
+  link_id: string | null;
+  planned_hire_id: string | null;
+  detail: ReconciliationEvent["detail"] | null;
+};
+
+function remoteReconciliationEventRowToRecord(row: RemoteReconciliationEventRow): ReconciliationEvent {
+  return {
+    id: row.id,
+    at: row.at,
+    by: row.by,
+    type: row.type as ReconciliationEvent["type"],
+    summary: row.summary,
+    ...(row.link_id ? { linkId: row.link_id } : {}),
+    ...(row.planned_hire_id ? { plannedHireId: row.planned_hire_id } : {}),
+    ...(row.detail ? { detail: row.detail } : {}),
+  };
+}
+
+export async function fetchRemoteReconciliationEvents(): Promise<ReconciliationEvent[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("reconciliation_events")
+    .select(["id", "at", "by", "type", "summary", "link_id", "planned_hire_id", "detail"].join(", "))
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch reconciliation events failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemoteReconciliationEventRow[]).map(
+    remoteReconciliationEventRowToRecord
+  );
+}
+
+/** The log is append-only — every event is upserted once and never edited or removed. */
+export async function upsertReconciliationEvent(event: ReconciliationEvent): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("reconciliation_events").upsert(
+    {
+      user_id: userId,
+      id: event.id,
+      at: event.at,
+      by: event.by,
+      type: event.type,
+      summary: event.summary,
+      link_id: event.linkId ?? null,
+      planned_hire_id: event.plannedHireId ?? null,
+      detail: event.detail ?? null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
+
+  if (error) console.warn("[supabase] upsert reconciliation event failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -879,7 +949,8 @@ export function mergeRemoteSettings(
   remoteProjectionRules?: ProjectionRule[],
   remotePlannedFundingSources?: PlannedFundingSource[],
   remoteProjectionHorizon?: ProjectionHorizonSettings | null,
-  remoteOrgStructure?: OrgStructure | null
+  remoteOrgStructure?: OrgStructure | null,
+  remoteReconciliationEvents?: ReconciliationEvent[]
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -914,6 +985,10 @@ export function mergeRemoteSettings(
     ),
     projectionHorizon: remoteProjectionHorizon ?? local.projectionHorizon,
     orgStructure: remoteOrgStructure ?? local.orgStructure,
+    reconciliationEvents: mergeArrayById(
+      local.reconciliationEvents ?? [],
+      remoteReconciliationEvents ?? []
+    ),
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }
