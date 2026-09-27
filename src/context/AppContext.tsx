@@ -106,9 +106,11 @@ import {
   deleteAccountGroupAssignmentRemote,
   deleteEmployeeOfferLetterFile,
   deleteFundingSourceCategoryAssignmentRemote,
+  deletePlannedHireRemote,
   fetchRemoteAccountGroupAssignments,
   fetchRemoteAliases,
   fetchRemoteFundingSourceCategoryAssignments,
+  fetchRemotePlannedHires,
   fetchRemoteRosterMeta,
   mergeRemoteSettings,
   openOfferLetterFromCloud,
@@ -117,6 +119,7 @@ import {
   upsertEmployeeRosterMeta,
   upsertFundingSourceAlias,
   upsertFundingSourceCategoryAssignment,
+  upsertPlannedHire,
   uploadEmployeeOfferLetterFile,
   backfillOfferLettersToCloud,
   type RosterCloudPatch,
@@ -469,13 +472,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
       const cloud = await fetchCloudWorkspace();
 
-      const [remoteAliases, remoteRoster, remoteAccountGroups, remoteFundingSourceCategories] =
-        await Promise.all([
-          fetchRemoteAliases(),
-          fetchRemoteRosterMeta(),
-          fetchRemoteAccountGroupAssignments(),
-          fetchRemoteFundingSourceCategoryAssignments(),
-        ]);
+      const [
+        remoteAliases,
+        remoteRoster,
+        remoteAccountGroups,
+        remoteFundingSourceCategories,
+        remotePlannedHires,
+      ] = await Promise.all([
+        fetchRemoteAliases(),
+        fetchRemoteRosterMeta(),
+        fetchRemoteAccountGroupAssignments(),
+        fetchRemoteFundingSourceCategoryAssignments(),
+        fetchRemotePlannedHires(),
+      ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
         ? cloud
@@ -521,7 +530,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteRoster,
         workspace.snapshot?.employees ?? [],
         remoteAccountGroups,
-        remoteFundingSourceCategories
+        remoteFundingSourceCategories,
+        remotePlannedHires
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -1786,15 +1796,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addPlannedHire = useCallback(
     (plan: PlannedHire, rules: ProjectionRule[]) => {
       setSettings((prev) => addPlannedHireToSettings(prev, plan, rules, actingEmail));
+      if (cloudSyncRef.current) void upsertPlannedHire(plan);
     },
     [actingEmail]
   );
 
   const updatePlannedHire = useCallback(
     (id: string, patch: Partial<Omit<PlannedHire, "id" | "createdAt" | "createdBy">>) => {
+      const current = plannedHireById(settings.plannedHires, id);
       setSettings((prev) => updatePlannedHireInSettings(prev, id, patch));
+      if (cloudSyncRef.current && current) void upsertPlannedHire({ ...current, ...patch });
     },
-    []
+    [settings.plannedHires]
   );
 
   const removePlannedHire = useCallback(
@@ -1804,6 +1817,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const check = removePlannedHireFromSettings(settings, id, actingEmail);
       if (!check.ok) return { ok: false, reason: check.reason };
       setSettings((prev) => removePlannedHireFromSettings(prev, id, actingEmail).settings);
+      if (cloudSyncRef.current) void deletePlannedHireRemote(id);
       return { ok: true };
     },
     [settings, actingEmail]

@@ -1,4 +1,4 @@
-import type { AppSettings, Employee, EmployeeOfferLetterMeta } from "@/types";
+import type { AppSettings, Employee, EmployeeOfferLetterMeta, PlannedHire } from "@/types";
 import { getOfferLetterFile } from "@/lib/storage/offerLetterStore";
 import { employeePersonKey, resolveEmployeeProfile } from "@/lib/employees/stableKey";
 import { getActiveWorkspaceOwnerId } from "@/lib/supabase/activeWorkspace";
@@ -27,6 +27,19 @@ export type RemoteAliasRow = {
 
 function userScopedPath(userId: string, ...parts: string[]): string {
   return [userId, ...parts.map((p) => p.replace(/^\/+|\/+$/g, ""))].join("/");
+}
+
+/**
+ * Union two entity arrays by id, remote winning on conflict — the same
+ * "filled/present wins" philosophy as the flat-map merges above, generalized
+ * to arrays of per-entity rows (planned hires, links, reconciliation
+ * records, ...). Local-only entries survive in case a remote fetch raced a
+ * not-yet-synced local edit.
+ */
+function mergeArrayById<T extends { id: string }>(local: T[], remote: T[]): T[] {
+  const byId = new Map(local.map((item) => [item.id, item]));
+  for (const item of remote) byId.set(item.id, item);
+  return [...byId.values()];
 }
 
 export async function fetchRemoteAliases(): Promise<
@@ -190,6 +203,111 @@ export async function deleteFundingSourceCategoryAssignmentRemote(
   }
 }
 
+type RemotePlannedHireRow = {
+  id: string;
+  display_name: string;
+  role: string | null;
+  team_id: string | null;
+  start_month: string;
+  end_month: string | null;
+  appointment_percent: number;
+  annual_salary: number;
+  benefits_rate_pct: number;
+  notes: string | null;
+  created_at: string;
+  created_by: string;
+};
+
+function remotePlannedHireRowToRecord(row: RemotePlannedHireRow): PlannedHire {
+  return {
+    id: row.id,
+    displayName: row.display_name,
+    role: row.role ?? undefined,
+    teamId: (row.team_id as PlannedHire["teamId"]) ?? undefined,
+    startMonth: row.start_month,
+    endMonth: row.end_month ?? undefined,
+    appointmentPercent: row.appointment_percent,
+    annualSalary: row.annual_salary,
+    benefitsRatePct: row.benefits_rate_pct,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
+    createdBy: row.created_by,
+  };
+}
+
+export async function fetchRemotePlannedHires(): Promise<PlannedHire[]> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return [];
+
+  const { data, error } = await supabase
+    .from("planned_hires")
+    .select(
+      [
+        "id",
+        "display_name",
+        "role",
+        "team_id",
+        "start_month",
+        "end_month",
+        "appointment_percent",
+        "annual_salary",
+        "benefits_rate_pct",
+        "notes",
+        "created_at",
+        "created_by",
+      ].join(", ")
+    )
+    .eq("user_id", ownerId);
+
+  if (error) {
+    console.warn("[supabase] fetch planned hires failed:", error.message);
+    return [];
+  }
+
+  return ((data ?? []) as unknown as RemotePlannedHireRow[]).map(remotePlannedHireRowToRecord);
+}
+
+export async function upsertPlannedHire(plan: PlannedHire): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("planned_hires").upsert(
+    {
+      user_id: userId,
+      id: plan.id,
+      display_name: plan.displayName,
+      role: plan.role ?? null,
+      team_id: plan.teamId ?? null,
+      start_month: plan.startMonth,
+      end_month: plan.endMonth ?? null,
+      appointment_percent: plan.appointmentPercent,
+      annual_salary: plan.annualSalary,
+      benefits_rate_pct: plan.benefitsRatePct,
+      notes: plan.notes ?? null,
+      created_at: plan.createdAt,
+      created_by: plan.createdBy,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,id" }
+  );
+
+  if (error) console.warn("[supabase] upsert planned hire failed:", error.message);
+}
+
+export async function deletePlannedHireRemote(id: string): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+  const { error } = await supabase
+    .from("planned_hires")
+    .delete()
+    .eq("user_id", userId)
+    .eq("id", id);
+  if (error) console.warn("[supabase] delete planned hire failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -238,7 +356,8 @@ export function mergeRemoteSettings(
   remoteRoster: RemoteRosterRecord[],
   employees: Employee[],
   remoteAccountGroups?: AppSettings["accountGroupByBalanceKey"],
-  remoteFundingSourceCategories?: AppSettings["fundingSourceCategories"]
+  remoteFundingSourceCategories?: AppSettings["fundingSourceCategories"],
+  remotePlannedHires?: PlannedHire[]
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -254,6 +373,7 @@ export function mergeRemoteSettings(
       ...local.fundingSourceCategories,
       ...remoteFundingSourceCategories,
     },
+    plannedHires: mergeArrayById(local.plannedHires ?? [], remotePlannedHires ?? []),
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }

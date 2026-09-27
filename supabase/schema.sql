@@ -98,6 +98,24 @@ create table if not exists public.funding_source_category_assignments (
   primary key (user_id, chartstring_key)
 );
 
+create table if not exists public.planned_hires (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  id text not null,
+  display_name text not null,
+  role text,
+  team_id text,
+  start_month text not null,
+  end_month text,
+  appointment_percent numeric not null,
+  annual_salary numeric not null,
+  benefits_rate_pct numeric not null,
+  notes text,
+  created_at timestamptz not null,
+  created_by text not null,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, id)
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -306,6 +324,7 @@ alter table public.account_groups enable row level security;
 alter table public.employee_roster_meta enable row level security;
 alter table public.account_group_assignments enable row level security;
 alter table public.funding_source_category_assignments enable row level security;
+alter table public.planned_hires enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -432,6 +451,24 @@ create policy "funding_source_category_assignments_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "funding_source_category_assignments_delete"
   on public.funding_source_category_assignments for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "planned_hires_select" on public.planned_hires;
+drop policy if exists "planned_hires_upsert" on public.planned_hires;
+drop policy if exists "planned_hires_update" on public.planned_hires;
+drop policy if exists "planned_hires_delete" on public.planned_hires;
+
+create policy "planned_hires_select"
+  on public.planned_hires for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "planned_hires_upsert"
+  on public.planned_hires for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "planned_hires_update"
+  on public.planned_hires for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "planned_hires_delete"
+  on public.planned_hires for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;
