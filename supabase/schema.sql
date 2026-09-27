@@ -190,6 +190,15 @@ create table if not exists public.projection_horizon (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.org_structure (
+  user_id uuid not null references auth.users (id) on delete cascade primary key,
+  title text,
+  subtitle text,
+  lead_employee_id text,
+  branches jsonb not null default '[]',
+  updated_at timestamptz not null default now()
+);
+
 create table if not exists public.app_workspace (
   user_id uuid not null references auth.users (id) on delete cascade primary key,
   updated_at timestamptz not null default now()
@@ -405,6 +414,7 @@ alter table public.match_dismissals enable row level security;
 alter table public.projection_rules enable row level security;
 alter table public.planned_funding_sources enable row level security;
 alter table public.projection_horizon enable row level security;
+alter table public.org_structure enable row level security;
 alter table public.app_workspace enable row level security;
 
 drop policy if exists "funding_source_aliases_select" on public.funding_source_aliases;
@@ -657,6 +667,24 @@ create policy "projection_horizon_update"
   using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
 create policy "projection_horizon_delete"
   on public.projection_horizon for delete to authenticated
+  using (public.can_access_workspace(user_id));
+
+drop policy if exists "org_structure_select" on public.org_structure;
+drop policy if exists "org_structure_upsert" on public.org_structure;
+drop policy if exists "org_structure_update" on public.org_structure;
+drop policy if exists "org_structure_delete" on public.org_structure;
+
+create policy "org_structure_select"
+  on public.org_structure for select to authenticated
+  using (public.can_access_workspace(user_id));
+create policy "org_structure_upsert"
+  on public.org_structure for insert to authenticated
+  with check (public.can_access_workspace(user_id));
+create policy "org_structure_update"
+  on public.org_structure for update to authenticated
+  using (public.can_access_workspace(user_id)) with check (public.can_access_workspace(user_id));
+create policy "org_structure_delete"
+  on public.org_structure for delete to authenticated
   using (public.can_access_workspace(user_id));
 
 drop policy if exists "app_workspace_select" on public.app_workspace;

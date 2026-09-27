@@ -119,6 +119,7 @@ import {
   fetchRemoteAliases,
   fetchRemoteFundingSourceCategoryAssignments,
   fetchRemoteMatchDismissals,
+  fetchRemoteOrgStructure,
   fetchRemotePersonLinks,
   fetchRemotePlannedFundingSources,
   fetchRemotePlannedHires,
@@ -134,6 +135,7 @@ import {
   upsertFundingSourceAlias,
   upsertFundingSourceCategoryAssignment,
   upsertMatchDismissal,
+  upsertOrgStructureRemote,
   upsertPersonLink,
   upsertPlannedFundingSourceRemote,
   upsertPlannedHire,
@@ -511,6 +513,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteProjectionRules,
         remotePlannedFundingSources,
         remoteProjectionHorizon,
+        remoteOrgStructure,
       ] = await Promise.all([
         fetchRemoteAliases(),
         fetchRemoteRosterMeta(),
@@ -523,6 +526,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchRemoteProjectionRules(),
         fetchRemotePlannedFundingSources(),
         fetchRemoteProjectionHorizon(),
+        fetchRemoteOrgStructure(),
       ]);
       if (cancelled || !ownerStillCurrent()) return;
       const workspace = actingAsDelegate
@@ -576,7 +580,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         remoteMatchDismissals,
         remoteProjectionRules,
         remotePlannedFundingSources,
-        remoteProjectionHorizon
+        remoteProjectionHorizon,
+        remoteOrgStructure
       );
       if (workspace.snapshot) {
         settingsLocal = {
@@ -1451,6 +1456,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const setOrgStructure = useCallback((structure: OrgStructure) => {
     setSettings((prev) => ({ ...prev, orgStructure: structure }));
+    if (cloudSyncRef.current) void upsertOrgStructureRemote(structure);
   }, []);
 
   /**
@@ -1474,14 +1480,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             }
           : prev
       );
+      // Any of the employee's active links get auto-reversed below, and their
+      // org-chart membership is pruned — both need the same remote sync a
+      // manual Unlink or a setOrgStructure call gets, or a deleted employee's
+      // stale link/branch membership would reappear on the next cloud fetch.
+      const reversedLinks: PersonLink[] = [];
+      let finalOrgStructure: OrgStructure | undefined;
       setSettings((prev) => {
         let next = prev;
         for (const link of links) {
           const result = applyUnlink(next, link.id, actingEmail, emp?.name ?? "This person");
-          if (result.ok) next = result.settings;
+          if (result.ok) {
+            next = result.settings;
+            reversedLinks.push(result.link);
+          }
         }
-        return pruneEmployeeFromSettings(next, employeeId, userIdRef.current, emp);
+        next = pruneEmployeeFromSettings(next, employeeId, userIdRef.current, emp);
+        finalOrgStructure = next.orgStructure;
+        return next;
       });
+      if (cloudSyncRef.current) {
+        for (const link of reversedLinks) void upsertPersonLink(link);
+        if (finalOrgStructure) void upsertOrgStructureRemote(finalOrgStructure);
+      }
     },
     [snapshot, settings, actingEmail]
   );

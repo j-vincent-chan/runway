@@ -242,4 +242,31 @@ describe("mergeRemoteSettings", () => {
     const withoutRemote = mergeRemoteSettings(local, {}, [], []);
     expect(withoutRemote.projectionHorizon).toEqual({ preset: "12" });
   });
+
+  it("prefers the remote org structure when present, keeps local otherwise", () => {
+    const localStructure = { branches: [{ id: "b1", name: "Lab", employeeIds: ["e1"] }] };
+    const remoteStructure = { branches: [{ id: "b1", name: "Lab", employeeIds: ["e1", "e2"] }] };
+    const local = { ...DEFAULT_SETTINGS, orgStructure: localStructure };
+
+    const withRemote = mergeRemoteSettings(
+      local,
+      {},
+      [],
+      [],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      remoteStructure
+    );
+    expect(withRemote.orgStructure).toEqual(remoteStructure);
+
+    const withoutRemote = mergeRemoteSettings(local, {}, [], []);
+    expect(withoutRemote.orgStructure).toEqual(localStructure);
+  });
 });

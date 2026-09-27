@@ -3,6 +3,7 @@ import type {
   Employee,
   EmployeeOfferLetterMeta,
   MatchDismissal,
+  OrgStructure,
   PersonLink,
   PlannedFundingSource,
   PlannedHire,
@@ -769,6 +770,59 @@ export async function upsertProjectionHorizonRemote(horizon: ProjectionHorizonSe
   if (error) console.warn("[supabase] upsert projection horizon failed:", error.message);
 }
 
+type RemoteOrgStructureRow = {
+  title: string | null;
+  subtitle: string | null;
+  lead_employee_id: string | null;
+  branches: OrgStructure["branches"];
+};
+
+export async function fetchRemoteOrgStructure(): Promise<OrgStructure | null> {
+  const supabase = getSupabase();
+  const ownerId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !ownerId) return null;
+
+  const { data, error } = await supabase
+    .from("org_structure")
+    .select("title, subtitle, lead_employee_id, branches")
+    .eq("user_id", ownerId)
+    .maybeSingle();
+
+  if (error) {
+    console.warn("[supabase] fetch org structure failed:", error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const row = data as RemoteOrgStructureRow;
+  return {
+    title: row.title ?? undefined,
+    subtitle: row.subtitle ?? undefined,
+    leadEmployeeId: row.lead_employee_id ?? undefined,
+    branches: row.branches ?? [],
+  };
+}
+
+export async function upsertOrgStructureRemote(structure: OrgStructure): Promise<void> {
+  const supabase = getSupabase();
+  const userId = await getActiveWorkspaceOwnerId();
+  if (!supabase || !userId) return;
+
+  const { error } = await supabase.from("org_structure").upsert(
+    {
+      user_id: userId,
+      title: structure.title ?? null,
+      subtitle: structure.subtitle ?? null,
+      lead_employee_id: structure.leadEmployeeId ?? null,
+      branches: structure.branches,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" }
+  );
+
+  if (error) console.warn("[supabase] upsert org structure failed:", error.message);
+}
+
 export async function fetchRemoteRosterMeta(): Promise<RemoteRosterRecord[]> {
   const supabase = getSupabase();
   const ownerId = await getActiveWorkspaceOwnerId();
@@ -824,7 +878,8 @@ export function mergeRemoteSettings(
   remoteMatchDismissals?: MatchDismissal[],
   remoteProjectionRules?: ProjectionRule[],
   remotePlannedFundingSources?: PlannedFundingSource[],
-  remoteProjectionHorizon?: ProjectionHorizonSettings | null
+  remoteProjectionHorizon?: ProjectionHorizonSettings | null,
+  remoteOrgStructure?: OrgStructure | null
 ): AppSettings {
   const withAliases: AppSettings = {
     ...local,
@@ -858,6 +913,7 @@ export function mergeRemoteSettings(
       remotePlannedFundingSources ?? []
     ),
     projectionHorizon: remoteProjectionHorizon ?? local.projectionHorizon,
+    orgStructure: remoteOrgStructure ?? local.orgStructure,
   };
   return applyRemoteRosterToSettings(withAliases, remoteRoster, employees);
 }
